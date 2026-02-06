@@ -42,9 +42,6 @@ export function normalizeProviderId(provider: string): string {
   if (normalized === "qwen") {
     return "qwen-portal";
   }
-  if (normalized === "kimi-code") {
-    return "kimi-coding";
-  }
   return normalized;
 }
 
