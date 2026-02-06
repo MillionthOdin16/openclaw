@@ -434,7 +434,7 @@ export async function applyAuthChoiceApiProviders(
         "Kimi Coding",
       );
     }
-    const envKey = resolveEnvApiKey("kimi-coding");
+    const envKey = resolveEnvApiKey("kimi-code");
     if (envKey) {
       const useExisting = await params.prompter.confirm({
         message: `Use existing KIMI_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
@@ -453,8 +453,8 @@ export async function applyAuthChoiceApiProviders(
       await setKimiCodingApiKey(normalizeApiKeyInput(String(key ?? "")), params.agentDir);
     }
     nextConfig = applyAuthProfileConfig(nextConfig, {
-      profileId: "kimi-coding:default",
-      provider: "kimi-coding",
+      profileId: "kimi-code:default",
+      provider: "kimi-code",
       mode: "api_key",
     });
     {
