@@ -194,13 +194,20 @@ export async function buildStatusReply(params: {
       })
     : selectedModelAuth;
   const agentDefaults = cfg.agents?.defaults ?? {};
+  // Check if fallback was used by looking at fallback fields
+  const fallbackProvider = sessionEntry?.fallbackProvider;
+  const fallbackModel = sessionEntry?.fallbackModel;
+  const fallbackActive = fallbackProvider && fallbackModel;
+  const primaryModelLabel = fallbackActive
+    ? `${provider}/${model} → ${fallbackProvider}/${fallbackModel} (fallback)`
+    : `${provider}/${model}`;
   const statusText = buildStatusMessage({
     config: cfg,
     agent: {
       ...agentDefaults,
       model: {
         ...agentDefaults.model,
-        primary: `${provider}/${model}`,
+        primary: primaryModelLabel,
       },
       contextTokens,
       thinkingDefault: agentDefaults.thinkingDefault,
