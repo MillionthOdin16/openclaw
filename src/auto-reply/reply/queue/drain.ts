@@ -107,6 +107,7 @@ export function scheduleFollowupDrain(
               originatingThreadId,
             });
           }
+<<<<<<< HEAD
           continue; // After collect processing, skip to next iteration
         }
 
