@@ -305,6 +305,7 @@ export async function runWithModelFallback<T>(params: {
             store: authStore,
             profileId: profileIds[0],
             reason: described.reason,
+            reason: described.reason,
             cfg: params.cfg,
             agentDir: params.agentDir,
           });
