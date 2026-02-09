@@ -45,6 +45,10 @@ export async function persistSessionUsageUpdate(params: {
   lastCallUsage?: NormalizedUsage;
   modelUsed?: string;
   providerUsed?: string;
+  fallbackProvider?: string;
+  fallbackModel?: string;
+  originalProvider?: string;
+  originalModel?: string;
   contextTokensUsed?: number;
   promptTokens?: number;
   systemPromptReport?: SessionSystemPromptReport;
@@ -93,6 +97,16 @@ export async function persistSessionUsageUpdate(params: {
             totalTokensFresh: typeof totalTokens === "number",
             modelProvider: params.providerUsed ?? entry.modelProvider,
             model: params.modelUsed ?? entry.model,
+            // Store fallback info when different from original request
+            fallbackProvider:
+              params.fallbackProvider &&
+              params.fallbackProvider !== (params.originalProvider || entry.modelProvider)
+                ? params.fallbackProvider
+                : undefined,
+            fallbackModel:
+              params.fallbackModel && params.fallbackModel !== (params.originalModel || entry.model)
+                ? params.fallbackModel
+                : undefined,
             contextTokens: resolvedContextTokens,
             systemPromptReport: params.systemPromptReport ?? entry.systemPromptReport,
             updatedAt: Date.now(),
@@ -115,6 +129,16 @@ export async function persistSessionUsageUpdate(params: {
           const patch: Partial<SessionEntry> = {
             modelProvider: params.providerUsed ?? entry.modelProvider,
             model: params.modelUsed ?? entry.model,
+            // Store fallback info when different from original request
+            fallbackProvider:
+              params.fallbackProvider &&
+              params.fallbackProvider !== (params.originalProvider || entry.modelProvider)
+                ? params.fallbackProvider
+                : undefined,
+            fallbackModel:
+              params.fallbackModel && params.fallbackModel !== (params.originalModel || entry.model)
+                ? params.fallbackModel
+                : undefined,
             contextTokens: params.contextTokensUsed ?? entry.contextTokens,
             systemPromptReport: params.systemPromptReport ?? entry.systemPromptReport,
             updatedAt: Date.now(),
