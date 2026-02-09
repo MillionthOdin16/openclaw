@@ -132,7 +132,7 @@ export function scheduleFollowupDrain(
               clearQueueSummaryState(queue);
             }
           }
-          continue; // After collect processing, skip to next iteration
+          continue;
         }
 
         const summaryPrompt = previewQueueSummaryPrompt(queue);
