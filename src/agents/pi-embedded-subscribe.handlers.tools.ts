@@ -1,7 +1,7 @@
 import type { AgentEvent } from "@mariozechner/pi-agent-core";
 import { emitAgentEvent } from "../infra/agent-events.js";
 import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
-import type { PluginHookAfterToolCallEvent } from "../plugins/types.js";
+import type { PluginHookAfterToolCallEvent, PluginHookBeforeToolCallEvent } from "../plugins/types.js";
 import { normalizeTextForComparison } from "./pi-embedded-helpers.js";
 import { isMessagingTool, isMessagingToolSendAction } from "./pi-embedded-messaging.js";
 import type {
@@ -146,19 +146,33 @@ export async function handleToolExecutionStart(
   // Track start time and args for after_tool_call hook
   toolStartData.set(toolCallId, { startTime: Date.now(), args });
 
-  if (toolName === "read") {
+  // Call before_tool_call hook
+  const hookRunner = ctx.hookRunner ?? getGlobalHookRunner();
+  if (hookRunner?.hasHooks?.("before_tool_call")) {
+    try {
+      const hookEvent: PluginHookBeforeToolCallEvent = {
+        toolName,
+        params: args && typeof args === "object" ? (args as Record<string, unknown>) : {},
+      };
+      await hookRunner.runBeforeToolCall(hookEvent, { toolName });
+    } catch (err) {
+      ctx.log.debug(`before_tool_call hook failed: tool=${toolName} error=${String(err)}`);
+    }
+  }
+
+  if (toolName === "read" || toolName === "write" || toolName === "edit") {
     const record = args && typeof args === "object" ? (args as Record<string, unknown>) : {};
-    const filePathValue =
+    const filePath = (
       typeof record.path === "string"
         ? record.path
         : typeof record.file_path === "string"
           ? record.file_path
-          : "";
-    const filePath = filePathValue.trim();
+          : ""
+    ).trim();
     if (!filePath) {
       const argsPreview = typeof args === "string" ? args.slice(0, 200) : undefined;
       ctx.log.warn(
-        `read tool called without path: toolCallId=${toolCallId} argsType=${typeof args}${argsPreview ? ` argsPreview=${argsPreview}` : ""}`,
+        `${toolName} tool called without path: toolCallId=${toolCallId} argsType=${typeof args}${argsPreview ? ` argsPreview=${argsPreview}` : ""}`,
       );
     }
   }

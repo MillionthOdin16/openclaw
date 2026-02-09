@@ -396,6 +396,26 @@ export async function runWithModelFallback<T>(params: {
         status: described.status,
         code: described.code,
       });
+
+      // Mark auth profile failure for rate limits and billing errors to trigger cooldown
+      if ((described.reason === "rate_limit" || described.reason === "billing") && authStore) {
+        const profileIds = resolveAuthProfileOrder({
+          cfg: params.cfg,
+          store: authStore,
+          provider: candidate.provider,
+        });
+        if (profileIds.length > 0) {
+          const { markAuthProfileFailure } = await import("./auth-profiles.js");
+          await markAuthProfileFailure({
+            store: authStore,
+            profileId: profileIds[0],
+            reason: described.reason,
+            cfg: params.cfg,
+            agentDir: params.agentDir,
+          });
+        }
+      }
+
       await params.onError?.({
         provider: candidate.provider,
         model: candidate.model,
