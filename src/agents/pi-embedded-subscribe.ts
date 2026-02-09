@@ -340,7 +340,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     });
     // Build enhanced header with tool call ID and error status
     const headerParts: string[] = [agg];
-    if (toolCallId) {
+    if (toolCallId && !meta) {
       headerParts.push(`[${toolCallId.slice(0, 8)}]`);
     }
     if (isError) {
