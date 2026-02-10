@@ -75,7 +75,6 @@ const resolveSessionTtsAuto = (
   }
 };
 
-
 export type DispatchFromConfigResult = {
   queuedFinal: boolean;
   counts: Record<ReplyDispatchKind, number>;
