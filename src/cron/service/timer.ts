@@ -1,4 +1,3 @@
-import type { HeartbeatRunResult } from "../../infra/heartbeat-wake.js";
 import type { CronJob } from "../types.js";
 import type { CronEvent, CronServiceState } from "./state.js";
 import { resolveCronDeliveryPlan } from "../delivery.js";
