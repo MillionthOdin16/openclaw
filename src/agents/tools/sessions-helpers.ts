@@ -359,9 +359,13 @@ export function stripToolMessages(messages: unknown[]): unknown[] {
  * @param verboseLevel - The current verbose level. When "full", tool calls are preserved.
  */
 export function sanitizeTextContent(text: string, verboseLevel?: VerboseLevel): string {
-  if (!text) return text;
+  if (!text) {
+    return text;
+  }
   // When verbose is "full", preserve tool call markers for display
-  if (verboseLevel === "full") return text;
+  if (verboseLevel === "full") {
+    return text;
+  }
   return stripThinkingTagsFromText(stripDowngradedToolCallText(stripMinimaxToolCallXml(text)));
 }
 
@@ -369,8 +373,12 @@ export function extractAssistantText(
   message: unknown,
   verboseLevel?: VerboseLevel,
 ): string | undefined {
-  if (!message || typeof message !== "object") return undefined;
-  if ((message as { role?: unknown }).role !== "assistant") return undefined;
+  if (!message || typeof message !== "object") {
+    return undefined;
+  }
+  if ((message as { role?: unknown }).role !== "assistant") {
+    return undefined;
+  }
   const content = (message as { content?: unknown }).content;
   if (!Array.isArray(content)) {
     return undefined;
