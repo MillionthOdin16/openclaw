@@ -132,7 +132,7 @@ export function scheduleFollowupDrain(
               clearQueueSummaryState(queue);
             }
           }
-          continue;
+          // Don't continue here - let the loop continue normally to process other queue modes
         }
 
         const summaryPrompt = previewQueueSummaryPrompt(queue);
