@@ -213,7 +213,7 @@ export async function resolveApiKeyForProvider(params: {
         provider,
         key: customKey,
       };
-      await saveAuthProfileStore(store, params.agentDir);
+      saveAuthProfileStore(store, params.agentDir);
     }
     return { apiKey: customKey, source: "models.json", mode: "api-key", profileId };
   }
