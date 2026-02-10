@@ -1,4 +1,3 @@
-import type { HeartbeatRunResult } from "../../infra/heartbeat-wake.js";
 import type { CronJob } from "../types.js";
 import type { CronEvent, CronServiceState } from "./state.js";
 import { DEFAULT_AGENT_ID } from "../../routing/session-key.js";
@@ -412,39 +411,28 @@ async function executeJobCore(
       };
     }
     state.deps.enqueueSystemEvent(text, { agentId: job.agentId });
-    if (job.wakeMode === "now" && state.deps.runHeartbeatOnce) {
-      const reason = `cron:${job.id}`;
-      const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-      const maxWaitMs = 2 * 60_000;
-      const waitStartedAt = state.deps.nowMs();
 
-      let heartbeatResult: HeartbeatRunResult;
-      for (;;) {
-        heartbeatResult = await state.deps.runHeartbeatOnce({ reason });
-        if (
-          heartbeatResult.status !== "skipped" ||
-          heartbeatResult.reason !== "requests-in-flight"
-        ) {
-          break;
-        }
-        if (state.deps.nowMs() - waitStartedAt > maxWaitMs) {
-          state.deps.requestHeartbeatNow({ reason });
-          return { status: "ok", summary: text };
-        }
-        await delay(250);
-      }
+    const reason = `cron:${job.id}`;
+    state.deps.requestHeartbeatNow({ reason });
+
+    if (job.wakeMode === "now" && state.deps.runHeartbeatOnce) {
+      const heartbeatResult = await state.deps.runHeartbeatOnce({ reason });
 
       if (heartbeatResult.status === "ran") {
         return { status: "ok", summary: text };
-      } else if (heartbeatResult.status === "skipped") {
-        return { status: "skipped", error: heartbeatResult.reason, summary: text };
-      } else {
-        return { status: "error", error: heartbeatResult.reason, summary: text };
       }
-    } else {
-      state.deps.requestHeartbeatNow({ reason: `cron:${job.id}` });
-      return { status: "ok", summary: text };
+
+      if (heartbeatResult.status === "skipped") {
+        // If it was skipped (e.g. requests-in-flight), we accept that.
+        // We do NOT loop. We just return. The heartbeat will run
+        // when the agent finishes because we called requestHeartbeatNow above.
+        return { status: "ok", summary: text };
+      }
+
+      return { status: "error", error: heartbeatResult.reason, summary: text };
     }
+
+    return { status: "ok", summary: text };
   }
 
   if (job.payload.kind !== "agentTurn") {

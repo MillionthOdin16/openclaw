@@ -184,7 +184,7 @@ describe("CronService", () => {
     }
 
     expect(runHeartbeatOnce).toHaveBeenCalledTimes(1);
-    expect(requestHeartbeatNow).not.toHaveBeenCalled();
+    expect(requestHeartbeatNow).toHaveBeenCalled();
     expect(enqueueSystemEvent).toHaveBeenCalledWith("hello", {
       agentId: undefined,
     });
