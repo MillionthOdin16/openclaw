@@ -235,6 +235,8 @@ export function buildModelAliasLines(cfg?: OpenClawConfig) {
     .map((entry) => `- ${entry.alias}: ${entry.model}`);
 }
 
+import { lookupContextTokens } from "../context.js";
+
 export function resolveModel(
   provider: string,
   modelId: string,
@@ -259,6 +261,9 @@ export function resolveModel(
     );
     if (inlineMatch) {
       const normalized = normalizeModelCompat(inlineMatch as Model<Api>);
+      if (typeof normalized.contextWindow !== "number" || normalized.contextWindow <= 0) {
+        normalized.contextWindow = lookupContextTokens(modelId) ?? DEFAULT_CONTEXT_TOKENS;
+      }
       return {
         model: normalized,
         authStorage,
@@ -298,6 +303,10 @@ export function resolveModel(
     }
     const providerCfg = providers[provider];
     if (providerCfg || modelId.startsWith("mock-")) {
+      const contextWindow =
+        providerCfg?.models?.[0]?.contextWindow ??
+        lookupContextTokens(modelId) ??
+        DEFAULT_CONTEXT_TOKENS;
       const fallbackModel: Model<Api> = normalizeModelCompat({
         id: modelId,
         name: modelId,
@@ -307,8 +316,8 @@ export function resolveModel(
         reasoning: false,
         input: ["text"],
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: providerCfg?.models?.[0]?.contextWindow ?? DEFAULT_CONTEXT_TOKENS,
-        maxTokens: providerCfg?.models?.[0]?.maxTokens ?? DEFAULT_CONTEXT_TOKENS,
+        contextWindow,
+        maxTokens: providerCfg?.models?.[0]?.maxTokens ?? contextWindow,
       } as Model<Api>);
       return { model: fallbackModel, authStorage, modelRegistry };
     }
@@ -318,5 +327,9 @@ export function resolveModel(
       modelRegistry,
     };
   }
-  return { model: normalizeModelCompat(model), authStorage, modelRegistry };
+  const normalized = normalizeModelCompat(model);
+  if (typeof normalized.contextWindow !== "number" || normalized.contextWindow <= 0) {
+    normalized.contextWindow = lookupContextTokens(modelId) ?? DEFAULT_CONTEXT_TOKENS;
+  }
+  return { model: normalized, authStorage, modelRegistry };
 }
