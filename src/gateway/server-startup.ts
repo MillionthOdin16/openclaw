@@ -62,7 +62,6 @@ export async function startGatewaySidecars(params: {
 
   // Pre-load the model context cache so synchronous lookups like /status succeed immediately.
   void preloadContextCache();
-
   // Start OpenClaw browser control server (unless disabled via config).
   let browserControl: Awaited<ReturnType<typeof startBrowserControlServerIfEnabled>> = null;
   try {

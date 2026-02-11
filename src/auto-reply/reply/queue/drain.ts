@@ -108,7 +108,7 @@ export function scheduleFollowupDrain(
               clearQueueSummaryState(queue);
             }
           }
-          continue;
+          continue; // After collect processing, skip to next iteration
         }
 
         const summaryPrompt = previewQueueSummaryPrompt({ state: queue, noun: "message" });
