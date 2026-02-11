@@ -298,7 +298,9 @@ export const registerTelegramNativeCommands = ({
     boundRoute && boundRoute.matchedBy.startsWith("binding.") ? [boundRoute.agentId] : null;
   const skillCommands =
     nativeEnabled && nativeSkillsEnabled
-      ? listSkillCommandsForAgents(boundAgentIds ? { cfg, agentIds: boundAgentIds } : { cfg })
+      ? listSkillCommandsForAgents(
+          boundAgentIds ? { cfg, agentIds: boundAgentIds } : { cfg, agentIds: ["default"] },
+        )
       : [];
   const nativeCommands = nativeEnabled
     ? listNativeCommandSpecsForConfig(cfg, {
@@ -358,8 +360,12 @@ export const registerTelegramNativeCommands = ({
     existingCommands.add(normalized);
     pluginCommands.push({ command: normalized, description });
   }
-  const allCommandsFull: Array<{ command: string; description: string }> = [
+  const allCommandsUnfiltered: Array<{ command: string; description: string }> = [
     ...nativeCommands.map((command) => ({
+      command: command.name,
+      description: command.description,
+    })),
+    ...skillCommands.map((command) => ({
       command: command.name,
       description: command.description,
     })),
@@ -369,6 +375,21 @@ export const registerTelegramNativeCommands = ({
   // Telegram Bot API limits commands to 100 per scope.
   // Truncate with a warning rather than failing with BOT_COMMANDS_TOO_MUCH.
   const TELEGRAM_MAX_COMMANDS = 100;
+
+  const seenNames = new Set<string>();
+  const allCommandsFull: Array<{ command: string; description: string }> = [];
+  for (const cmd of allCommandsUnfiltered) {
+    // Normalize name (ensure no leading slash, a-z, 0-9, underscore)
+    const name = normalizeTelegramCommandName(cmd.command);
+    // Validate command name against Telegram rules: a-z, 0-9, underscore, 1-32 chars
+    if (name && /^[a-z0-9_]{1,32}$/.test(name) && !seenNames.has(name)) {
+      seenNames.add(name);
+      // Ensure description is valid (1-256 chars)
+      const description = (cmd.description?.trim() || "Command").slice(0, 256);
+      allCommandsFull.push({ command: name, description });
+    }
+  }
+
   if (allCommandsFull.length > TELEGRAM_MAX_COMMANDS) {
     runtime.log?.(
       `telegram: truncating ${allCommandsFull.length} commands to ${TELEGRAM_MAX_COMMANDS} (Telegram Bot API limit)`,
@@ -381,13 +402,28 @@ export const registerTelegramNativeCommands = ({
   // Chain delete → set so a late-resolving delete cannot wipe newly registered commands.
   const registerCommands = () => {
     if (allCommands.length > 0) {
+      runtime.log?.(
+        `telegram: [${accountId}] setMyCommands sending ${allCommands.length} commands (full count was ${allCommandsFull.length})`,
+      );
       withTelegramApiErrorLogging({
         operation: "setMyCommands",
         runtime,
-        fn: () => bot.api.setMyCommands(allCommands),
+        fn: async () => {
+          try {
+            return await bot.api.setMyCommands(allCommands);
+          } catch (err) {
+            runtime.log?.(
+              `telegram: [${accountId}] setMyCommands FAILED for commands: ${JSON.stringify(allCommands)}`,
+            );
+            throw err;
+          }
+        },
       }).catch(() => {});
+    } else {
+      runtime.log?.(`telegram: [${accountId}] NO commands to register`);
     }
   };
+
   if (typeof bot.api.deleteMyCommands === "function") {
     withTelegramApiErrorLogging({
       operation: "deleteMyCommands",
