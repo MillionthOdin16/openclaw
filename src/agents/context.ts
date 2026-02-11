@@ -109,11 +109,10 @@ const loadPromise = (async () => {
               for (const m of p.models) {
                 const modelEntry = m as { id?: string; contextWindow?: number };
                 if (modelEntry?.id && typeof modelEntry.contextWindow === "number") {
-                  // Key by full ID "provider/model" and raw "model"
-                  MODEL_CACHE.set(`${providerId}/${modelEntry.id}`, modelEntry.contextWindow);
-                  if (!MODEL_CACHE.has(modelEntry.id)) {
-                    MODEL_CACHE.set(modelEntry.id, modelEntry.contextWindow);
-                  }
+                  const fullId = `${providerId}/${modelEntry.id}`;
+                  MODEL_CACHE.set(fullId, modelEntry.contextWindow);
+                  // Overwrite even if exists, manual models.json is the source of truth for custom entries
+                  MODEL_CACHE.set(modelEntry.id, modelEntry.contextWindow);
                 }
               }
             }
