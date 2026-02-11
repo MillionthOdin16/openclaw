@@ -590,6 +590,12 @@ export async function runEmbeddedPiAgent(
               ? lastAssistant.errorMessage?.trim() || formattedAssistantErrorText
               : undefined;
 
+          // Detect context overflow from: 1) error messages, 2) stopReason:length + zero output
+          // See: https://github.com/openclaw/openclaw/issues/14064
+          const isLengthStopWithZeroOutput =
+            lastAssistant?.stopReason === "length" &&
+            (lastAssistant?.usage as { output?: number } | undefined)?.output === 0;
+
           const contextOverflowError = !aborted
             ? (() => {
                 if (promptError) {
@@ -603,6 +609,14 @@ export async function runEmbeddedPiAgent(
                 }
                 if (assistantErrorText && isLikelyContextOverflowError(assistantErrorText)) {
                   return { text: assistantErrorText, source: "assistantError" as const };
+                }
+                // Treat stopReason:length with zero output as context overflow
+                // This happens when context exceeds model's effective window
+                if (isLengthStopWithZeroOutput) {
+                  return {
+                    text: "Model returned stopReason:length with zero output tokens - context exceeds effective window",
+                    source: "zeroOutputLength" as const,
+                  };
                 }
                 return null;
               })()
