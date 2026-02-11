@@ -151,6 +151,43 @@ function resolveXiaomiApiKey(): string | undefined {
   return undefined;
 }
 
+function resolveKimiApiKey(): string | undefined {
+  const envDirect =
+    normalizeSecretInput(process.env.KIMI_API_KEY) ??
+    normalizeSecretInput(process.env.KIMICODE_API_KEY);
+  if (envDirect) {
+    return envDirect;
+  }
+
+  const envResolved = resolveEnvApiKey("kimi-code");
+  if (envResolved?.apiKey) {
+    return envResolved.apiKey;
+  }
+
+  const cfg = loadConfig();
+  const key = getCustomProviderApiKey(cfg, "kimi-code");
+  if (key) {
+    return key;
+  }
+
+  const store = ensureAuthProfileStore();
+  const apiProfile = listProfilesForProvider(store, "kimi-code").find((id) => {
+    const cred = store.profiles[id];
+    return cred?.type === "api_key" || cred?.type === "token";
+  });
+  if (!apiProfile) {
+    return undefined;
+  }
+  const cred = store.profiles[apiProfile];
+  if (cred?.type === "api_key" && normalizeSecretInput(cred.key)) {
+    return normalizeSecretInput(cred.key);
+  }
+  if (cred?.type === "token" && normalizeSecretInput(cred.token)) {
+    return normalizeSecretInput(cred.token);
+  }
+  return undefined;
+}
+
 async function resolveOAuthToken(params: {
   provider: UsageProviderId;
   agentDir?: string;
@@ -270,6 +307,13 @@ export async function resolveProviderAuths(params: {
     }
     if (provider === "xiaomi") {
       const apiKey = resolveXiaomiApiKey();
+      if (apiKey) {
+        auths.push({ provider, token: apiKey });
+      }
+      continue;
+    }
+    if (provider === "kimi-code") {
+      const apiKey = resolveKimiApiKey();
       if (apiKey) {
         auths.push({ provider, token: apiKey });
       }
