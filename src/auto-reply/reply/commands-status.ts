@@ -1,3 +1,8 @@
+import type { UsageProviderId } from "../../infra/provider-usage.types.js";
+import type { MediaUnderstandingDecision } from "../../media-understanding/types.js";
+import type { ElevatedLevel, ReasoningLevel, ThinkLevel, VerboseLevel } from "../thinking.js";
+import type { ReplyPayload } from "../types.js";
+import type { CommandContext } from "./commands-types.js";
 import {
   resolveAgentDir,
   resolveDefaultAgentId,
@@ -72,6 +77,8 @@ export async function buildStatusReply(params: {
     ? resolveSessionAgentId({ sessionKey, config: cfg })
     : resolveDefaultAgentId(cfg);
   const statusAgentDir = resolveAgentDir(cfg, statusAgentId);
+
+  // Resolve current (active/fallback) provider
   const currentUsageProvider = (() => {
     try {
       return resolveUsageProviderId(provider);
@@ -79,24 +86,54 @@ export async function buildStatusReply(params: {
       return undefined;
     }
   })();
+
+  // Also resolve primary provider if fallback is active
+  const primaryProvider = sessionEntry?.fallbackProvider
+    ? (() => {
+        try {
+          return resolveUsageProviderId(sessionEntry.fallbackProvider);
+        } catch {
+          return undefined;
+        }
+      })()
+    : undefined;
+
   let usageLine: string | null = null;
+  const providersToFetch: string[] = [];
   if (currentUsageProvider) {
+    providersToFetch.push(currentUsageProvider);
+  }
+  if (primaryProvider && primaryProvider !== currentUsageProvider) {
+    providersToFetch.push(primaryProvider);
+  }
+
+  if (providersToFetch.length > 0) {
     try {
       const usageSummary = await loadProviderUsageSummary({
         timeoutMs: 3500,
-        providers: [currentUsageProvider],
+        providers: providersToFetch as UsageProviderId[],
         agentDir: statusAgentDir,
       });
-      const usageEntry = usageSummary.providers[0];
-      if (usageEntry && !usageEntry.error && usageEntry.windows.length > 0) {
+
+      const parts: string[] = [];
+      for (const usageEntry of usageSummary.providers) {
+        if (usageEntry.error || usageEntry.windows.length === 0) {
+          continue;
+        }
+        const isFallback = usageEntry.provider === currentUsageProvider;
+        const label = isFallback ? usageEntry.displayName : `${usageEntry.displayName} (primary)`;
         const summaryLine = formatUsageWindowSummary(usageEntry, {
           now: Date.now(),
           maxWindows: 2,
           includeResets: true,
         });
         if (summaryLine) {
-          usageLine = `📊 Usage: ${summaryLine}`;
+          parts.push(`${label}: ${summaryLine}`);
         }
+      }
+
+      if (parts.length > 0) {
+        usageLine = `📊 Usage: ${parts.join(" · ")}`;
       }
     } catch {
       usageLine = null;
