@@ -191,10 +191,6 @@ function moveToFinished(session: ProcessSession, status: ProcessStatus) {
     }
     delete session.stdin;
   }
-
-  if (!session.backgrounded) {
-    return;
-  }
   finishedSessions.set(session.id, {
     id: session.id,
     command: session.command,
