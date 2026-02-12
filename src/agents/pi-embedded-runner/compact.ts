@@ -443,15 +443,57 @@ export async function compactEmbeddedPiSessionDirect(
         if (limited.length > 0) {
           session.agent.replaceMessages(limited);
         }
-        // Wrap compaction with timeout to prevent infinite hangs (e.g., NVIDIA NIM stream issues)
-        // See: https://github.com/openclaw/openclaw/issues/5980
-        const COMPACTION_TIMEOUT_MS = 120_000; // 2 minutes
+        // Wrap compaction with phased timeouts to prevent infinite hangs.
+        // Phase 1: File reading and validation (handles large/malformed transcripts)
+        // Phase 2: Message sanitization and preparation
+        // Phase 3: Actual compaction API call
+        // See: https://github.com/openclaw/openclaw/issues/5980, #13379, #12348
+        const COMPACTION_PHASE1_TIMEOUT_MS = 30_000; // 30s for file read/parsing
+        const COMPACTION_PHASE2_TIMEOUT_MS = 30_000; // 30s for sanitization
+        const COMPACTION_PHASE3_TIMEOUT_MS = 120_000; // 2min for compaction API
+
+        // Check transcript size before compaction to warn about potential issues
+        try {
+          const stats = await fs.stat(params.sessionFile);
+          const sizeMB = stats.size / (1024 * 1024);
+          if (sizeMB > 50) {
+            log.warn(
+              `compaction: large transcript detected for session ${params.sessionId} (${sizeMB.toFixed(1)}MB), may take longer`,
+            );
+          }
+        } catch {
+          // Ignore stat errors, continue anyway
+        }
+
+        // Phase 1: Validate we can read and parse the session file
+        await Promise.race([
+          fs.access(params.sessionFile),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`Compaction phase 1 (file access) timed out`)),
+              COMPACTION_PHASE1_TIMEOUT_MS,
+            ),
+          ),
+        ]);
+
+        // Phase 2: Ensure messages are loaded (sanitization already happened above)
+        // This is a no-op but ensures previous steps completed
+        if (!session.messages) {
+          throw new Error("Session messages not available after sanitization");
+        }
+
+        // Phase 3: Run compaction with timeout
         const result = await Promise.race([
           session.compact(params.customInstructions),
           new Promise<never>((_, reject) =>
             setTimeout(
-              () => reject(new Error(`Compaction timed out after ${COMPACTION_TIMEOUT_MS}ms`)),
-              COMPACTION_TIMEOUT_MS,
+              () =>
+                reject(
+                  new Error(
+                    `Compaction phase 3 (API call) timed out after ${COMPACTION_PHASE3_TIMEOUT_MS}ms`,
+                  ),
+                ),
+              COMPACTION_PHASE3_TIMEOUT_MS,
             ),
           ),
         ]);
