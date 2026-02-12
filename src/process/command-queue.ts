@@ -12,15 +12,6 @@ export class CommandLaneClearedError extends Error {
   }
 }
 
-// TTL for inactive lanes before they can be cleaned up.
-// Lanes that have been idle (no active tasks, empty queue) for this long
-// can be removed to prevent unbounded memory growth. See GitHub issue #5264.
-const LANE_IDLE_TTL_MS = 30 * 60_000; // 30 minutes
-
-// Maximum number of lanes to keep in memory. When exceeded, oldest idle
-// lanes are evicted. This prevents OOM in long-running processes.
-const MAX_LANE_COUNT = 1000;
-
 // Minimal in-process queue to serialize command executions.
 // Default lane ("main") preserves the existing behavior. Additional lanes allow
 // low-risk parallelism (e.g. cron jobs) without interleaving stdin / logs for
@@ -30,6 +21,15 @@ const MAX_LANE_COUNT = 1000;
 // This prevents deadlocks when nested queue patterns hang (e.g., session lane
 // waiting for global lane that never completes). See GitHub issue #7630.
 const LANE_TASK_TIMEOUT_MS = 10 * 60_000; // 10 minutes
+
+// TTL for inactive lanes before they can be cleaned up.
+// Lanes that have been idle (no active tasks, empty queue) for this long
+// can be removed to prevent unbounded memory growth. See GitHub issue #5264.
+const LANE_IDLE_TTL_MS = 30 * 60_000; // 30 minutes
+
+// Maximum number of lanes to keep in memory. When exceeded, oldest idle
+// lanes are evicted. This prevents OOM in long-running processes.
+const MAX_LANE_COUNT = 1000;
 
 type QueueEntry = {
   task: () => Promise<unknown>;
@@ -108,6 +108,9 @@ function drainLane(lane: string) {
       state.active += 1;
       state.lastActivityAt = Date.now();
       state.activeTaskIds.add(taskId);
+      state.lastActivityAt = Date.now();
+      state.activeTaskIds.add(taskId);
+      state.lastActivityAt = Date.now();
 
       // Track task execution with timeout to prevent deadlocks
       // See GitHub issue #7630: nested queue pattern can hang indefinitely
