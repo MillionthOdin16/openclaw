@@ -83,7 +83,7 @@ export async function fetchKimiUsage(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "User-Agent": "OpenClaw/1.0",
+        "User-Agent": "KimiCLI/0.77",
       },
     },
     timeoutMs,
