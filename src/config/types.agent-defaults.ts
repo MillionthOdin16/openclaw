@@ -245,6 +245,19 @@ export type AgentDefaultsConfig = {
     /** Default thinking level for spawned sub-agents (e.g. "off", "low", "medium", "high"). */
     thinking?: string;
   };
+  /**
+   * Configurable concurrency for nested lane (sessions_send broadcasts).
+   * Prevents cascading timeouts in multi-agent setups.
+   * See GitHub issue #14214.
+   */
+  nestedMaxConcurrent?: number;
+  /**
+   * Alternative configuration path for nested/sessions concurrency.
+   */
+  sessions?: {
+    /** Max concurrent sessions_send operations. */
+    maxConcurrent?: number;
+  };
   /** Optional sandbox settings for non-main sessions. */
   sandbox?: {
     /** Enable sandboxing for sessions. */

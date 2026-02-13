@@ -1,3 +1,17 @@
+import type { VerboseLevel } from "../../auto-reply/thinking.js";
+import type { OpenClawConfig } from "../../config/types.js";
+import { callGateway } from "../../gateway/call.js";
+import {
+  isAcpSessionKey,
+  isSubagentSessionKey,
+  normalizeMainKey,
+} from "../../routing/session-key.js";
+import { sanitizeUserFacingText } from "../pi-embedded-helpers.js";
+import {
+  stripDowngradedToolCallText,
+  stripMinimaxToolCallXml,
+  stripThinkingTagsFromText,
+} from "../pi-embedded-utils.js";
 export type {
   AgentToAgentPolicy,
   SessionAccessAction,
@@ -24,12 +38,6 @@ export {
   resolveSessionReference,
   shouldResolveSessionIdInput,
 } from "./sessions-resolution.js";
-import { sanitizeUserFacingText } from "../pi-embedded-helpers.js";
-import {
-  stripDowngradedToolCallText,
-  stripMinimaxToolCallXml,
-  stripThinkingTagsFromText,
-} from "../pi-embedded-utils.js";
 
 export type SessionKind = "main" | "group" | "cron" | "hook" | "node" | "other";
 
@@ -133,15 +141,25 @@ export function stripToolMessages(messages: unknown[]): unknown[] {
 /**
  * Sanitize text content to strip tool call markers and thinking tags.
  * This ensures user-facing text doesn't leak internal tool representations.
+ *
+ * @param text - The text to sanitize
+ * @param verboseLevel - The current verbose level. When "full", tool calls are preserved.
  */
-export function sanitizeTextContent(text: string): string {
+export function sanitizeTextContent(text: string, verboseLevel?: VerboseLevel): string {
   if (!text) {
+    return text;
+  }
+  // When verbose is "full", preserve tool call markers for display
+  if (verboseLevel === "full") {
     return text;
   }
   return stripThinkingTagsFromText(stripDowngradedToolCallText(stripMinimaxToolCallXml(text)));
 }
 
-export function extractAssistantText(message: unknown): string | undefined {
+export function extractAssistantText(
+  message: unknown,
+  verboseLevel?: VerboseLevel,
+): string | undefined {
   if (!message || typeof message !== "object") {
     return undefined;
   }
@@ -162,7 +180,7 @@ export function extractAssistantText(message: unknown): string | undefined {
     }
     const text = (block as { text?: unknown }).text;
     if (typeof text === "string") {
-      const sanitized = sanitizeTextContent(text);
+      const sanitized = sanitizeTextContent(text, verboseLevel);
       if (sanitized.trim()) {
         chunks.push(sanitized);
       }

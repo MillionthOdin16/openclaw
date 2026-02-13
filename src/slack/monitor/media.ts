@@ -226,34 +226,66 @@ export type SlackThreadStarter = {
   files?: SlackFile[];
 };
 
-type SlackThreadStarterCacheEntry = {
+// Bounded cache entry with timestamp for TTL
+type CacheEntry = {
   value: SlackThreadStarter;
-  cachedAt: number;
+  timestamp: number;
 };
 
-const THREAD_STARTER_CACHE = new Map<string, SlackThreadStarterCacheEntry>();
+const THREAD_STARTER_CACHE = new Map<string, CacheEntry>();
 const THREAD_STARTER_CACHE_TTL_MS = 6 * 60 * 60_000;
 const THREAD_STARTER_CACHE_MAX = 2000;
 
-function evictThreadStarterCache(): void {
+/**
+ * Clean up expired entries and enforce max size limit.
+ * Uses LRU eviction (oldest entries first).
+ */
+function pruneThreadStarterCache(): void {
   const now = Date.now();
-  for (const [cacheKey, entry] of THREAD_STARTER_CACHE.entries()) {
-    if (now - entry.cachedAt > THREAD_STARTER_CACHE_TTL_MS) {
-      THREAD_STARTER_CACHE.delete(cacheKey);
+  const cutoff = now - THREAD_STARTER_CACHE_TTL_MS;
+
+  // Remove expired entries
+  for (const [key, entry] of THREAD_STARTER_CACHE.entries()) {
+    if (entry.timestamp < cutoff) {
+      THREAD_STARTER_CACHE.delete(key);
     }
   }
-  if (THREAD_STARTER_CACHE.size <= THREAD_STARTER_CACHE_MAX) {
-    return;
-  }
-  const excess = THREAD_STARTER_CACHE.size - THREAD_STARTER_CACHE_MAX;
-  let removed = 0;
-  for (const cacheKey of THREAD_STARTER_CACHE.keys()) {
-    THREAD_STARTER_CACHE.delete(cacheKey);
-    removed += 1;
-    if (removed >= excess) {
+
+  // LRU eviction if still over max size
+  while (THREAD_STARTER_CACHE.size > THREAD_STARTER_CACHE_MAX) {
+    const oldestKey = THREAD_STARTER_CACHE.keys().next().value;
+    if (!oldestKey) {
       break;
     }
+    THREAD_STARTER_CACHE.delete(oldestKey);
   }
+}
+
+function getCachedThreadStarter(key: string): SlackThreadStarter | undefined {
+  const entry = THREAD_STARTER_CACHE.get(key);
+  if (!entry) {
+    return undefined;
+  }
+
+  // Check TTL
+  if (Date.now() - entry.timestamp > THREAD_STARTER_CACHE_TTL_MS) {
+    THREAD_STARTER_CACHE.delete(key);
+    return undefined;
+  }
+
+  // Update timestamp for LRU ordering (move to end)
+  THREAD_STARTER_CACHE.delete(key);
+  THREAD_STARTER_CACHE.set(key, { ...entry, timestamp: Date.now() });
+  return entry.value;
+}
+
+function setCachedThreadStarter(key: string, value: SlackThreadStarter): void {
+  // Prune before adding new entry
+  if (THREAD_STARTER_CACHE.size >= THREAD_STARTER_CACHE_MAX) {
+    pruneThreadStarterCache();
+  }
+
+  THREAD_STARTER_CACHE.set(key, { value, timestamp: Date.now() });
 }
 
 export async function resolveSlackThreadStarter(params: {
@@ -261,14 +293,11 @@ export async function resolveSlackThreadStarter(params: {
   threadTs: string;
   client: SlackWebClient;
 }): Promise<SlackThreadStarter | null> {
-  evictThreadStarterCache();
+  pruneThreadStarterCache();
   const cacheKey = `${params.channelId}:${params.threadTs}`;
-  const cached = THREAD_STARTER_CACHE.get(cacheKey);
-  if (cached && Date.now() - cached.cachedAt <= THREAD_STARTER_CACHE_TTL_MS) {
-    return cached.value;
-  }
+  const cached = getCachedThreadStarter(cacheKey);
   if (cached) {
-    THREAD_STARTER_CACHE.delete(cacheKey);
+    return cached;
   }
   try {
     const response = (await params.client.conversations.replies({
@@ -288,14 +317,7 @@ export async function resolveSlackThreadStarter(params: {
       ts: message.ts,
       files: message.files,
     };
-    if (THREAD_STARTER_CACHE.has(cacheKey)) {
-      THREAD_STARTER_CACHE.delete(cacheKey);
-    }
-    THREAD_STARTER_CACHE.set(cacheKey, {
-      value: starter,
-      cachedAt: Date.now(),
-    });
-    evictThreadStarterCache();
+    setCachedThreadStarter(cacheKey, starter);
     return starter;
   } catch {
     return null;
