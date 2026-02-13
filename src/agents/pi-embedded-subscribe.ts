@@ -684,7 +684,14 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     getLastToolError: () => (state.lastToolError ? { ...state.lastToolError } : undefined),
     getUsageTotals,
     getCompactionCount: () => compactionCount,
-    waitForCompactionRetry: () => {
+    waitForCompactionRetry: (timeoutMs?: number) => {
+      const createTimeoutPromise = (ms: number) =>
+        new Promise<void>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`waitForCompactionRetry timed out after ${ms}ms`));
+          }, ms);
+        });
+
       // Reject after unsubscribe so callers treat it as cancellation, not success
       if (state.unsubscribed) {
         const err = new Error("Unsubscribed during compaction wait");
@@ -693,7 +700,11 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
       }
       if (state.compactionInFlight || state.pendingCompactionRetry > 0) {
         ensureCompactionPromise();
-        return state.compactionRetryPromise ?? Promise.resolve();
+        const waitPromise = state.compactionRetryPromise ?? Promise.resolve();
+        if (timeoutMs && timeoutMs > 0) {
+          return Promise.race([waitPromise, createTimeoutPromise(timeoutMs)]);
+        }
+        return waitPromise;
       }
       return new Promise<void>((resolve, reject) => {
         queueMicrotask(() => {
@@ -705,7 +716,18 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
           }
           if (state.compactionInFlight || state.pendingCompactionRetry > 0) {
             ensureCompactionPromise();
-            void (state.compactionRetryPromise ?? Promise.resolve()).then(resolve, reject);
+            const waitPromise = state.compactionRetryPromise ?? Promise.resolve();
+            if (timeoutMs && timeoutMs > 0) {
+              void Promise.race([waitPromise, createTimeoutPromise(timeoutMs)]).then(
+                resolve,
+                () => {
+                  // On timeout, resolve anyway to prevent indefinite blocking
+                  resolve();
+                },
+              );
+            } else {
+              void waitPromise.then(resolve);
+            }
           } else {
             resolve();
           }
