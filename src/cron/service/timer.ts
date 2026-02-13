@@ -1,4 +1,3 @@
-import type { HeartbeatRunResult } from "../../infra/heartbeat-wake.js";
 import type { CronJob } from "../types.js";
 import type { CronEvent, CronServiceState } from "./state.js";
 import { DEFAULT_AGENT_ID } from "../../routing/session-key.js";
@@ -8,7 +7,6 @@ import {
   computeJobNextRunAtMs,
   nextWakeAtMs,
   recomputeNextRuns,
-  recomputeNextRunsForMaintenance,
   resolveJobPayloadTextForMain,
 } from "./jobs.js";
 import { locked } from "./locked.js";
@@ -22,6 +20,14 @@ const MAX_TIMER_DELAY_MS = 60_000;
  * from wedging the entire cron lane.
  */
 const DEFAULT_JOB_TIMEOUT_MS = 10 * 60_000; // 10 minutes
+
+/**
+ * Maximum number of heartbeat retry attempts for wakeMode='now' jobs.
+ * Prevents infinite loops when the main lane is continuously busy.
+ * With 250ms delay per iteration, this allows ~62.5 seconds of retries.
+ * See GitHub issue #13508.
+ */
+const MAX_HEARTBEAT_RETRIES = 250;
 
 /**
  * Exponential backoff delays (in ms) indexed by consecutive error count.
@@ -38,6 +44,11 @@ const ERROR_BACKOFF_SCHEDULE_MS = [
 function errorBackoffMs(consecutiveErrors: number): number {
   const idx = Math.min(consecutiveErrors - 1, ERROR_BACKOFF_SCHEDULE_MS.length - 1);
   return ERROR_BACKOFF_SCHEDULE_MS[Math.max(0, idx)];
+}
+
+/** Promise-based delay helper */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -70,7 +81,7 @@ function applyJobResult(
   }
 
   const shouldDelete =
-    job.schedule.kind === "at" && job.deleteAfterRun === true && result.status === "ok";
+    job.schedule.kind === "at" && result.status === "ok" && job.deleteAfterRun === true;
 
   if (!shouldDelete) {
     if (job.schedule.kind === "at") {
@@ -159,26 +170,6 @@ export function armTimer(state: CronServiceState) {
 
 export async function onTimer(state: CronServiceState) {
   if (state.running) {
-    // Re-arm the timer so the scheduler keeps ticking even when a job is
-    // still executing.  Without this, a long-running job (e.g. an agentTurn
-    // exceeding MAX_TIMER_DELAY_MS) causes the clamped 60 s timer to fire
-    // while `running` is true.  The early return then leaves no timer set,
-    // silently killing the scheduler until the next gateway restart.
-    //
-    // We use MAX_TIMER_DELAY_MS as a fixed re-check interval to avoid a
-    // zero-delay hot-loop when past-due jobs are waiting for the current
-    // execution to finish.
-    // See: https://github.com/openclaw/openclaw/issues/12025
-    if (state.timer) {
-      clearTimeout(state.timer);
-    }
-    state.timer = setTimeout(async () => {
-      try {
-        await onTimer(state);
-      } catch (err) {
-        state.deps.log.error({ err: String(err) }, "cron: timer tick failed");
-      }
-    }, MAX_TIMER_DELAY_MS);
     return;
   }
   state.running = true;
@@ -188,10 +179,7 @@ export async function onTimer(state: CronServiceState) {
       const due = findDueJobs(state);
 
       if (due.length === 0) {
-        // Use maintenance-only recompute to avoid advancing past-due nextRunAtMs
-        // values without execution. This prevents jobs from being silently skipped
-        // when the timer wakes up but findDueJobs returns empty (see #13992).
-        const changed = recomputeNextRunsForMaintenance(state);
+        const changed = recomputeNextRuns(state);
         if (changed) {
           await persist(state);
         }
@@ -373,10 +361,7 @@ export async function runMissedJobs(state: CronServiceState) {
       return false;
     }
     const next = j.state.nextRunAtMs;
-    if (j.schedule.kind === "at" && j.state.lastStatus) {
-      // Any terminal status (ok, error, skipped) means the job already
-      // ran at least once.  Don't re-fire it on restart — applyJobResult
-      // disables one-shot jobs, but guard here defensively (#13845).
+    if (j.schedule.kind === "at" && j.state.lastStatus === "ok") {
       return false;
     }
     return typeof next === "number" && now >= next;
@@ -439,39 +424,45 @@ async function executeJobCore(
       };
     }
     state.deps.enqueueSystemEvent(text, { agentId: job.agentId });
-    if (job.wakeMode === "now" && state.deps.runHeartbeatOnce) {
-      const reason = `cron:${job.id}`;
-      const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-      const maxWaitMs = 2 * 60_000;
-      const waitStartedAt = state.deps.nowMs();
 
-      let heartbeatResult: HeartbeatRunResult;
+    const reason = `cron:${job.id}`;
+    state.deps.requestHeartbeatNow({ reason });
+
+    if (job.wakeMode === "now" && state.deps.runHeartbeatOnce) {
+      // Retry loop with iteration limit to prevent deadlock when main lane is busy.
+      // See GitHub issue #13508.
+      let attempts = 0;
       for (;;) {
-        heartbeatResult = await state.deps.runHeartbeatOnce({ reason, agentId: job.agentId });
-        if (
-          heartbeatResult.status !== "skipped" ||
-          heartbeatResult.reason !== "requests-in-flight"
-        ) {
-          break;
-        }
-        if (state.deps.nowMs() - waitStartedAt > maxWaitMs) {
-          state.deps.requestHeartbeatNow({ reason });
+        const heartbeatResult = await state.deps.runHeartbeatOnce({ reason });
+
+        if (heartbeatResult.status === "ran") {
           return { status: "ok", summary: text };
         }
-        await delay(250);
-      }
 
-      if (heartbeatResult.status === "ran") {
-        return { status: "ok", summary: text };
-      } else if (heartbeatResult.status === "skipped") {
-        return { status: "skipped", error: heartbeatResult.reason, summary: text };
-      } else {
+        if (heartbeatResult.status === "skipped") {
+          // Check iteration limit to prevent infinite loop
+          attempts++;
+          if (attempts >= MAX_HEARTBEAT_RETRIES) {
+            state.deps.log.warn(
+              { jobId: job.id, attempts, reason: heartbeatResult.reason },
+              "cron: heartbeat retry limit exceeded, giving up",
+            );
+            return {
+              status: "error",
+              error: `heartbeat retry limit exceeded (${MAX_HEARTBEAT_RETRIES} attempts)`,
+              summary: text,
+            };
+          }
+          // Wait a bit before retrying
+          await delay(250);
+          continue;
+        }
+
         return { status: "error", error: heartbeatResult.reason, summary: text };
       }
-    } else {
-      state.deps.requestHeartbeatNow({ reason: `cron:${job.id}` });
-      return { status: "ok", summary: text };
     }
+
+    return { status: "ok", summary: text };
   }
 
   if (job.payload.kind !== "agentTurn") {

@@ -170,7 +170,70 @@ export type SlackThreadStarter = {
   files?: SlackFile[];
 };
 
-const THREAD_STARTER_CACHE = new Map<string, SlackThreadStarter>();
+// Bounded cache entry with timestamp for TTL
+type CacheEntry = {
+  value: SlackThreadStarter;
+  timestamp: number;
+};
+
+const THREAD_STARTER_CACHE = new Map<string, CacheEntry>();
+
+// Cache configuration to prevent unbounded memory growth
+// See: https://github.com/openclaw/openclaw/issues/5258
+const CACHE_MAX_SIZE = 10000;
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Clean up expired entries and enforce max size limit.
+ * Uses LRU eviction (oldest entries first).
+ */
+function pruneThreadStarterCache(): void {
+  const now = Date.now();
+  const cutoff = now - CACHE_TTL_MS;
+
+  // Remove expired entries
+  for (const [key, entry] of THREAD_STARTER_CACHE.entries()) {
+    if (entry.timestamp < cutoff) {
+      THREAD_STARTER_CACHE.delete(key);
+    }
+  }
+
+  // LRU eviction if still over max size
+  while (THREAD_STARTER_CACHE.size > CACHE_MAX_SIZE) {
+    const oldestKey = THREAD_STARTER_CACHE.keys().next().value;
+    if (!oldestKey) {
+      break;
+    }
+    THREAD_STARTER_CACHE.delete(oldestKey);
+  }
+}
+
+function getCachedThreadStarter(key: string): SlackThreadStarter | undefined {
+  const entry = THREAD_STARTER_CACHE.get(key);
+  if (!entry) {
+    return undefined;
+  }
+
+  // Check TTL
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    THREAD_STARTER_CACHE.delete(key);
+    return undefined;
+  }
+
+  // Update timestamp for LRU ordering (move to end)
+  THREAD_STARTER_CACHE.delete(key);
+  THREAD_STARTER_CACHE.set(key, { ...entry, timestamp: Date.now() });
+  return entry.value;
+}
+
+function setCachedThreadStarter(key: string, value: SlackThreadStarter): void {
+  // Prune before adding new entry
+  if (THREAD_STARTER_CACHE.size >= CACHE_MAX_SIZE) {
+    pruneThreadStarterCache();
+  }
+
+  THREAD_STARTER_CACHE.set(key, { value, timestamp: Date.now() });
+}
 
 export async function resolveSlackThreadStarter(params: {
   channelId: string;
@@ -178,7 +241,7 @@ export async function resolveSlackThreadStarter(params: {
   client: SlackWebClient;
 }): Promise<SlackThreadStarter | null> {
   const cacheKey = `${params.channelId}:${params.threadTs}`;
-  const cached = THREAD_STARTER_CACHE.get(cacheKey);
+  const cached = getCachedThreadStarter(cacheKey);
   if (cached) {
     return cached;
   }
@@ -200,7 +263,7 @@ export async function resolveSlackThreadStarter(params: {
       ts: message.ts,
       files: message.files,
     };
-    THREAD_STARTER_CACHE.set(cacheKey, starter);
+    setCachedThreadStarter(cacheKey, starter);
     return starter;
   } catch {
     return null;

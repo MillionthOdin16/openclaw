@@ -42,7 +42,9 @@ export function wrapFetchWithAbortSignal(fetchImpl: typeof fetch): typeof fetch 
       return fetchImpl(input, patchedInit);
     }
     const controller = new AbortController();
-    const onAbort = () => controller.abort();
+    // Use .bind() instead of arrow function to avoid closure memory leak
+    // See: https://github.com/openclaw/openclaw/issues/7174
+    const onAbort = controller.abort.bind(controller);
     if (signal.aborted) {
       controller.abort();
     } else {

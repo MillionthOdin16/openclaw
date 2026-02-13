@@ -156,6 +156,17 @@ export const AgentDefaultsSchema = z
       })
       .strict()
       .optional(),
+    /** Configurable concurrency for nested lane (sessions_send broadcasts).
+     * Prevents cascading timeouts in multi-agent setups.
+     * See GitHub issue #14214. */
+    nestedMaxConcurrent: z.number().int().positive().optional(),
+    /** Alternative configuration path for nested/sessions concurrency. */
+    sessions: z
+      .object({
+        maxConcurrent: z.number().int().positive().optional(),
+      })
+      .strict()
+      .optional(),
     sandbox: z
       .object({
         mode: z.union([z.literal("off"), z.literal("non-main"), z.literal("all")]).optional(),

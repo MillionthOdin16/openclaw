@@ -36,7 +36,9 @@ function combineAbortSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | un
   }
 
   const controller = new AbortController();
-  const onAbort = () => controller.abort();
+  // Use .bind() instead of arrow function to avoid closure memory leak
+  // See: https://github.com/openclaw/openclaw/issues/7174
+  const onAbort = controller.abort.bind(controller);
   a?.addEventListener("abort", onAbort, { once: true });
   b?.addEventListener("abort", onAbort, { once: true });
   return controller.signal;

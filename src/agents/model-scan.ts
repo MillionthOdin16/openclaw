@@ -185,7 +185,9 @@ async function withTimeout<T>(
   fn: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // Use .bind() instead of arrow function to avoid closure memory leak
+  // See: https://github.com/openclaw/openclaw/issues/7174
+  const timer = setTimeout(controller.abort.bind(controller), timeoutMs);
   try {
     return await fn(controller.signal);
   } finally {

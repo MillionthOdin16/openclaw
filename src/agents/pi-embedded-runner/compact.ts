@@ -443,7 +443,18 @@ export async function compactEmbeddedPiSessionDirect(
         if (limited.length > 0) {
           session.agent.replaceMessages(limited);
         }
-        const result = await session.compact(params.customInstructions);
+        // Wrap compaction with timeout to prevent infinite hangs (e.g., NVIDIA NIM stream issues)
+        // See: https://github.com/openclaw/openclaw/issues/5980
+        const COMPACTION_TIMEOUT_MS = 120_000; // 2 minutes
+        const result = await Promise.race([
+          session.compact(params.customInstructions),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`Compaction timed out after ${COMPACTION_TIMEOUT_MS}ms`)),
+              COMPACTION_TIMEOUT_MS,
+            ),
+          ),
+        ]);
         // Estimate tokens after compaction by summing token estimates for remaining messages
         let tokensAfter: number | undefined;
         try {
