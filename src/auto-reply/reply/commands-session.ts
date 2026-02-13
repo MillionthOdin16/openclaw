@@ -309,7 +309,7 @@ export const handleRestartCommand: CommandHandler = async (params, allowTextComm
   };
 };
 
-export const handleStopCommand: CommandHandler = async (params, allowTextCommands) => {
+export const handleStopCommand: CommandHandler = async (params, _allowTextCommands) => {
   if (params.command.commandBodyNormalized !== "/stop") {
     return null;
   }
