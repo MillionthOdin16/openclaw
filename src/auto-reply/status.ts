@@ -78,6 +78,7 @@ type StatusArgs = {
   activeModelAuth?: string;
   usageLine?: string;
   timeLine?: string;
+  modelLabelOverride?: string;
   queue?: QueueStatus;
   mediaDecisions?: ReadonlyArray<MediaUnderstandingDecision>;
   subagentsLine?: string;

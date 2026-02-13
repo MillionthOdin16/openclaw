@@ -301,31 +301,29 @@ export function createSessionStatusTool(opts?: {
       const actualProvider = resolved.entry.modelProvider ?? providerForCard;
       const actualModel = resolved.entry.model ?? modelForCard;
       const fallbackProvider =
-        resolved.entry.fallbackProvider ??
-        (actualProvider !== providerForCard || actualModel !== modelForCard
-          ? actualProvider
-          : undefined);
-      const fallbackModel =
-        resolved.entry.fallbackModel ??
-        (actualProvider !== providerForCard || actualModel !== modelForCard
-          ? actualModel
-          : undefined);
+        resolved.entry.fallbackProvider?.trim() ||
+        (resolved.entry.fallbackModel ? actualProvider : undefined);
+      const fallbackModel = resolved.entry.fallbackModel?.trim();
       const fallbackActive =
         fallbackProvider &&
         fallbackModel &&
         (fallbackProvider !== providerForCard || fallbackModel !== modelForCard);
+      const selectionMatchesActual =
+        actualProvider === providerForCard && actualModel === modelForCard;
+      const useActualProviderForUsage = Boolean(fallbackActive || selectionMatchesActual);
+      const providerForUsage = useActualProviderForUsage ? actualProvider : providerForCard;
       const actualUsageProvider = (() => {
         try {
-          return resolveUsageProviderId(actualProvider);
+          return resolveUsageProviderId(providerForUsage);
         } catch {
           return undefined;
         }
       })();
       const fallbackUsageProvider =
-        resolved.entry.fallbackProvider && resolved.entry.fallbackProvider !== actualProvider
+        useActualProviderForUsage && fallbackProvider && fallbackProvider !== providerForUsage
           ? (() => {
               try {
-                return resolveUsageProviderId(resolved.entry.fallbackProvider);
+                return resolveUsageProviderId(fallbackProvider);
               } catch {
                 return undefined;
               }
@@ -342,8 +340,8 @@ export function createSessionStatusTool(opts?: {
       if (providersToFetch.length > 0) {
         try {
           const providerAuths: Array<{ provider: UsageProviderId; token: string }> = [];
-          if (actualUsageProvider === "kimi-code" && actualProvider) {
-            const match = actualProvider.match(/kimi-code-(\d+)$/);
+          if (actualUsageProvider === "kimi-code" && providerForUsage) {
+            const match = providerForUsage.match(/kimi-code-(\d+)$/);
             const suffix = match ? match[1] : null;
             const envVar = suffix ? `KIMI_CODE_${suffix}` : "KIMI_CODE";
             const apiKey = process.env[envVar];
@@ -368,7 +366,9 @@ export function createSessionStatusTool(opts?: {
               ? `${usageEntry.displayName} (fallback)`
               : isActual && fallbackUsageProvider
                 ? `${usageEntry.displayName} (active)`
-                : usageEntry.displayName;
+                : isActual && fallbackActive
+                  ? `${usageEntry.displayName} (fallback)`
+                  : usageEntry.displayName;
             const summaryLine = formatUsageWindowSummary(usageEntry, {
               now: Date.now(),
               maxWindows: 2,
@@ -432,6 +432,7 @@ export function createSessionStatusTool(opts?: {
         sessionKey: resolved.key,
         sessionStorePath: storePath,
         groupActivation,
+        modelLabelOverride: primaryModelLabel,
         modelAuth: resolveModelAuthLabel({
           provider: providerForCard,
           cfg,
