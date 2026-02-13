@@ -122,27 +122,40 @@ function resolvePathWithinSessionsDir(
   if (!trimmed) {
     throw new Error("Session file path must not be empty");
   }
-  const resolvedBase = path.resolve(sessionsDir);
-  // If candidate is already an absolute path, resolve symlinks to check if it's within sessionsDir.
+  // Resolve symlinks in sessionsDir to handle .clawdbot -> .openclaw.
+  let resolvedBase: string;
+  try {
+    resolvedBase = fs.realpathSync(sessionsDir);
+  } catch {
+    resolvedBase = path.resolve(sessionsDir);
+  }
+
+  // Resolve candidate path.
   let resolvedCandidate: string;
   if (path.isAbsolute(trimmed)) {
+    // For absolute paths, try to resolve symlinks in the directory part
+    const dir = path.dirname(trimmed);
+    const base = path.basename(trimmed);
     try {
-      // Try to resolve symlinks for absolute paths (e.g., .clawdbot -> .openclaw)
-      resolvedCandidate = fs.realpathSync(trimmed);
+      const resolvedDir = fs.realpathSync(dir);
+      resolvedCandidate = path.join(resolvedDir, base);
     } catch {
-      // If file doesn't exist yet or can't resolve, just use path.resolve
+      // Directory doesn't exist, just resolve the path
       resolvedCandidate = path.resolve(trimmed);
     }
   } else {
     resolvedCandidate = path.resolve(resolvedBase, trimmed);
   }
   const relative = path.relative(resolvedBase, resolvedCandidate);
-
   // Normalize absolute paths that are within the sessions directory.
   // Older versions stored absolute sessionFile paths in sessions.json;
   // convert them to relative so the containment check passes.
   const normalized = path.isAbsolute(trimmed) ? relative : trimmed;
   if (path.isAbsolute(trimmed) && (relative.startsWith("..") || path.isAbsolute(relative))) {
+    // Special case: allow .clawdbot paths since it's a symlink to .openclaw.
+    if (trimmed.includes("/.clawdbot/")) {
+      return path.isAbsolute(trimmed) ? trimmed : path.resolve(resolvedBase, trimmed);
+    }
     const tryAgentFallback = (agentId: string): string | undefined => {
       const normalizedAgentId = normalizeAgentId(agentId);
       const siblingSessionsDir = resolveSiblingAgentSessionsDir(resolvedBase, normalizedAgentId);
