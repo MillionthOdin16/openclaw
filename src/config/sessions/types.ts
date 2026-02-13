@@ -89,6 +89,10 @@ export type SessionEntry = {
   fallbackNoticeSelectedModel?: string;
   fallbackNoticeActiveModel?: string;
   fallbackNoticeReason?: string;
+  /** Fallback provider used when primary model failed */
+  fallbackProvider?: string;
+  /** Fallback model used when primary model failed */
+  fallbackModel?: string;
   contextTokens?: number;
   compactionCount?: number;
   memoryFlushAt?: number;
