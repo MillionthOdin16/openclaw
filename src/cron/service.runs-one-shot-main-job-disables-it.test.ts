@@ -388,13 +388,10 @@ describe("CronService", () => {
       return now;
     };
 
-    let resolveHeartbeat: ((res: HeartbeatRunResult) => void) | null = null;
-    const runHeartbeatOnce = vi.fn(
-      async () =>
-        await new Promise<HeartbeatRunResult>((resolve) => {
-          resolveHeartbeat = resolve;
-        }),
-    );
+    const runHeartbeatOnce = vi.fn(async () => ({
+      status: "ran" as const,
+      durationMs: 10,
+    }));
 
     const cron = new CronService({
       storePath: store.storePath,
