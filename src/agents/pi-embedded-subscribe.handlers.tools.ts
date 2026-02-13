@@ -269,7 +269,7 @@ export async function handleToolExecutionEnd(
   if (ctx.params.onToolResult && ctx.shouldEmitToolOutput()) {
     const outputText = extractToolResultText(sanitizedResult);
     if (outputText) {
-      ctx.emitToolOutput(toolName, meta, outputText);
+      ctx.emitToolOutput(toolName, meta, outputText, toolCallId, isToolError);
     }
   }
 

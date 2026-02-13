@@ -12,6 +12,15 @@ export class CommandLaneClearedError extends Error {
   }
 }
 
+// TTL for inactive lanes before they can be cleaned up.
+// Lanes that have been idle (no active tasks, empty queue) for this long
+// can be removed to prevent unbounded memory growth. See GitHub issue #5264.
+const LANE_IDLE_TTL_MS = 30 * 60_000; // 30 minutes
+
+// Maximum number of lanes to keep in memory. When exceeded, oldest idle
+// lanes are evicted. This prevents OOM in long-running processes.
+const MAX_LANE_COUNT = 1000;
+
 // Minimal in-process queue to serialize command executions.
 // Default lane ("main") preserves the existing behavior. Additional lanes allow
 // low-risk parallelism (e.g. cron jobs) without interleaving stdin / logs for
@@ -33,6 +42,9 @@ type LaneState = {
   maxConcurrent: number;
   draining: boolean;
   generation: number;
+  active: number;
+  /** Timestamp of last activity (task start/complete) for TTL-based cleanup. See issue #5264. */
+  lastActivityAt: number;
 };
 
 const lanes = new Map<string, LaneState>();
@@ -50,6 +62,9 @@ function getLaneState(lane: string): LaneState {
     maxConcurrent: 1,
     draining: false,
     generation: 0,
+    generation: 0,
+    active: 0,
+    lastActivityAt: Date.now(),
   };
   lanes.set(lane, created);
   return created;
@@ -60,6 +75,8 @@ function completeTask(state: LaneState, taskId: number, taskGeneration: number):
     return false;
   }
   state.activeTaskIds.delete(taskId);
+  state.active = Math.max(0, state.active - 1);
+  state.lastActivityAt = Date.now();
   return true;
 }
 
@@ -83,6 +100,9 @@ function drainLane(lane: string) {
       logLaneDequeue(lane, waitedMs, state.queue.length);
       const taskId = nextTaskId++;
       const taskGeneration = state.generation;
+      const taskGeneration = state.generation;
+      state.active += 1;
+      state.lastActivityAt = Date.now();
       state.activeTaskIds.add(taskId);
       void (async () => {
         const startTime = Date.now();
@@ -209,6 +229,8 @@ export function resetAllLanes(): void {
   for (const state of lanes.values()) {
     state.generation += 1;
     state.activeTaskIds.clear();
+    state.active = 0;
+    state.lastActivityAt = Date.now();
     state.draining = false;
     if (state.queue.length > 0) {
       lanesToDrain.push(state.lane);
@@ -283,4 +305,129 @@ export function waitForActiveTasks(timeoutMs: number): Promise<{ drained: boolea
     };
     check();
   });
+}
+
+/**
+ * Remove a lane from the map. Returns true if a lane was removed.
+ */
+export function removeCommandLane(lane: string): boolean {
+  const cleaned = lane.trim() || CommandLane.Main;
+  // Never remove system lanes
+  if (
+    cleaned === CommandLane.Main ||
+    cleaned === CommandLane.Cron ||
+    cleaned === CommandLane.Subagent ||
+    cleaned === CommandLane.Nested
+  ) {
+    return false;
+  }
+  const state = lanes.get(cleaned);
+  if (!state) {
+    return false;
+  }
+  // Only remove if idle (no active tasks, empty queue)
+  if (state.active > 0 || state.queue.length > 0) {
+    return false;
+  }
+  return lanes.delete(cleaned);
+}
+
+/**
+ * Clean up idle lanes that haven't been active for the TTL period.
+ * Returns the number of lanes removed.
+ */
+export function cleanupIdleLanes(): number {
+  const now = Date.now();
+  let removed = 0;
+  for (const [laneKey, state] of lanes.entries()) {
+    // Skip system lanes
+    if (
+      laneKey === CommandLane.Main ||
+      laneKey === CommandLane.Cron ||
+      laneKey === CommandLane.Subagent ||
+      laneKey === CommandLane.Nested
+    ) {
+      continue;
+    }
+    // Skip busy lanes
+    if (state.active > 0 || state.queue.length > 0) {
+      continue;
+    }
+    // Check TTL
+    if (now - state.lastActivityAt > LANE_IDLE_TTL_MS) {
+      if (lanes.delete(laneKey)) {
+        removed++;
+        diag.debug(`cleanupIdleLanes: removed idle lane=${laneKey}`);
+      }
+    }
+  }
+  return removed;
+}
+
+/**
+ * Evict oldest idle lanes if we exceed the maximum lane count.
+ * Returns the number of lanes evicted.
+ */
+export function evictExcessLanes(): number {
+  if (lanes.size <= MAX_LANE_COUNT) {
+    return 0;
+  }
+  // Collect idle lanes sorted by last activity (oldest first)
+  const idleLanes: Array<{ key: string; lastActivityAt: number }> = [];
+  for (const [laneKey, state] of lanes.entries()) {
+    // Skip system lanes
+    if (
+      laneKey === CommandLane.Main ||
+      laneKey === CommandLane.Cron ||
+      laneKey === CommandLane.Subagent ||
+      laneKey === CommandLane.Nested
+    ) {
+      continue;
+    }
+    // Only consider idle lanes
+    if (state.active === 0 && state.queue.length === 0) {
+      idleLanes.push({ key: laneKey, lastActivityAt: state.lastActivityAt });
+    }
+  }
+  // Sort by last activity (oldest first)
+  idleLanes.sort((a, b) => a.lastActivityAt - b.lastActivityAt);
+
+  const toEvict = lanes.size - MAX_LANE_COUNT;
+  let evicted = 0;
+  for (const { key } of idleLanes.slice(0, toEvict)) {
+    if (lanes.delete(key)) {
+      evicted++;
+      diag.debug(`evictExcessLanes: evicted idle lane=${key}`);
+    }
+  }
+  return evicted;
+}
+
+/**
+ * Get statistics about lanes for monitoring.
+ */
+export function getLaneStats(): {
+  totalLanes: number;
+  idleLanes: number;
+  busyLanes: number;
+  systemLanes: number;
+} {
+  let idleLanes = 0;
+  let busyLanes = 0;
+  let systemLanes = 0;
+  for (const [laneKey, state] of lanes.entries()) {
+    if (
+      laneKey === CommandLane.Main ||
+      laneKey === CommandLane.Cron ||
+      laneKey === CommandLane.Subagent ||
+      laneKey === CommandLane.Nested
+    ) {
+      systemLanes++;
+    } else if (state.active > 0 || state.queue.length > 0) {
+      busyLanes++;
+    } else {
+      idleLanes++;
+    }
+  }
+  return { totalLanes: lanes.size, idleLanes, busyLanes, systemLanes };
 }
