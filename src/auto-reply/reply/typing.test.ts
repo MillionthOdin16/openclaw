@@ -209,10 +209,10 @@ describe("createTypingSignaler", () => {
       isHeartbeat: false,
     });
 
+    // Typing should start immediately when reasoning begins (not wait for text)
     await signaler.signalReasoningDelta();
-    expect(typing.startTypingLoop).not.toHaveBeenCalled();
-    await signaler.signalTextDelta("hi");
     expect(typing.startTypingLoop).toHaveBeenCalled();
+    expect(typing.refreshTypingTtl).toHaveBeenCalled();
   });
 
   it("refreshes ttl on text for thinking mode", async () => {

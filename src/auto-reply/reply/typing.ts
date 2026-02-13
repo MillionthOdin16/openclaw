@@ -23,7 +23,7 @@ export function createTypingController(params: {
     onReplyStart,
     onCleanup,
     typingIntervalSeconds = 6,
-    typingTtlMs = 2 * 60_000,
+    typingTtlMs = 5 * 60_000, // 5 minutes - increased for high-thinking models
     silentToken = SILENT_REPLY_TOKEN,
     log,
   } = params;
