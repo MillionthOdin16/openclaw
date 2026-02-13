@@ -122,11 +122,17 @@ function resolvePathWithinSessionsDir(
     throw new Error("Session file path must not be empty");
   }
   const resolvedBase = path.resolve(sessionsDir);
+  // If candidate is already an absolute path, check if it's within sessionsDir.
+  const resolvedCandidate = path.isAbsolute(trimmed)
+    ? path.resolve(trimmed)
+    : path.resolve(resolvedBase, trimmed);
+  const relative = path.relative(resolvedBase, resolvedCandidate);
+
   // Normalize absolute paths that are within the sessions directory.
   // Older versions stored absolute sessionFile paths in sessions.json;
   // convert them to relative so the containment check passes.
-  const normalized = path.isAbsolute(trimmed) ? path.relative(resolvedBase, trimmed) : trimmed;
-  if (normalized.startsWith("..") && path.isAbsolute(trimmed)) {
+  const normalized = path.isAbsolute(trimmed) ? relative : trimmed;
+  if (path.isAbsolute(trimmed) && (relative.startsWith("..") || path.isAbsolute(relative))) {
     const tryAgentFallback = (agentId: string): string | undefined => {
       const normalizedAgentId = normalizeAgentId(agentId);
       const siblingSessionsDir = resolveSiblingAgentSessionsDir(resolvedBase, normalizedAgentId);
