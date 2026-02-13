@@ -112,7 +112,8 @@ function resolvePathWithinSessionsDir(sessionsDir: string, candidate: string): s
     }
     throw new Error("Session file path must be within sessions directory");
   }
-  return resolvedCandidate;
+  // Return relative path instead of absolute to avoid storing absolute paths in sessions.json
+  return relative;
 }
 
 export function resolveSessionTranscriptPathInDir(
