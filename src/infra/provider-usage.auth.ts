@@ -139,9 +139,27 @@ function resolveKimiApiKey(): string | undefined {
     return envDirect;
   }
 
-  const envResolved = resolveEnvApiKey("kimi-code");
-  if (envResolved?.apiKey) {
-    return envResolved.apiKey;
+  // Try KIMI_CODE and numbered variants (KIMI_CODE_2, KIMI_CODE_3, etc.)
+  // Prefer numbered keys with available quota over the base key
+  const baseKey = resolveEnvApiKey("kimi-code");
+  const numberedKeys: string[] = [];
+
+  // Check KIMI_CODE_2 through KIMI_CODE_20
+  for (let i = 2; i <= 20; i++) {
+    const envVar = `KIMI_CODE_${i}`;
+    const value = normalizeSecretInput(process.env[envVar]);
+    if (value) {
+      numberedKeys.push(value);
+    }
+  }
+
+  // Return first numbered key if any exist, otherwise base key
+  if (numberedKeys.length > 0) {
+    return numberedKeys[0];
+  }
+
+  if (baseKey?.apiKey) {
+    return baseKey.apiKey;
   }
 
   const cfg = loadConfig();
