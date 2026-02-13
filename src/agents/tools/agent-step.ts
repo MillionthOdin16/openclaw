@@ -91,7 +91,7 @@ export async function runAgentStep(params: {
   const filtered = stripToolMessages(Array.isArray(history?.messages) ? history.messages : []);
   const startedAt = typeof wait.startedAt === "number" ? wait.startedAt : undefined;
   const endedAt = typeof wait.endedAt === "number" ? wait.endedAt : undefined;
-  let picked: unknown | undefined;
+  let picked: unknown;
   if (startedAt !== undefined || endedAt !== undefined) {
     for (let i = filtered.length - 1; i >= 0; i -= 1) {
       const entry = filtered[i];
