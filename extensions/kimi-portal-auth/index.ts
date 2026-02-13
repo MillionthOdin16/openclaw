@@ -1,4 +1,8 @@
-import { emptyPluginConfigSchema } from "openclaw/plugin-sdk";
+import {
+  emptyPluginConfigSchema,
+  type OpenClawPluginApi,
+  type ProviderAuthContext,
+} from "openclaw/plugin-sdk";
 import { loginKimiPortalOAuth } from "./oauth.js";
 
 const PROVIDER_ID = "kimi-portal";
@@ -30,8 +34,7 @@ function buildModelDefinition(params: {
 }
 
 function createOAuthHandler() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async (ctx: any) => {
+  return async (ctx: ProviderAuthContext) => {
     const progress = ctx.prompter.progress("Starting Kimi OAuth…");
     try {
       const result = await loginKimiPortalOAuth({
@@ -63,7 +66,7 @@ function createOAuthHandler() {
               [PROVIDER_ID]: {
                 baseUrl: DEFAULT_BASE_URL,
                 apiKey: OAUTH_PLACEHOLDER,
-                api: "openai-chat",
+                api: "openai-completions" as const,
                 models: [
                   buildModelDefinition({
                     id: "kimi-for-coding",
@@ -105,7 +108,7 @@ const kimiPortalPlugin = {
   name: "Kimi OAuth",
   description: "OAuth flow for Kimi Code models",
   configSchema: emptyPluginConfigSchema(),
-  register(api) {
+  register(api: OpenClawPluginApi) {
     api.registerProvider({
       id: PROVIDER_ID,
       label: PROVIDER_LABEL,
