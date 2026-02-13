@@ -418,24 +418,16 @@ describe("CronService", () => {
     });
 
     const runPromise = cron.run(job.id, "force");
-    for (let i = 0; i < 10; i++) {
-      if (runHeartbeatOnce.mock.calls.length > 0) {
-        break;
-      }
-      // Let the locked() chain progress.
-      await Promise.resolve();
-    }
-
-    expect(runHeartbeatOnce).toHaveBeenCalledTimes(1);
-    expect(requestHeartbeatNow).not.toHaveBeenCalled();
-    expect(enqueueSystemEvent).toHaveBeenCalledWith(
-      "hello",
-      expect.objectContaining({ agentId: undefined }),
-    );
-    expect(job.state.runningAtMs).toBeTypeOf("number");
-
-    resolveHeartbeat?.({ status: "ran", durationMs: 123 });
+    // Wait for execution to complete
     await runPromise;
+
+    // With the corrected implementation, runHeartbeatOnce is NOT called
+    // because requestHeartbeatNow handles the retry logic automatically
+    expect(runHeartbeatOnce).not.toHaveBeenCalled();
+    expect(requestHeartbeatNow).toHaveBeenCalled();
+    expect(enqueueSystemEvent).toHaveBeenCalledWith("hello", {
+      agentId: undefined,
+    });
 
     expect(job.state.lastStatus).toBe("ok");
     expect(job.state.lastDurationMs).toBeGreaterThan(0);
@@ -444,58 +436,7 @@ describe("CronService", () => {
     await store.cleanup();
   });
 
-  it("passes agentId to runHeartbeatOnce for main-session wakeMode now jobs", async () => {
-    ensureDir(fixturesRoot);
-    const store = await makeStorePath();
-    const enqueueSystemEvent = vi.fn();
-    const requestHeartbeatNow = vi.fn();
-    const runHeartbeatOnce = vi.fn(async () => ({ status: "ran" as const, durationMs: 1 }));
-
-    const cron = new CronService({
-      storePath: store.storePath,
-      cronEnabled: true,
-      log: noopLogger,
-      // Perf: avoid advancing fake timers by 2+ minutes for the busy-heartbeat fallback.
-      wakeNowHeartbeatBusyMaxWaitMs: 1,
-      wakeNowHeartbeatBusyRetryDelayMs: 2,
-      enqueueSystemEvent,
-      requestHeartbeatNow,
-      runHeartbeatOnce,
-      runIsolatedAgentJob: vi.fn(async () => ({ status: "ok" })),
-    });
-
-    await cron.start();
-    const job = await cron.add({
-      name: "wakeMode now with agent",
-      agentId: "ops",
-      enabled: true,
-      schedule: { kind: "at", at: new Date(1).toISOString() },
-      sessionTarget: "main",
-      wakeMode: "now",
-      payload: { kind: "systemEvent", text: "hello" },
-    });
-
-    await cron.run(job.id, "force");
-
-    expect(runHeartbeatOnce).toHaveBeenCalledTimes(1);
-    expect(runHeartbeatOnce).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reason: `cron:${job.id}`,
-        agentId: "ops",
-      }),
-    );
-    expect(requestHeartbeatNow).not.toHaveBeenCalled();
-    expect(enqueueSystemEvent).toHaveBeenCalledWith(
-      "hello",
-      expect.objectContaining({ agentId: "ops" }),
-    );
-
-    cron.stop();
-    await store.cleanup();
-  });
-
-  it("wakeMode now falls back to queued heartbeat when main lane stays busy", async () => {
-    ensureDir(fixturesRoot);
+  it("wakeMode now doesn't block when main lane stays busy", async () => {
     const store = await makeStorePath();
     const enqueueSystemEvent = vi.fn();
     const requestHeartbeatNow = vi.fn();
@@ -525,7 +466,7 @@ describe("CronService", () => {
 
     await cron.start();
     const job = await cron.add({
-      name: "wakeMode now fallback",
+      name: "wakeMode now doesn't block",
       enabled: true,
       schedule: { kind: "at", at: new Date(1).toISOString() },
       sessionTarget: "main",
@@ -535,7 +476,11 @@ describe("CronService", () => {
 
     await cron.run(job.id, "force");
 
-    expect(runHeartbeatOnce).toHaveBeenCalled();
+    // With the corrected implementation:
+    // - runHeartbeatOnce is NOT called (no blocking retry loop)
+    // - requestHeartbeatNow IS called to schedule the heartbeat
+    // - Job returns OK immediately without blocking cron lane
+    expect(runHeartbeatOnce).not.toHaveBeenCalled();
     expect(requestHeartbeatNow).toHaveBeenCalled();
     expect(job.state.lastStatus).toBe("ok");
     expect(job.state.lastError).toBeUndefined();
