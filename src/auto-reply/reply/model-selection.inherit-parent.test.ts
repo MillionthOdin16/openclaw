@@ -205,7 +205,7 @@ describe("createModelSelectionState parent inheritance", () => {
       provider: "anthropic",
       model: "claude-opus-4-5",
       hasModelDirective: false,
-      isHeartbeat: true,
+      hasResolvedHeartbeatModelOverride: true,
     });
 
     expect(state.provider).toBe("anthropic");
