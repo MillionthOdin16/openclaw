@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { expandHomePrefix, resolveRequiredHomeDir } from "../../infra/home-dir.js";
@@ -78,10 +79,19 @@ function resolvePathWithinSessionsDir(sessionsDir: string, candidate: string): s
   }
   const resolvedBase = path.resolve(sessionsDir);
 
-  // If candidate is already an absolute path, check if it's within sessionsDir
-  const resolvedCandidate = path.isAbsolute(trimmed)
-    ? path.resolve(trimmed)
-    : path.resolve(resolvedBase, trimmed);
+  // If candidate is already an absolute path, resolve symlinks to check if it's within sessionsDir
+  let resolvedCandidate: string;
+  if (path.isAbsolute(trimmed)) {
+    try {
+      // Try to resolve symlinks for absolute paths (e.g., .clawdbot -> .openclaw)
+      resolvedCandidate = fs.realpathSync(trimmed);
+    } catch {
+      // If file doesn't exist yet or can't resolve, just use path.resolve
+      resolvedCandidate = path.resolve(trimmed);
+    }
+  } else {
+    resolvedCandidate = path.resolve(resolvedBase, trimmed);
+  }
 
   const relative = path.relative(resolvedBase, resolvedCandidate);
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
