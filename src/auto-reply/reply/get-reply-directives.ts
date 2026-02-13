@@ -132,6 +132,7 @@ export async function resolveReplyDirectives(params: {
     defaultModel,
     provider: initialProvider,
     model: initialModel,
+    hasResolvedHeartbeatModelOverride,
     typing,
     opts,
     skillFilter,
