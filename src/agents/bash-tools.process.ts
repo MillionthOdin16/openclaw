@@ -212,7 +212,7 @@ export function createProcessTool(
         const lines = [...running, ...finished]
           .toSorted((a, b) => b.startedAt - a.startedAt)
           .map((s) => {
-            const label = s.name ? truncateMiddle(s.name, 80) : truncateMiddle(s.command, 120);
+            const label = s.name ? truncateMiddle(s.name, 80) : truncateMiddle(s.command, 200);
             return `${s.sessionId} ${pad(s.status, 9)} ${formatDurationCompact(s.runtimeMs) ?? "n/a"} :: ${label}`;
           });
         return {

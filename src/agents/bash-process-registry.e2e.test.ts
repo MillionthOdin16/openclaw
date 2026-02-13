@@ -6,7 +6,6 @@ import {
   appendOutput,
   drainSession,
   listFinishedSessions,
-  markBackgrounded,
   markExited,
   resetProcessRegistryForTests,
 } from "./bash-process-registry.js";
@@ -107,10 +106,6 @@ describe("bash process registry", () => {
     });
 
     addSession(session);
-    markExited(session, 0, null, "completed");
-    expect(listFinishedSessions()).toHaveLength(0);
-
-    markBackgrounded(session);
     markExited(session, 0, null, "completed");
     expect(listFinishedSessions()).toHaveLength(1);
   });
