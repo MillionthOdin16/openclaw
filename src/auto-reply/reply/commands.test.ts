@@ -128,6 +128,16 @@ describe("handleCommands gating", () => {
     expect(result.shouldContinue).toBe(false);
     expect(result.reply?.text).toContain("/debug is disabled");
   });
+
+  it("allows /stop even when text commands are disabled on native surfaces", async () => {
+    const cfg = {
+      commands: { text: false },
+    } as OpenClawConfig;
+    const params = buildParams("/stop", cfg, { Provider: "discord", Surface: "discord" });
+    const result = await handleCommands(params);
+    expect(result.shouldContinue).toBe(false);
+    expect(result.reply?.text).toContain("Agent was aborted");
+  });
 });
 
 describe("handleCommands bash alias", () => {
