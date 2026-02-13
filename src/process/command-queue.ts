@@ -212,10 +212,8 @@ function drainLane(lane: string) {
       logLaneDequeue(lane, waitedMs, state.queue.length);
       const taskId = nextTaskId++;
       state.active += 1;
-      state.activeTaskIds.add(taskId);
       state.lastActivityAt = Date.now();
       state.activeTaskIds.add(taskId);
-      state.lastActivityAt = Date.now();
 
       // Track task execution with timeout to prevent deadlocks
       // See GitHub issue #7630: nested queue pattern can hang indefinitely
@@ -235,8 +233,6 @@ function drainLane(lane: string) {
         }
         completed = true;
         state.active -= 1;
-        state.activeTaskIds.delete(taskId);
-        state.lastActivityAt = Date.now();
         state.activeTaskIds.delete(taskId);
         state.lastActivityAt = Date.now();
         diag.error(
@@ -259,9 +255,8 @@ function drainLane(lane: string) {
           completed = true;
           cleanup();
           state.active -= 1;
+          state.activeTaskIds.delete(taskId);
           state.lastActivityAt = Date.now();
-          state.activeTaskIds.delete(taskId);
-          state.activeTaskIds.delete(taskId);
           diag.debug(
             `lane task done: lane=${lane} durationMs=${Date.now() - startTime} active=${state.active} queued=${state.queue.length}`,
           );
@@ -275,9 +270,8 @@ function drainLane(lane: string) {
           completed = true;
           cleanup();
           state.active -= 1;
+          state.activeTaskIds.delete(taskId);
           state.lastActivityAt = Date.now();
-          state.activeTaskIds.delete(taskId);
-          state.activeTaskIds.delete(taskId);
           const isProbeLane = lane.startsWith("auth-probe:") || lane.startsWith("session:probe-");
           if (!isProbeLane) {
             diag.error(
