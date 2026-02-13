@@ -5,7 +5,7 @@ description: Keep local main aligned with origin/main while preserving local fix
 
 # Upstream Sync (OpenClaw)
 
-Goal: stay as close to `origin/main` as possible **without losing** local customizations and fixes.
+Goal: stay as close to `origin/main` as possible **without losing** local customizations and fixes, and verify that upstream changes did not introduce regressions.
 
 ## Non-negotiables (safety)
 
@@ -29,6 +29,19 @@ Optional safety branch before major rebases:
 git branch backup/local-main-$(date +%Y%m%d)
 ```
 
+## Pre-flight checklist
+
+- Confirm remotes:
+  ```bash
+  git remote -v
+  ```
+- Ensure working tree is clean and all local fixes are committed with `scripts/committer`.
+- Capture the current delta:
+  ```bash
+  git log --oneline --decorate -n 20
+  git range-diff origin/main...local-main
+  ```
+
 ## Routine sync workflow (safe path)
 
 1. **Clean working tree**:
@@ -50,6 +63,23 @@ git branch backup/local-main-$(date +%Y%m%d)
    ```bash
    git range-diff origin/main...local-main
    ```
+
+## Verification + regression audit (required)
+
+After rebase, verify correctness and regression safety:
+
+1. **Run targeted tests** for touched areas first.
+2. **Run repo checks** (if recent changes are broad):
+   ```bash
+   pnpm check
+   pnpm build
+   pnpm test -- <targeted tests>
+   ```
+3. **Audit critical pipelines** when upstream changes are large:
+   - **Messaging pipeline**: channel routing, followup queue, reply handling.
+   - **Command pipeline**: command queue, lanes, and /status output.
+   - **Schedule pipeline**: cron/isolated agents and session usage.
+4. **Document external failures** (deps/creds) separately so they don’t mask regressions.
 
 ## Dropping redundant local fixes
 
@@ -73,6 +103,15 @@ git range-diff origin/main...local-main
 pnpm test -- <targeted tests>
 ```
 
+### Deep verification sweep (post-rebase)
+
+```bash
+pnpm check
+pnpm build
+pnpm test -- status.test.ts
+pnpm test -- agent-runner
+```
+
 ### Resolve a conflict during rebase
 
 ```bash
@@ -88,6 +127,12 @@ git rebase --continue
 git rebase -i origin/main
 # mark local commit(s) as "drop"
 pnpm test -- <targeted tests>
+```
+
+### Push rebased history to a fork
+
+```bash
+git push fork local-main:main --force-with-lease
 ```
 
 ## Troubleshooting
@@ -115,6 +160,7 @@ git reset --hard <good-sha>  # last resort, confirm first
 - Identify the upstream change that introduced the failure.
 - If your local customization now conflicts with upstream behavior, update your commit or drop it if upstream is better.
 - Re-run only the affected test suites to confirm.
+- Add regression tests for fixes you keep.
 
 ### Lost changes (rare)
 
