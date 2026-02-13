@@ -114,9 +114,29 @@ export async function buildStatusReply(params: {
 
   if (providersToFetch.length > 0) {
     try {
+      // Resolve auth for the ACTUAL provider variant (e.g., kimi-code-9, not just kimi-code)
+      // This ensures we use the correct API key for the running provider
+      const providerAuths: Array<{ provider: UsageProviderId; token: string }> = [];
+
+      if (actualUsageProvider === "kimi-code" && actualProvider) {
+        // Extract suffix from actualProvider (e.g., "kimi-code-9" → "9")
+        const match = actualProvider.match(/kimi-code-(\d+)$/);
+        const suffix = match ? match[1] : null;
+        const envVar = suffix ? `KIMI_CODE_${suffix}` : "KIMI_CODE";
+        const apiKey = process.env[envVar];
+
+        if (apiKey) {
+          providerAuths.push({
+            provider: "kimi-code",
+            token: apiKey,
+          });
+        }
+      }
+
       const usageSummary = await loadProviderUsageSummary({
         timeoutMs: 3500,
         providers: providersToFetch as UsageProviderId[],
+        auth: providerAuths.length > 0 ? providerAuths : undefined,
         agentDir: statusAgentDir,
       });
 
