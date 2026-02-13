@@ -140,7 +140,7 @@ function resolveKimiApiKey(): string | undefined {
   }
 
   // Try KIMI_CODE and numbered variants (KIMI_CODE_2, KIMI_CODE_3, etc.)
-  // Prefer numbered keys with available quota over the base key
+  // Prefer the base key when present; fall back to numbered keys.
   const baseKey = resolveEnvApiKey("kimi-code");
   const numberedKeys: string[] = [];
 
@@ -153,13 +153,13 @@ function resolveKimiApiKey(): string | undefined {
     }
   }
 
+  if (baseKey?.apiKey) {
+    return baseKey.apiKey;
+  }
+
   // Return first numbered key if any exist, otherwise base key
   if (numberedKeys.length > 0) {
     return numberedKeys[0];
-  }
-
-  if (baseKey?.apiKey) {
-    return baseKey.apiKey;
   }
 
   const cfg = loadConfig();
