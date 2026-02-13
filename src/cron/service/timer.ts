@@ -38,11 +38,6 @@ function errorBackoffMs(consecutiveErrors: number): number {
   return ERROR_BACKOFF_SCHEDULE_MS[Math.max(0, idx)];
 }
 
-/** Promise-based delay helper */
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /**
  * Apply the result of a job execution to the job's state.
  * Handles consecutive error tracking, exponential backoff, one-shot disable,
