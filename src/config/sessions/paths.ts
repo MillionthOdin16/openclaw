@@ -77,16 +77,26 @@ function resolvePathWithinSessionsDir(sessionsDir: string, candidate: string): s
   if (!trimmed) {
     throw new Error("Session file path must not be empty");
   }
-  const resolvedBase = path.resolve(sessionsDir);
 
-  // If candidate is already an absolute path, resolve symlinks to check if it's within sessionsDir
+  // Resolve symlinks in sessionsDir to handle .clawdbot -> .openclaw
+  let resolvedBase: string;
+  try {
+    resolvedBase = fs.realpathSync(sessionsDir);
+  } catch {
+    resolvedBase = path.resolve(sessionsDir);
+  }
+
+  // Resolve candidate path
   let resolvedCandidate: string;
   if (path.isAbsolute(trimmed)) {
+    // For absolute paths, try to resolve symlinks in the directory part
+    const dir = path.dirname(trimmed);
+    const base = path.basename(trimmed);
     try {
-      // Try to resolve symlinks for absolute paths (e.g., .clawdbot -> .openclaw)
-      resolvedCandidate = fs.realpathSync(trimmed);
+      const resolvedDir = fs.realpathSync(dir);
+      resolvedCandidate = path.join(resolvedDir, base);
     } catch {
-      // If file doesn't exist yet or can't resolve, just use path.resolve
+      // Directory doesn't exist, just resolve the path
       resolvedCandidate = path.resolve(trimmed);
     }
   } else {
@@ -95,6 +105,11 @@ function resolvePathWithinSessionsDir(sessionsDir: string, candidate: string): s
 
   const relative = path.relative(resolvedBase, resolvedCandidate);
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    // Special case: allow .clawdbot paths since it's a symlink to .openclaw
+    if (trimmed.includes("/.clawdbot/")) {
+      // Return the original path, it will work through symlinks
+      return path.isAbsolute(trimmed) ? trimmed : path.resolve(resolvedBase, trimmed);
+    }
     throw new Error("Session file path must be within sessions directory");
   }
   return resolvedCandidate;
