@@ -75,6 +75,32 @@ const resolveSessionTtsAuto = (
   }
 };
 
+const resolveSessionVerboseLevel = (
+  ctx: FinalizedMsgContext,
+  cfg: OpenClawConfig,
+): VerboseLevel | undefined => {
+  const targetSessionKey =
+    ctx.CommandSource === "native" ? ctx.CommandTargetSessionKey?.trim() : undefined;
+  const sessionKey = (targetSessionKey ?? ctx.SessionKey)?.trim();
+  if (!sessionKey) {
+    return undefined;
+  }
+  const agentId = resolveSessionAgentId({ sessionKey, config: cfg });
+  const storePath = resolveStorePath(cfg.session?.store, { agentId });
+  try {
+    const store = loadSessionStore(storePath);
+    const entry = store[sessionKey.toLowerCase()] ?? store[sessionKey];
+    const sessionVerbose = entry?.verboseLevel as VerboseLevel | undefined;
+    if (sessionVerbose) {
+      return sessionVerbose;
+    }
+    const agentDefaults = cfg.agents?.defaults;
+    return agentDefaults?.verboseDefault as VerboseLevel | undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export type DispatchFromConfigResult = {
   queuedFinal: boolean;
   counts: Record<ReplyDispatchKind, number>;
@@ -148,6 +174,7 @@ export async function dispatchReplyFromConfig(params: {
 
   const inboundAudio = isInboundAudioContext(ctx);
   const sessionTtsAuto = resolveSessionTtsAuto(ctx, cfg);
+  const sessionVerboseLevel = resolveSessionVerboseLevel(ctx, cfg);
   const hookRunner = getGlobalHookRunner();
 
   // Extract message context for hooks (plugin and internal)

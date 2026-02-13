@@ -146,8 +146,8 @@ export function formatToolDetail(display: ToolDisplay): string | undefined {
 }
 
 export function formatToolSummary(display: ToolDisplay): string {
-  if (display.detail) {
-    return `${display.emoji} ${display.label} ${display.detail}`;
-  }
-  return `${display.emoji} ${display.label}`;
+  const detail = formatToolDetail(display);
+  return detail
+    ? `${display.emoji} ${display.label}: ${detail}`
+    : `${display.emoji} ${display.label}`;
 }
