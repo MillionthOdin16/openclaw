@@ -8,7 +8,7 @@ async function main() {
 
   try {
     const result = await loginKimiPortalOAuth({
-      openUrl: (url) => {
+      openUrl: async (url) => {
         console.log("\n=== ACTION REQUIRED ===");
         console.log("Open this URL to authorize:");
         console.log(url);
@@ -16,7 +16,7 @@ async function main() {
         console.log("Waiting for approval (polling every few seconds)...");
         console.log("");
       },
-      note: (msg, title) => console.log(`[${title}] ${msg}`),
+      note: async (msg, title) => console.log(`[${title}] ${msg}`),
       progress: {
         stop: (msg) => console.log("[Done]", msg),
         update: (msg) => process.stdout.write("."),
