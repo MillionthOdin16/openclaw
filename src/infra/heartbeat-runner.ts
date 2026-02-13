@@ -979,11 +979,6 @@ export function startHeartbeatRunner(opts: {
     return now + intervalMs;
   };
 
-  const advanceAgentSchedule = (agent: HeartbeatAgentState, now: number) => {
-    agent.lastRunMs = now;
-    agent.nextDueMs = now + agent.intervalMs;
-  };
-
   const scheduleNext = () => {
     if (state.stopped) {
       return;
@@ -1068,12 +1063,14 @@ export function startHeartbeatRunner(opts: {
       } satisfies HeartbeatRunResult;
     }
     if (!heartbeatsEnabled) {
+      log.debug("heartbeat: skipped (heartbeats disabled globally)");
       return {
         status: "skipped",
         reason: "disabled",
       } satisfies HeartbeatRunResult;
     }
     if (state.agents.size === 0) {
+      log.debug("heartbeat: skipped (no agents with heartbeat enabled)");
       return {
         status: "skipped",
         reason: "disabled",
@@ -1119,36 +1116,33 @@ export function startHeartbeatRunner(opts: {
         return { status: "failed", reason: errMsg };
       }
     }
+    log.debug(`heartbeat: checking ${state.agents.size} agent(s), reason=${reason ?? "unknown"}`);
 
     for (const agent of state.agents.values()) {
       if (isInterval && now < agent.nextDueMs) {
+        log.debug(
+          `heartbeat: skipping agent ${agent.agentId} (not due yet, nextDueMs=${agent.nextDueMs}, now=${now})`,
+        );
         continue;
       }
 
-      let res: HeartbeatRunResult;
-      try {
-        res = await runOnce({
-          cfg: state.cfg,
-          agentId: agent.agentId,
-          heartbeat: agent.heartbeat,
-          reason,
-          deps: { runtime: state.runtime },
-        });
-      } catch (err) {
-        // If runOnce throws (e.g. during session compaction), we must still
-        // advance the timer and call scheduleNext so heartbeats keep firing.
-        const errMsg = formatErrorMessage(err);
-        log.error(`heartbeat runner: runOnce threw unexpectedly: ${errMsg}`, { error: errMsg });
-        advanceAgentSchedule(agent, now);
-        continue;
-      }
+      log.debug(`heartbeat: running for agent ${agent.agentId}`);
+      const res = await runOnce({
+        cfg: state.cfg,
+        agentId: agent.agentId,
+        heartbeat: agent.heartbeat,
+        reason,
+        deps: { runtime: state.runtime },
+      });
+      log.debug(
+        `heartbeat: completed for agent ${agent.agentId}, status=${res.status}${"reason" in res && res.reason ? `, reason=${res.reason}` : ""}`,
+      );
       if (res.status === "skipped" && res.reason === "requests-in-flight") {
-        advanceAgentSchedule(agent, now);
-        scheduleNext();
         return res;
       }
       if (res.status !== "skipped" || res.reason !== "disabled") {
-        advanceAgentSchedule(agent, now);
+        agent.lastRunMs = now;
+        agent.nextDueMs = now + agent.intervalMs;
       }
       if (res.status === "ran") {
         ran = true;

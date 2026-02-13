@@ -75,6 +75,7 @@ const resolveSessionTtsAuto = (
   }
 };
 
+
 export type DispatchFromConfigResult = {
   queuedFinal: boolean;
   counts: Record<ReplyDispatchKind, number>;
@@ -334,7 +335,6 @@ export async function dispatchReplyFromConfig(params: {
       }
       return { ...payload, text: undefined };
     };
-
     const replyResult = await (params.replyResolver ?? getReplyFromConfig)(
       ctx,
       {

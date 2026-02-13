@@ -1,6 +1,7 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
 import { extractTextFromChatContent } from "../shared/chat-content.js";
+import type { VerboseLevel } from "../auto-reply/thinking.js";
 import { stripReasoningTagsFromText } from "../shared/text/reasoning-tags.js";
 import { sanitizeUserFacingText } from "./pi-embedded-helpers.js";
 import { formatToolDetail, resolveToolDisplay } from "./tool-display.js";
@@ -207,13 +208,17 @@ export function stripThinkingTagsFromText(text: string): string {
   return stripReasoningTagsFromText(text, { mode: "strict", trim: "both" });
 }
 
-export function extractAssistantText(msg: AssistantMessage): string {
+export function extractAssistantText(msg: AssistantMessage, verboseLevel?: VerboseLevel): string {
   const extracted =
     extractTextFromChatContent(msg.content, {
-      sanitizeText: (text) =>
-        stripThinkingTagsFromText(
+      sanitizeText: (text) => {
+        if (verboseLevel === "full") {
+          return text;
+        }
+        return stripThinkingTagsFromText(
           stripDowngradedToolCallText(stripMinimaxToolCallXml(text)),
-        ).trim(),
+        ).trim();
+      },
       joinWith: "\n",
       normalizeText: (text) => text.trim(),
     }) ?? "";

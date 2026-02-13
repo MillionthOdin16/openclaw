@@ -637,8 +637,12 @@ export async function compactEmbeddedPiSessionDirect(
         }
 
         const compactStartedAt = Date.now();
-        const result = await compactWithSafetyTimeout(() =>
-          session.compact(params.customInstructions),
+        // Wrap compaction with timeout to prevent infinite hangs (e.g., NVIDIA NIM stream issues)
+        // See: https://github.com/openclaw/openclaw/issues/5980
+        const COMPACTION_TIMEOUT_MS = 120_000; // 2 minutes
+        const result = await compactWithSafetyTimeout(
+          () => session.compact(params.customInstructions),
+          COMPACTION_TIMEOUT_MS,
         );
         // Estimate tokens after compaction by summing token estimates for remaining messages
         let tokensAfter: number | undefined;
