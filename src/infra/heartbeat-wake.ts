@@ -104,6 +104,7 @@ function schedule(coalesceMs: number, kind: WakeTimerKind = "normal") {
     scheduled = false;
     const active = handler;
     if (!active) {
+      const pendingReason = pendingWake?.reason;
       // Log diagnostic warning when heartbeat is requested but no handler is registered
       // This can happen if the heartbeat runner hasn't started yet or was stopped
       console.warn(
