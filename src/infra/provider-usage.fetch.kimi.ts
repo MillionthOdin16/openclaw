@@ -35,14 +35,28 @@ function parseResetTime(resetTime: string | undefined): number | undefined {
   return undefined;
 }
 
+function parseNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
 function extractWeeklyWindow(data: KimiUsageResponse): UsageWindow | null {
   const usage = data.usage;
   if (!usage) {
     return null;
   }
 
-  const used = typeof usage.used === "number" ? usage.used : 0;
-  const limit = typeof usage.limit === "number" && usage.limit > 0 ? usage.limit : 100;
+  const used = parseNumber(usage.used) ?? 0;
+  const limitValue = parseNumber(usage.limit);
+  const limit = typeof limitValue === "number" && limitValue > 0 ? limitValue : 100;
   const usedPercent = clampPercent((used / limit) * 100);
 
   return {
@@ -58,8 +72,9 @@ function extractWindowLimit(data: KimiUsageResponse): UsageWindow | null {
     return null;
   }
 
-  const used = typeof detail.used === "number" ? detail.used : 0;
-  const limit = typeof detail.limit === "number" && detail.limit > 0 ? detail.limit : 100;
+  const used = parseNumber(detail.used) ?? 0;
+  const limitValue = parseNumber(detail.limit);
+  const limit = typeof limitValue === "number" && limitValue > 0 ? limitValue : 100;
   const usedPercent = clampPercent((used / limit) * 100);
 
   return {
