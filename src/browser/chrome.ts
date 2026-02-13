@@ -285,16 +285,45 @@ export async function launchOpenClawChrome(
   }
 
   const proc = spawnOnce();
+  const loopbackUrl = cdpUrlForPort(profile.cdpPort);
+  let devtoolsReady = false;
+  const onDevtoolsLine = (chunk: Buffer) => {
+    if (devtoolsReady) {
+      return;
+    }
+    const text = chunk.toString();
+    if (text.includes("DevTools listening on")) {
+      devtoolsReady = true;
+    }
+  };
+  proc.stderr?.on("data", onDevtoolsLine);
+  proc.stdout?.on("data", onDevtoolsLine);
+  const detachDevtoolsListener = () => {
+    proc.stderr?.off("data", onDevtoolsLine);
+    proc.stdout?.off("data", onDevtoolsLine);
+  };
+
+  const isReachable = async () => {
+    if (await isChromeReachable(profile.cdpUrl, 500)) {
+      return true;
+    }
+    if (loopbackUrl !== profile.cdpUrl && (await isChromeReachable(loopbackUrl, 500))) {
+      return true;
+    }
+    return false;
+  };
   // Wait for CDP to come up.
   const readyDeadline = Date.now() + 15_000;
   while (Date.now() < readyDeadline) {
-    if (await isChromeReachable(profile.cdpUrl, 500)) {
+    if (devtoolsReady || (await isReachable())) {
       break;
     }
     await new Promise((r) => setTimeout(r, 200));
   }
 
-  if (!(await isChromeReachable(profile.cdpUrl, 500))) {
+  const reachable = devtoolsReady || (await isReachable());
+  detachDevtoolsListener();
+  if (!reachable) {
     try {
       proc.kill("SIGKILL");
     } catch {
