@@ -1009,9 +1009,18 @@ export async function runEmbeddedAttempt(
         const preCompactionSessionId = activeSession.sessionId;
 
         try {
-          await abortable(waitForCompactionRetry());
+          // Wait for compaction with a 60-second timeout to prevent indefinite blocking
+          // if compaction state gets stuck (e.g., due to abort without proper cleanup).
+          // This is a safety net - normal compaction completes in seconds, but we allow
+          // up to 60s for large sessions or slow systems.
+          await waitForCompactionRetry(60_000);
         } catch (err) {
-          if (isRunnerAbortError(err)) {
+          // Log timeout but don't fail the run - compaction may have been interrupted
+          if (err instanceof Error && err.message.includes("timed out")) {
+            log.warn(
+              `waitForCompactionRetry timed out: runId=${params.runId} sessionId=${params.sessionId} compactionInFlight=${subscription.isCompacting()}`,
+            );
+          } else if (isRunnerAbortError(err)) {
             if (!promptError) {
               promptError = err;
             }
