@@ -106,10 +106,11 @@ export function createTypingSignaler(params: {
     if (disabled || !shouldStartOnReasoning) {
       return;
     }
-    if (!hasRenderableText) {
-      return;
+    // Start typing as soon as reasoning begins (don't wait for text)
+    // This ensures users see activity during the thinking phase
+    if (!typing.isActive()) {
+      await typing.startTypingLoop();
     }
-    await typing.startTypingLoop();
     typing.refreshTypingTtl();
   };
 
