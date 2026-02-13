@@ -43,15 +43,21 @@ export function scheduleFollowupDrain(
       let forceIndividualCollect = false;
       while (queue.items.length > 0 || queue.droppedCount > 0) {
         await waitForQueueDebounce(queue);
+
+        // Double-check that we still have items after debounce
+        if (queue.items.length === 0 && queue.droppedCount === 0) {
+          break;
+        }
+
         if (queue.mode === "collect") {
           // Once the batch is mixed, never collect again within this drain.
-          // Prevents “collect after shift” collapsing different targets.
+          // Prevents "collect after shift" collapsing different targets.
           //
           // Debug: `pnpm test src/auto-reply/reply/queue.collect-routing.test.ts`
           if (forceIndividualCollect) {
             const next = queue.items[0];
             if (!next) {
-              break;
+              continue; // Continue instead of break to check for newly added items
             }
             await runFollowup(next);
             queue.items.shift();
@@ -81,48 +87,50 @@ export function scheduleFollowupDrain(
             forceIndividualCollect = true;
             const next = queue.items[0];
             if (!next) {
-              break;
+              continue; // Continue instead of break to check for newly added items
             }
             await runFollowup(next);
             queue.items.shift();
             continue;
           }
 
-          const items = queue.items.slice();
-          const summary = previewQueueSummaryPrompt(queue);
-          const run = items.at(-1)?.run ?? queue.lastRun;
-          if (!run) {
-            break;
-          }
+          // Only process items if we have any after debounce check
+          if (queue.items.length > 0) {
+            const items = queue.items.splice(0, queue.items.length);
+            const summary = previewQueueSummaryPrompt(queue);
+            const run = items.at(-1)?.run ?? queue.lastRun;
+            if (!run) {
+              continue; // Continue instead of break to check for newly added items
+            }
 
-          // Preserve originating channel from items when collecting same-channel.
-          const originatingChannel = items.find((i) => i.originatingChannel)?.originatingChannel;
-          const originatingTo = items.find((i) => i.originatingTo)?.originatingTo;
-          const originatingAccountId = items.find(
-            (i) => i.originatingAccountId,
-          )?.originatingAccountId;
-          const originatingThreadId = items.find(
-            (i) => i.originatingThreadId != null,
-          )?.originatingThreadId;
+            // Preserve originating channel from items when collecting same-channel.
+            const originatingChannel = items.find((i) => i.originatingChannel)?.originatingChannel;
+            const originatingTo = items.find((i) => i.originatingTo)?.originatingTo;
+            const originatingAccountId = items.find(
+              (i) => i.originatingAccountId,
+            )?.originatingAccountId;
+            const originatingThreadId = items.find(
+              (i) => i.originatingThreadId != null,
+            )?.originatingThreadId;
 
-          const prompt = buildCollectPrompt({
-            title: "[Queued messages while agent was busy]",
-            items,
-            summary,
-            renderItem: (item, idx) => `---\nQueued #${idx + 1}\n${item.prompt}`.trim(),
-          });
-          await runFollowup({
-            prompt,
-            run,
-            enqueuedAt: Date.now(),
-            originatingChannel,
-            originatingTo,
-            originatingAccountId,
-            originatingThreadId,
-          });
-          queue.items.splice(0, items.length);
-          if (summary) {
-            clearQueueSummaryState(queue);
+            const prompt = buildCollectPrompt({
+              title: "[Queued messages while agent was busy]",
+              items,
+              summary,
+              renderItem: (item, idx) => `---\nQueued #${idx + 1}\n${item.prompt}`.trim(),
+            });
+            await runFollowup({
+              prompt,
+              run,
+              enqueuedAt: Date.now(),
+              originatingChannel,
+              originatingTo,
+              originatingAccountId,
+              originatingThreadId,
+            });
+            if (summary) {
+              clearQueueSummaryState(queue);
+            }
           }
           continue;
         }
@@ -131,7 +139,7 @@ export function scheduleFollowupDrain(
         if (summaryPrompt) {
           const run = queue.lastRun;
           if (!run) {
-            break;
+            continue; // Continue instead of break to check for newly added items
           }
           const next = queue.items[0];
           if (!next) {
@@ -149,7 +157,7 @@ export function scheduleFollowupDrain(
 
         const next = queue.items[0];
         if (!next) {
-          break;
+          continue; // Continue instead of break to check for newly added items
         }
         await runFollowup(next);
         queue.items.shift();
