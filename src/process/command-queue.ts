@@ -26,6 +26,11 @@ const MAX_LANE_COUNT = 1000;
 // low-risk parallelism (e.g. cron jobs) without interleaving stdin / logs for
 // the main auto-reply workflow.
 
+// Maximum time a lane task can run before being forcefully terminated.
+// This prevents deadlocks when nested queue patterns hang (e.g., session lane
+// waiting for global lane that never completes). See GitHub issue #7630.
+const LANE_TASK_TIMEOUT_MS = 10 * 60_000; // 10 minutes
+
 type QueueEntry = {
   task: () => Promise<unknown>;
   resolve: (value: unknown) => void;
@@ -100,23 +105,65 @@ function drainLane(lane: string) {
       logLaneDequeue(lane, waitedMs, state.queue.length);
       const taskId = nextTaskId++;
       const taskGeneration = state.generation;
-      const taskGeneration = state.generation;
       state.active += 1;
       state.lastActivityAt = Date.now();
       state.activeTaskIds.add(taskId);
+
+      // Track task execution with timeout to prevent deadlocks
+      // See GitHub issue #7630: nested queue pattern can hang indefinitely
+      let timeoutId: NodeJS.Timeout | undefined;
+      let completed = false;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = undefined;
+        }
+      };
+
+      const handleTimeout = () => {
+        if (completed) {
+          return;
+        }
+        completed = true;
+        cleanup();
+        const completedCurrentGeneration = completeTask(state, taskId, taskGeneration);
+        diag.error(
+          `lane task timeout: lane=${lane} maxDurationMs=${LANE_TASK_TIMEOUT_MS} - forcefully releasing lane slot`,
+        );
+        if (completedCurrentGeneration) {
+          pump();
+        }
+        entry.reject(new Error(`Lane task timed out after ${LANE_TASK_TIMEOUT_MS}ms`));
+      };
+
+      timeoutId = setTimeout(handleTimeout, LANE_TASK_TIMEOUT_MS);
+
       void (async () => {
         const startTime = Date.now();
         try {
           const result = await entry.task();
+          if (completed) {
+            // Task completed after timeout already fired - don't double-resolve
+            return;
+          }
+          completed = true;
+          cleanup();
           const completedCurrentGeneration = completeTask(state, taskId, taskGeneration);
+          diag.debug(
+            `lane task done: lane=${lane} durationMs=${Date.now() - startTime} active=${state.activeTaskIds.size} queued=${state.queue.length}`,
+          );
           if (completedCurrentGeneration) {
-            diag.debug(
-              `lane task done: lane=${lane} durationMs=${Date.now() - startTime} active=${state.activeTaskIds.size} queued=${state.queue.length}`,
-            );
             pump();
           }
           entry.resolve(result);
         } catch (err) {
+          if (completed) {
+            // Error after timeout already fired - ignore
+            return;
+          }
+          completed = true;
+          cleanup();
           const completedCurrentGeneration = completeTask(state, taskId, taskGeneration);
           const isProbeLane = lane.startsWith("auth-probe:") || lane.startsWith("session:probe-");
           if (!isProbeLane) {
