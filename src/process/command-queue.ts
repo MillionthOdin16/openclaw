@@ -58,7 +58,6 @@ function getLaneState(lane: string): LaneState {
     maxConcurrent: 1,
     draining: false,
     generation: 0,
-    generation: 0,
     active: 0,
     lastActivityAt: Date.now(),
   };
@@ -99,9 +98,6 @@ function drainLane(lane: string) {
       state.active += 1;
       state.lastActivityAt = Date.now();
       state.activeTaskIds.add(taskId);
-      state.lastActivityAt = Date.now();
-      state.activeTaskIds.add(taskId);
-      state.lastActivityAt = Date.now();
 
       // Track task execution with timeout to prevent deadlocks
       // See GitHub issue #7630: nested queue pattern can hang indefinitely
