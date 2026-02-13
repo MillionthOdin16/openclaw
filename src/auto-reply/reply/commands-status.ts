@@ -147,33 +147,37 @@ export async function buildStatusReply(params: {
     : resolveDefaultAgentId(cfg);
   const statusAgentDir = resolveAgentDir(cfg, statusAgentId);
 
-  // When fallback is active, sessionEntry.fallbackProvider contains the FALLBACK (currently active),
-  // and provider contains the PRIMARY (intended). We want to show usage for both.
-  const primaryUsageProvider = (() => {
+  // Determine which provider to show usage for:
+  // 1. If session has modelProvider set, that's the ACTUAL provider being used (may be a fallback)
+  // 2. Otherwise use the configured provider from params
+  // 3. Also check sessionEntry.fallbackProvider for additional usage data
+  const actualProvider = sessionEntry?.modelProvider || provider;
+  const actualUsageProvider = (() => {
     try {
-      return resolveUsageProviderId(provider);
+      return resolveUsageProviderId(actualProvider);
     } catch {
       return undefined;
     }
   })();
 
-  // Resolve fallback provider if active
-  const fallbackUsageProvider = sessionEntry?.fallbackProvider
-    ? (() => {
-        try {
-          return resolveUsageProviderId(sessionEntry.fallbackProvider);
-        } catch {
-          return undefined;
-        }
-      })()
-    : undefined;
+  // Also check explicit fallbackProvider in case it differs from modelProvider
+  const fallbackUsageProvider =
+    sessionEntry?.fallbackProvider && sessionEntry.fallbackProvider !== actualProvider
+      ? (() => {
+          try {
+            return resolveUsageProviderId(sessionEntry.fallbackProvider);
+          } catch {
+            return undefined;
+          }
+        })()
+      : undefined;
 
   let usageLine: string | null = null;
   const providersToFetch: string[] = [];
-  if (primaryUsageProvider) {
-    providersToFetch.push(primaryUsageProvider);
+  if (actualUsageProvider) {
+    providersToFetch.push(actualUsageProvider);
   }
-  if (fallbackUsageProvider && fallbackUsageProvider !== primaryUsageProvider) {
+  if (fallbackUsageProvider && fallbackUsageProvider !== actualUsageProvider) {
     providersToFetch.push(fallbackUsageProvider);
   }
 
@@ -191,7 +195,12 @@ export async function buildStatusReply(params: {
           continue;
         }
         const isFallback = usageEntry.provider === fallbackUsageProvider;
-        const label = isFallback ? `${usageEntry.displayName} (fallback)` : usageEntry.displayName;
+        const isActual = usageEntry.provider === actualUsageProvider;
+        const label = isFallback
+          ? `${usageEntry.displayName} (fallback)`
+          : isActual && fallbackUsageProvider
+            ? `${usageEntry.displayName} (active)`
+            : usageEntry.displayName;
         const summaryLine = formatUsageWindowSummary(usageEntry, {
           now: Date.now(),
           maxWindows: 2,
