@@ -72,6 +72,7 @@ type StatusArgs = {
   modelAuth?: string;
   usageLine?: string;
   timeLine?: string;
+  modelLabelOverride?: string;
   queue?: QueueStatus;
   mediaDecisions?: MediaUnderstandingDecision[];
   subagentsLine?: string;
@@ -462,7 +463,8 @@ export function buildStatusMessage(args: StatusArgs): string {
       : undefined;
   const costLabel = showCost && hasUsage ? formatUsd(cost) : undefined;
 
-  const modelLabel = model ? `${provider}/${model}` : "unknown";
+  const modelLabel =
+    args.modelLabelOverride?.trim() || (model ? `${provider}/${model}` : "unknown");
   const authLabel = authLabelValue ? ` · 🔑 ${authLabelValue}` : "";
   const modelLine = `🧠 Model: ${modelLabel}${authLabel}`;
   const commit = resolveCommitHash();

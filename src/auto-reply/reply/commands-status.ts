@@ -147,25 +147,30 @@ export async function buildStatusReply(params: {
     : resolveDefaultAgentId(cfg);
   const statusAgentDir = resolveAgentDir(cfg, statusAgentId);
 
-  // Determine which provider to show usage for:
-  // 1. If session has modelProvider set, that's the ACTUAL provider being used (may be a fallback)
-  // 2. Otherwise use the configured provider from params
-  // 3. Also check sessionEntry.fallbackProvider for additional usage data
   const actualProvider = sessionEntry?.modelProvider || provider;
+  const actualModel = sessionEntry?.model ?? model;
+  const fallbackProvider =
+    sessionEntry?.fallbackProvider?.trim() ||
+    (sessionEntry?.fallbackModel ? actualProvider : undefined);
+  const fallbackModel = sessionEntry?.fallbackModel?.trim();
+  const fallbackActive =
+    fallbackProvider && fallbackModel && (fallbackProvider !== provider || fallbackModel !== model);
+  const selectionMatchesActual = actualProvider === provider && actualModel === model;
+  const useActualProviderForUsage = Boolean(fallbackActive || selectionMatchesActual);
+  const providerForUsage = useActualProviderForUsage ? actualProvider : provider;
   const actualUsageProvider = (() => {
     try {
-      return resolveUsageProviderId(actualProvider);
+      return resolveUsageProviderId(providerForUsage);
     } catch {
       return undefined;
     }
   })();
 
-  // Also check explicit fallbackProvider in case it differs from modelProvider
   const fallbackUsageProvider =
-    sessionEntry?.fallbackProvider && sessionEntry.fallbackProvider !== actualProvider
+    useActualProviderForUsage && fallbackProvider && fallbackProvider !== providerForUsage
       ? (() => {
           try {
-            return resolveUsageProviderId(sessionEntry.fallbackProvider);
+            return resolveUsageProviderId(fallbackProvider);
           } catch {
             return undefined;
           }
@@ -187,9 +192,9 @@ export async function buildStatusReply(params: {
       // This ensures we use the correct API key for the running provider
       const providerAuths: Array<{ provider: UsageProviderId; token: string }> = [];
 
-      if (actualUsageProvider === "kimi-code" && actualProvider) {
-        // Extract suffix from actualProvider (e.g., "kimi-code-9" → "9")
-        const match = actualProvider.match(/kimi-code-(\d+)$/);
+      if (actualUsageProvider === "kimi-code" && providerForUsage) {
+        // Extract suffix from providerForUsage (e.g., "kimi-code-9" → "9")
+        const match = providerForUsage.match(/kimi-code-(\d+)$/);
         const suffix = match ? match[1] : null;
         const envVar = suffix ? `KIMI_CODE_${suffix}` : "KIMI_CODE";
         const apiKey = process.env[envVar];
@@ -220,7 +225,9 @@ export async function buildStatusReply(params: {
           ? `${usageEntry.displayName} (fallback)`
           : isActual && fallbackUsageProvider
             ? `${usageEntry.displayName} (active)`
-            : usageEntry.displayName;
+            : isActual && fallbackActive
+              ? `${usageEntry.displayName} (fallback)`
+              : usageEntry.displayName;
         const summaryLine = formatUsageWindowSummary(usageEntry, {
           now: Date.now(),
           maxWindows: 2,
@@ -274,16 +281,6 @@ export async function buildStatusReply(params: {
     ? (normalizeGroupActivation(sessionEntry?.groupActivation) ?? defaultGroupActivation())
     : undefined;
   const agentDefaults = cfg.agents?.defaults ?? {};
-  // Check if fallback was used by looking at fallback fields or actual model/provider drift
-  const actualModel = sessionEntry?.model ?? model;
-  const fallbackProvider =
-    sessionEntry?.fallbackProvider ??
-    (actualProvider !== provider || actualModel !== model ? actualProvider : undefined);
-  const fallbackModel =
-    sessionEntry?.fallbackModel ??
-    (actualProvider !== provider || actualModel !== model ? actualModel : undefined);
-  const fallbackActive =
-    fallbackProvider && fallbackModel && (fallbackProvider !== provider || fallbackModel !== model);
   const primaryModelLabel = fallbackActive
     ? `${provider}/${model} → ${fallbackProvider}/${fallbackModel} (fallback)`
     : `${provider}/${model}`;
@@ -310,6 +307,7 @@ export async function buildStatusReply(params: {
     resolvedVerbose: resolvedVerboseLevel,
     resolvedReasoning: resolvedReasoningLevel,
     resolvedElevated: resolvedElevatedLevel,
+    modelLabelOverride: primaryModelLabel,
     modelAuth: resolveModelAuthLabel(provider, cfg, sessionEntry, statusAgentDir),
     usageLine: usageLine ?? undefined,
     queue: {
