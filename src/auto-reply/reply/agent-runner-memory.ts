@@ -97,10 +97,14 @@ export async function runMemoryFlushIfNeeded(params: {
     .filter(Boolean)
     .join("\n\n");
   try {
+    // Use the actual provider/model from the last run (may be a fallback),
+    // falling back to configured values if session doesn't have them yet
+    const compactionProvider = activeSessionEntry?.modelProvider || params.followupRun.run.provider;
+    const compactionModel = activeSessionEntry?.model || params.followupRun.run.model;
     await runWithModelFallback({
       cfg: params.followupRun.run.config,
-      provider: params.followupRun.run.provider,
-      model: params.followupRun.run.model,
+      provider: compactionProvider,
+      model: compactionModel,
       agentDir: params.followupRun.run.agentDir,
       fallbacksOverride: resolveAgentModelFallbacksOverride(
         params.followupRun.run.config,
