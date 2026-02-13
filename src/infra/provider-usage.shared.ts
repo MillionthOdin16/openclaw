@@ -33,7 +33,9 @@ export function resolveUsageProviderId(provider?: string | null): UsageProviderI
   }
   // Extract provider from "provider/model" format
   const providerOnly = provider.split("/")[0]?.trim() || provider;
-  const normalized = normalizeProviderId(providerOnly);
+  // Strip numerical suffix like "-2", "-3" from profile variants (e.g., "kimi-code-2" → "kimi-code")
+  const withoutSuffix = providerOnly.replace(/-\d+$/, "");
+  const normalized = normalizeProviderId(withoutSuffix);
   return usageProviders.includes(normalized as UsageProviderId)
     ? (normalized as UsageProviderId)
     : undefined;
