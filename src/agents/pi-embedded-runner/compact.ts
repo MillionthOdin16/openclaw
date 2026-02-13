@@ -449,7 +449,7 @@ export async function compactEmbeddedPiSessionDirect(
         // Phase 3: Actual compaction API call
         // See: https://github.com/openclaw/openclaw/issues/5980, #13379, #12348
         const COMPACTION_PHASE1_TIMEOUT_MS = 30_000; // 30s for file read/parsing
-        const COMPACTION_PHASE2_TIMEOUT_MS = 30_000; // 30s for sanitization
+        const _COMPACTION_PHASE2_TIMEOUT_MS = 30_000; // 30s for sanitization (reserved for future use)
         const COMPACTION_PHASE3_TIMEOUT_MS = 120_000; // 2min for compaction API
 
         // Check transcript size before compaction to warn about potential issues
