@@ -22,15 +22,6 @@ export class CommandLaneClearedError extends Error {
 // waiting for global lane that never completes). See GitHub issue #7630.
 const LANE_TASK_TIMEOUT_MS = 10 * 60_000; // 10 minutes
 
-// TTL for inactive lanes before they can be cleaned up.
-// Lanes that have been idle (no active tasks, empty queue) for this long
-// can be removed to prevent unbounded memory growth. See GitHub issue #5264.
-const LANE_IDLE_TTL_MS = 30 * 60_000; // 30 minutes
-
-// Maximum number of lanes to keep in memory. When exceeded, oldest idle
-// lanes are evicted. This prevents OOM in long-running processes.
-const MAX_LANE_COUNT = 1000;
-
 type QueueEntry = {
   task: () => Promise<unknown>;
   resolve: (value: unknown) => void;
