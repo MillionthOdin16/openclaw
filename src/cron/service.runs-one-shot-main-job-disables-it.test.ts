@@ -230,16 +230,14 @@ describe("CronService", () => {
     });
 
     const runPromise = cron.run(job.id, "force");
-    // With retry limit of 250 and 250ms delay per retry, max wait is ~62.5 seconds
-    await vi.advanceTimersByTimeAsync(70_000);
     await runPromise;
 
     expect(runHeartbeatOnce).toHaveBeenCalled();
     expect(requestHeartbeatNow).toHaveBeenCalled();
-    // With retry limit, the job will eventually fail when max retries are exceeded
-    // This prevents infinite deadlock (GitHub issue #13508)
-    expect(job.state.lastStatus).toBe("error");
-    expect(job.state.lastError).toContain("heartbeat retry limit exceeded");
+    // When heartbeat is skipped (main lane busy), we return ok immediately.
+    // The heartbeat will run when the agent finishes because requestHeartbeatNow was called.
+    // This prevents deadlock (GitHub issue #13508).
+    expect(job.state.lastStatus).toBe("ok");
 
     await cron.list({ includeDisabled: true });
     cron.stop();
