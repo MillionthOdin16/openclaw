@@ -224,10 +224,16 @@ export async function buildStatusReply(params: {
       })
     : selectedModelAuth;
   const agentDefaults = cfg.agents?.defaults ?? {};
-  // Check if fallback was used by looking at fallback fields
-  const fallbackProvider = sessionEntry?.fallbackProvider;
-  const fallbackModel = sessionEntry?.fallbackModel;
-  const fallbackActive = fallbackProvider && fallbackModel;
+  // Check if fallback was used by looking at fallback fields or actual model/provider drift
+  const actualModel = sessionEntry?.model ?? model;
+  const fallbackProvider =
+    sessionEntry?.fallbackProvider ??
+    (actualProvider !== provider || actualModel !== model ? actualProvider : undefined);
+  const fallbackModel =
+    sessionEntry?.fallbackModel ??
+    (actualProvider !== provider || actualModel !== model ? actualModel : undefined);
+  const fallbackActive =
+    fallbackProvider && fallbackModel && (fallbackProvider !== provider || fallbackModel !== model);
   const primaryModelLabel = fallbackActive
     ? `${provider}/${model} → ${fallbackProvider}/${fallbackModel} (fallback)`
     : `${provider}/${model}`;
