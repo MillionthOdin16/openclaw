@@ -186,7 +186,8 @@ function resolvePathWithinSessionsDir(
   if (!normalized || normalized.startsWith("..") || path.isAbsolute(normalized)) {
     throw new Error("Session file path must be within sessions directory");
   }
-  return path.resolve(resolvedBase, normalized);
+  // Return relative path instead of absolute to avoid storing absolute paths in sessions.json.
+  return relative;
 }
 
 export function resolveSessionTranscriptPathInDir(
