@@ -255,6 +255,75 @@ describe("getApiKeyForModel", () => {
     });
   });
 
+  it("accepts KIMI_CODE_1 as kimi-code", async () => {
+    const previousKimi = process.env.KIMI_CODE;
+    const previousKimi1 = process.env.KIMI_CODE_1;
+    const previousLegacy = process.env.KIMI_API_KEY;
+
+    try {
+      delete process.env.KIMI_CODE;
+      delete process.env.KIMI_API_KEY;
+      process.env.KIMI_CODE_1 = "kimi-1";
+
+      vi.resetModules();
+      const { resolveApiKeyForProvider } = await import("./model-auth.js");
+
+      const resolved = await resolveApiKeyForProvider({
+        provider: "kimi-code",
+        store: { version: 1, profiles: {} },
+      });
+      expect(resolved.apiKey).toBe("kimi-1");
+      expect(resolved.source).toContain("KIMI_CODE_1");
+    } finally {
+      if (previousKimi === undefined) {
+        delete process.env.KIMI_CODE;
+      } else {
+        process.env.KIMI_CODE = previousKimi;
+      }
+      if (previousKimi1 === undefined) {
+        delete process.env.KIMI_CODE_1;
+      } else {
+        process.env.KIMI_CODE_1 = previousKimi1;
+      }
+      if (previousLegacy === undefined) {
+        delete process.env.KIMI_API_KEY;
+      } else {
+        process.env.KIMI_API_KEY = previousLegacy;
+      }
+    }
+  });
+
+  it("resolves numbered KIMI_CODE keys for suffixed providers", async () => {
+    const previousKimi = process.env.KIMI_CODE;
+    const previousKimi9 = process.env.KIMI_CODE_9;
+
+    try {
+      delete process.env.KIMI_CODE;
+      process.env.KIMI_CODE_9 = "kimi-9";
+
+      vi.resetModules();
+      const { resolveApiKeyForProvider } = await import("./model-auth.js");
+
+      const resolved = await resolveApiKeyForProvider({
+        provider: "kimi-code-9",
+        store: { version: 1, profiles: {} },
+      });
+      expect(resolved.apiKey).toBe("kimi-9");
+      expect(resolved.source).toContain("KIMI_CODE_9");
+    } finally {
+      if (previousKimi === undefined) {
+        delete process.env.KIMI_CODE;
+      } else {
+        process.env.KIMI_CODE = previousKimi;
+      }
+      if (previousKimi9 === undefined) {
+        delete process.env.KIMI_CODE_9;
+      } else {
+        process.env.KIMI_CODE_9 = previousKimi9;
+      }
+    }
+  });
+
   it("resolves Qianfan API key from env", async () => {
     await withEnvUpdates({ QIANFAN_API_KEY: "qianfan-test-key" }, async () => {
       const resolved = await resolveApiKeyForProvider({
