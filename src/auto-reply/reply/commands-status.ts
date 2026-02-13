@@ -78,8 +78,9 @@ export async function buildStatusReply(params: {
     : resolveDefaultAgentId(cfg);
   const statusAgentDir = resolveAgentDir(cfg, statusAgentId);
 
-  // Resolve current (active/fallback) provider
-  const currentUsageProvider = (() => {
+  // When fallback is active, sessionEntry.fallbackProvider contains the FALLBACK (currently active),
+  // and provider contains the PRIMARY (intended). We want to show usage for both.
+  const primaryUsageProvider = (() => {
     try {
       return resolveUsageProviderId(provider);
     } catch {
@@ -87,8 +88,8 @@ export async function buildStatusReply(params: {
     }
   })();
 
-  // Also resolve primary provider if fallback is active
-  const primaryProvider = sessionEntry?.fallbackProvider
+  // Resolve fallback provider if active
+  const fallbackUsageProvider = sessionEntry?.fallbackProvider
     ? (() => {
         try {
           return resolveUsageProviderId(sessionEntry.fallbackProvider);
@@ -100,11 +101,11 @@ export async function buildStatusReply(params: {
 
   let usageLine: string | null = null;
   const providersToFetch: string[] = [];
-  if (currentUsageProvider) {
-    providersToFetch.push(currentUsageProvider);
+  if (primaryUsageProvider) {
+    providersToFetch.push(primaryUsageProvider);
   }
-  if (primaryProvider && primaryProvider !== currentUsageProvider) {
-    providersToFetch.push(primaryProvider);
+  if (fallbackUsageProvider && fallbackUsageProvider !== primaryUsageProvider) {
+    providersToFetch.push(fallbackUsageProvider);
   }
 
   if (providersToFetch.length > 0) {
@@ -120,8 +121,8 @@ export async function buildStatusReply(params: {
         if (usageEntry.error || usageEntry.windows.length === 0) {
           continue;
         }
-        const isFallback = usageEntry.provider === currentUsageProvider;
-        const label = isFallback ? usageEntry.displayName : `${usageEntry.displayName} (primary)`;
+        const isFallback = usageEntry.provider === fallbackUsageProvider;
+        const label = isFallback ? `${usageEntry.displayName} (fallback)` : usageEntry.displayName;
         const summaryLine = formatUsageWindowSummary(usageEntry, {
           now: Date.now(),
           maxWindows: 2,
