@@ -175,23 +175,16 @@ describe("CronService", () => {
     });
 
     const runPromise = cron.run(job.id, "force");
-    for (let i = 0; i < 10; i++) {
-      if (runHeartbeatOnce.mock.calls.length > 0) {
-        break;
-      }
-      // Let the locked() chain progress.
-      await Promise.resolve();
-    }
+    // Wait for execution to complete
+    await runPromise;
 
-    expect(runHeartbeatOnce).toHaveBeenCalledTimes(1);
+    // With the corrected implementation, runHeartbeatOnce is NOT called
+    // because requestHeartbeatNow handles the retry logic automatically
+    expect(runHeartbeatOnce).not.toHaveBeenCalled();
     expect(requestHeartbeatNow).toHaveBeenCalled();
     expect(enqueueSystemEvent).toHaveBeenCalledWith("hello", {
       agentId: undefined,
     });
-    expect(job.state.runningAtMs).toBeTypeOf("number");
-
-    resolveHeartbeat?.({ status: "ran", durationMs: 123 });
-    await runPromise;
 
     expect(job.state.lastStatus).toBe("ok");
     expect(job.state.lastDurationMs).toBeGreaterThan(0);
@@ -200,7 +193,7 @@ describe("CronService", () => {
     await store.cleanup();
   });
 
-  it("wakeMode now falls back to queued heartbeat when main lane stays busy", async () => {
+  it("wakeMode now doesn't block when main lane stays busy", async () => {
     const store = await makeStorePath();
     const enqueueSystemEvent = vi.fn();
     const requestHeartbeatNow = vi.fn();
@@ -221,7 +214,7 @@ describe("CronService", () => {
 
     await cron.start();
     const job = await cron.add({
-      name: "wakeMode now fallback",
+      name: "wakeMode now doesn't block",
       enabled: true,
       schedule: { kind: "at", at: new Date(1).toISOString() },
       sessionTarget: "main",
@@ -232,7 +225,11 @@ describe("CronService", () => {
     const runPromise = cron.run(job.id, "force");
     await runPromise;
 
-    expect(runHeartbeatOnce).toHaveBeenCalled();
+    // With the corrected implementation:
+    // - runHeartbeatOnce is NOT called (no blocking retry loop)
+    // - requestHeartbeatNow IS called to schedule the heartbeat
+    // - Job returns OK immediately without blocking cron lane
+    expect(runHeartbeatOnce).not.toHaveBeenCalled();
     expect(requestHeartbeatNow).toHaveBeenCalled();
     // When heartbeat is skipped (main lane busy), we return ok immediately.
     // The heartbeat will run when the agent finishes because requestHeartbeatNow was called.

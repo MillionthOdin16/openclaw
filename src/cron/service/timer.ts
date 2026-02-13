@@ -22,14 +22,6 @@ const MAX_TIMER_DELAY_MS = 60_000;
 const DEFAULT_JOB_TIMEOUT_MS = 10 * 60_000; // 10 minutes
 
 /**
- * Maximum number of heartbeat retry attempts for wakeMode='now' jobs.
- * Prevents infinite loops when the main lane is continuously busy.
- * With 250ms delay per iteration, this allows ~62.5 seconds of retries.
- * See GitHub issue #13508.
- */
-const MAX_HEARTBEAT_RETRIES = 250;
-
-/**
  * Exponential backoff delays (in ms) indexed by consecutive error count.
  * After the last entry the delay stays constant.
  */
@@ -428,40 +420,10 @@ async function executeJobCore(
     const reason = `cron:${job.id}`;
     state.deps.requestHeartbeatNow({ reason });
 
-    if (job.wakeMode === "now" && state.deps.runHeartbeatOnce) {
-      // Retry loop with iteration limit to prevent deadlock when main lane is busy.
-      // See GitHub issue #13508.
-      let attempts = 0;
-      for (;;) {
-        const heartbeatResult = await state.deps.runHeartbeatOnce({ reason });
-
-        if (heartbeatResult.status === "ran") {
-          return { status: "ok", summary: text };
-        }
-
-        if (heartbeatResult.status === "skipped") {
-          // Check iteration limit to prevent infinite loop
-          attempts++;
-          if (attempts >= MAX_HEARTBEAT_RETRIES) {
-            state.deps.log.warn(
-              { jobId: job.id, attempts, reason: heartbeatResult.reason },
-              "cron: heartbeat retry limit exceeded, giving up",
-            );
-            return {
-              status: "error",
-              error: `heartbeat retry limit exceeded (${MAX_HEARTBEAT_RETRIES} attempts)`,
-              summary: text,
-            };
-          }
-          // Wait a bit before retrying
-          await delay(250);
-          continue;
-        }
-
-        return { status: "error", error: heartbeatResult.reason, summary: text };
-      }
-    }
-
+    // Don't block waiting for heartbeat - requestHeartbeatNow() already scheduled it
+    // and the heartbeat wake scheduler will auto-retry if main lane is busy.
+    // See: heartbeat-wake.ts requestHeartbeatNow() for built-in retry logic.
+    // This prevents cron lane from blocking for 60+ seconds on busy main lane.
     return { status: "ok", summary: text };
   }
 
