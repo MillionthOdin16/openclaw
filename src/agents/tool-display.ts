@@ -93,7 +93,7 @@ function coerceDisplayValue(value: unknown): string | undefined {
     if (!firstLine) {
       return undefined;
     }
-    return firstLine.length > 160 ? `${firstLine.slice(0, 157)}…` : firstLine;
+    return firstLine.length > 400 ? `${firstLine.slice(0, 397)}…` : firstLine;
   }
   if (typeof value === "boolean") {
     return value ? "true" : undefined;
