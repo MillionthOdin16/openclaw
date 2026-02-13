@@ -295,7 +295,7 @@ export function resolveEnvApiKey(provider: string): EnvApiKeyResult | null {
   }
 
   if (normalized === "kimi-code") {
-    return pick("KIMI_API_KEY") ?? pick("KIMICODE_API_KEY");
+    return pick("KIMI_CODE") ?? pick("KIMI_API_KEY") ?? pick("KIMICODE_API_KEY");
   }
 
   const envMap: Record<string, string> = {
