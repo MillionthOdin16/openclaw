@@ -126,3 +126,7 @@ git reset --hard <good-sha>  # last resort, confirm first
 - Prefer `scripts/committer "<msg>" <files...>` for commits.
 - Use `pnpm` commands (Node 22+) for builds/tests.
 - Repo shorthand `sync` commits all changes then runs `git pull --rebase`; use **only** when you explicitly want to commit everything.
+- Do **not** use `git pull --rebase --autostash` or `git stash` (work can be lost).
+- Do **not** modify `node_modules/` or patch dependencies without explicit approval.
+- Do **not** change versions unless explicitly requested.
+- Avoid switching branches or creating worktrees unless explicitly asked.
