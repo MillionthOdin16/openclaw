@@ -4,6 +4,7 @@ import express from "express";
 import type { ResolvedBrowserConfig } from "./config.js";
 import type { BrowserRouteRegistrar } from "./routes/types.js";
 import { registerBrowserRoutes } from "./routes/index.js";
+import { safeEqualSecret } from "../security/secret-equal.js";
 import {
   type BrowserServerState,
   createBrowserRouteContext,
@@ -47,7 +48,11 @@ export async function startBrowserBridgeServer(params: {
   if (authToken) {
     app.use((req, res, next) => {
       const auth = String(req.headers.authorization ?? "").trim();
-      if (auth === `Bearer ${authToken}`) {
+      let token: string | undefined;
+      if (auth.toLowerCase().startsWith("bearer ")) {
+        token = auth.slice(7).trim();
+      }
+      if (token && safeEqualSecret(token, authToken)) {
         return next();
       }
       res.status(401).send("Unauthorized");
