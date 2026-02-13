@@ -31,7 +31,9 @@ export function resolveUsageProviderId(provider?: string | null): UsageProviderI
   if (!provider) {
     return undefined;
   }
-  const normalized = normalizeProviderId(provider);
+  // Extract provider from "provider/model" format
+  const providerOnly = provider.split("/")[0]?.trim() || provider;
+  const normalized = normalizeProviderId(providerOnly);
   return usageProviders.includes(normalized as UsageProviderId)
     ? (normalized as UsageProviderId)
     : undefined;
