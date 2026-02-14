@@ -1,3 +1,5 @@
+import { bindAbortRelay } from "../utils/fetch-timeout.js";
+
 type FetchWithPreconnect = typeof fetch & {
   preconnect: (url: string, init?: { credentials?: RequestCredentials }) => void;
 };
@@ -42,9 +44,7 @@ export function wrapFetchWithAbortSignal(fetchImpl: typeof fetch): typeof fetch 
       return fetchImpl(input, patchedInit);
     }
     const controller = new AbortController();
-    // Use .bind() instead of arrow function to avoid closure memory leak
-    // See: https://github.com/openclaw/openclaw/issues/7174
-    const onAbort = controller.abort.bind(controller);
+    const onAbort = bindAbortRelay(controller);
     if (signal.aborted) {
       controller.abort();
     } else {

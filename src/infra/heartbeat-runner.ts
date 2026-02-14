@@ -11,7 +11,6 @@ import {
   resolveDefaultAgentId,
 } from "../agents/agent-scope.js";
 import { appendCronStyleCurrentTimeLine } from "../agents/current-time.js";
-import { resolveUserTimezone } from "../agents/date-time.js";
 import { resolveEffectiveMessagesConfig } from "../agents/identity.js";
 import { DEFAULT_HEARTBEAT_FILENAME } from "../agents/workspace.js";
 import {
@@ -41,6 +40,12 @@ import { CommandLane } from "../process/lanes.js";
 import { normalizeAgentId, toAgentStoreSessionKey } from "../routing/session-key.js";
 import { defaultRuntime, type RuntimeEnv } from "../runtime.js";
 import { formatErrorMessage } from "./errors.js";
+import { isWithinActiveHours } from "./heartbeat-active-hours.js";
+import {
+  buildCronEventPrompt,
+  isCronSystemEvent,
+  isExecCompletionEvent,
+} from "./heartbeat-events-filter.js";
 import { emitHeartbeatEvent, resolveIndicatorType } from "./heartbeat-events.js";
 import { resolveHeartbeatVisibility } from "./heartbeat-visibility.js";
 import {
@@ -87,7 +92,6 @@ export type HeartbeatSummary = {
 };
 
 const DEFAULT_HEARTBEAT_TARGET = "last";
-const ACTIVE_HOURS_TIME_PATTERN = /^([01]\d|2[0-3]|24):([0-5]\d)$/;
 
 // Prompt used when an async exec has completed and the result should be relayed to the user.
 // This overrides the standard heartbeat prompt to ensure the model responds with the exec result
@@ -96,159 +100,7 @@ const EXEC_EVENT_PROMPT =
   "An async command you ran earlier has completed. The result is shown in the system messages above. " +
   "Please relay the command output to the user in a helpful way. If the command succeeded, share the relevant output. " +
   "If it failed, explain what went wrong.";
-
-// Build a dynamic prompt for cron events by embedding the actual event content.
-// This ensures the model sees the reminder text directly instead of relying on
-// "shown in the system messages above" which may not be visible in context.
-function buildCronEventPrompt(pendingEvents: string[]): string {
-  const eventText = pendingEvents.join("\n").trim();
-  if (!eventText) {
-    return (
-      "A scheduled cron event was triggered, but no event content was found. " +
-      "Reply HEARTBEAT_OK."
-    );
-  }
-  return (
-    "A scheduled reminder has been triggered. The reminder content is:\n\n" +
-    eventText +
-    "\n\nPlease relay this reminder to the user in a helpful and friendly way."
-  );
-}
-
-const HEARTBEAT_OK_PREFIX = HEARTBEAT_TOKEN.toLowerCase();
-
-// Detect heartbeat-specific noise so cron reminders don't trigger on non-reminder events.
-function isHeartbeatAckEvent(evt: string): boolean {
-  const trimmed = evt.trim();
-  if (!trimmed) {
-    return false;
-  }
-  const lower = trimmed.toLowerCase();
-  if (!lower.startsWith(HEARTBEAT_OK_PREFIX)) {
-    return false;
-  }
-  const suffix = lower.slice(HEARTBEAT_OK_PREFIX.length);
-  if (suffix.length === 0) {
-    return true;
-  }
-  return !/[a-z0-9_]/.test(suffix[0]);
-}
-
-function isHeartbeatNoiseEvent(evt: string): boolean {
-  const lower = evt.trim().toLowerCase();
-  if (!lower) {
-    return false;
-  }
-  return (
-    isHeartbeatAckEvent(lower) ||
-    lower.includes("heartbeat poll") ||
-    lower.includes("heartbeat wake")
-  );
-}
-
-function isExecCompletionEvent(evt: string): boolean {
-  return evt.toLowerCase().includes("exec finished");
-}
-
-// Returns true when a system event should be treated as real cron reminder content.
-export function isCronSystemEvent(evt: string) {
-  if (!evt.trim()) {
-    return false;
-  }
-  return !isHeartbeatNoiseEvent(evt) && !isExecCompletionEvent(evt);
-}
-
-function resolveActiveHoursTimezone(cfg: OpenClawConfig, raw?: string): string {
-  const trimmed = raw?.trim();
-  if (!trimmed || trimmed === "user") {
-    return resolveUserTimezone(cfg.agents?.defaults?.userTimezone);
-  }
-  if (trimmed === "local") {
-    const host = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return host?.trim() || "UTC";
-  }
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: trimmed }).format(new Date());
-    return trimmed;
-  } catch {
-    return resolveUserTimezone(cfg.agents?.defaults?.userTimezone);
-  }
-}
-
-function parseActiveHoursTime(opts: { allow24: boolean }, raw?: string): number | null {
-  if (!raw || !ACTIVE_HOURS_TIME_PATTERN.test(raw)) {
-    return null;
-  }
-  const [hourStr, minuteStr] = raw.split(":");
-  const hour = Number(hourStr);
-  const minute = Number(minuteStr);
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
-    return null;
-  }
-  if (hour === 24) {
-    if (!opts.allow24 || minute !== 0) {
-      return null;
-    }
-    return 24 * 60;
-  }
-  return hour * 60 + minute;
-}
-
-function resolveMinutesInTimeZone(nowMs: number, timeZone: string): number | null {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(new Date(nowMs));
-    const map: Record<string, string> = {};
-    for (const part of parts) {
-      if (part.type !== "literal") {
-        map[part.type] = part.value;
-      }
-    }
-    const hour = Number(map.hour);
-    const minute = Number(map.minute);
-    if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
-      return null;
-    }
-    return hour * 60 + minute;
-  } catch {
-    return null;
-  }
-}
-
-function isWithinActiveHours(
-  cfg: OpenClawConfig,
-  heartbeat?: HeartbeatConfig,
-  nowMs?: number,
-): boolean {
-  const active = heartbeat?.activeHours;
-  if (!active) {
-    return true;
-  }
-
-  const startMin = parseActiveHoursTime({ allow24: false }, active.start);
-  const endMin = parseActiveHoursTime({ allow24: true }, active.end);
-  if (startMin === null || endMin === null) {
-    return true;
-  }
-  if (startMin === endMin) {
-    return true;
-  }
-
-  const timeZone = resolveActiveHoursTimezone(cfg, active.timezone);
-  const currentMin = resolveMinutesInTimeZone(nowMs ?? Date.now(), timeZone);
-  if (currentMin === null) {
-    return true;
-  }
-
-  if (endMin > startMin) {
-    return currentMin >= startMin && currentMin < endMin;
-  }
-  return currentMin >= startMin || currentMin < endMin;
-}
+export { isCronSystemEvent };
 
 type HeartbeatAgentState = {
   agentId: string;
@@ -574,10 +426,11 @@ export async function runHeartbeatOnce(opts: {
 
   // Skip heartbeat if HEARTBEAT.md exists but has no actionable content.
   // This saves API calls/costs when the file is effectively empty (only comments/headers).
-  // EXCEPTION: Don't skip for exec events or cron events - they have pending system events
-  // to process regardless of HEARTBEAT.md content.
+  // EXCEPTION: Don't skip for exec events, cron events, or explicit wake requests -
+  // they have pending system events to process regardless of HEARTBEAT.md content.
   const isExecEventReason = opts.reason === "exec-event";
   const isCronEventReason = Boolean(opts.reason?.startsWith("cron:"));
+  const isWakeReason = opts.reason === "wake" || Boolean(opts.reason?.startsWith("hook:"));
   const workspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
   const heartbeatFilePath = path.join(workspaceDir, DEFAULT_HEARTBEAT_FILENAME);
   try {
@@ -585,7 +438,8 @@ export async function runHeartbeatOnce(opts: {
     if (
       isHeartbeatContentEffectivelyEmpty(heartbeatFileContent) &&
       !isExecEventReason &&
-      !isCronEventReason
+      !isCronEventReason &&
+      !isWakeReason
     ) {
       emitHeartbeatEvent({
         status: "skipped",
