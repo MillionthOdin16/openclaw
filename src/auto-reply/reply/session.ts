@@ -132,6 +132,7 @@ export async function initSessionState(params: {
   let systemSent = false;
   let abortedLastRun = false;
   let resetTriggered = false;
+  let resetCommand: "new" | "reset" | undefined;
 
   let persistedThinking: string | undefined;
   let persistedVerbose: string | undefined;
@@ -183,6 +184,7 @@ export async function initSessionState(params: {
       isNewSession = true;
       bodyStripped = "";
       resetTriggered = true;
+      resetCommand = triggerLower === "/reset" ? "reset" : "new";
       break;
     }
     const triggerPrefixLower = `${triggerLower} `;
@@ -193,6 +195,7 @@ export async function initSessionState(params: {
       isNewSession = true;
       bodyStripped = strippedForReset.slice(trigger.length).trimStart();
       resetTriggered = true;
+      resetCommand = triggerLower === "/reset" ? "reset" : "new";
       break;
     }
   }
@@ -241,14 +244,17 @@ export async function initSessionState(params: {
     isNewSession = true;
     systemSent = false;
     abortedLastRun = false;
-    // When a reset trigger (/new, /reset) starts a new session, carry over
+    // When a /new (or custom) reset trigger starts a new session, carry over
     // user-set behavior overrides (verbose, thinking, reasoning, ttsAuto)
     // so the user doesn't have to re-enable them every time.
-    if (resetTriggered && entry) {
+    if (resetTriggered && entry && resetCommand !== "reset") {
       persistedThinking = entry.thinkingLevel;
       persistedVerbose = entry.verboseLevel;
       persistedReasoning = entry.reasoningLevel;
       persistedTtsAuto = entry.ttsAuto;
+      // /new should also carry over model overrides.
+      persistedModelOverride = entry.modelOverride;
+      persistedProviderOverride = entry.providerOverride;
     }
   }
 
