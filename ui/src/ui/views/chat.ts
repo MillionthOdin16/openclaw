@@ -361,6 +361,7 @@ export function renderChat(props: ChatProps) {
               class="btn chat-new-messages"
               type="button"
               @click=${props.onScrollToBottom}
+              aria-label="Scroll to new messages"
             >
               New messages ${icons.arrowDown}
             </button>
@@ -410,6 +411,8 @@ export function renderChat(props: ChatProps) {
               class="btn"
               ?disabled=${!props.connected || (!canAbort && props.sending)}
               @click=${canAbort ? props.onAbort : props.onNewSession}
+              aria-label=${canAbort ? "Stop generating response" : "Start a new chat session"}
+              title=${canAbort ? "Stop generating" : "Clear chat context and start new session"}
             >
               ${canAbort ? "Stop" : "New session"}
             </button>
@@ -417,8 +420,10 @@ export function renderChat(props: ChatProps) {
               class="btn primary"
               ?disabled=${!props.connected}
               @click=${props.onSend}
+              aria-label=${isBusy ? "Queue message" : "Send message"}
+              title=${isBusy ? "Add message to queue" : "Send message (Enter)"}
             >
-              ${isBusy ? "Queue" : "Send"}<kbd class="btn-kbd">↵</kbd>
+              ${isBusy ? "Queue" : "Send"}<kbd class="btn-kbd" aria-hidden="true">↵</kbd>
             </button>
           </div>
         </div>
