@@ -40,7 +40,9 @@ const allowedAttrs = ["class", "href", "rel", "target", "title", "start"];
 let hooksInstalled = false;
 const MARKDOWN_CHAR_LIMIT = 140_000;
 const MARKDOWN_PARSE_LIMIT = 40_000;
-const MARKDOWN_CACHE_LIMIT = 200;
+// Increased to prevent cache thrashing when rendering full chat history (200 items)
+// plus reasoning blocks or other markdown content.
+const MARKDOWN_CACHE_LIMIT = 1000;
 const MARKDOWN_CACHE_MAX_CHARS = 50_000;
 const markdownCache = new Map<string, string>();
 
