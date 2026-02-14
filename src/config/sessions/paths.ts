@@ -77,7 +77,6 @@ function resolvePathWithinSessionsDir(sessionsDir: string, candidate: string): s
   if (!trimmed) {
     throw new Error("Session file path must not be empty");
   }
-
   // Resolve symlinks in sessionsDir to handle .clawdbot -> .openclaw
   let resolvedBase: string;
   try {
@@ -86,33 +85,38 @@ function resolvePathWithinSessionsDir(sessionsDir: string, candidate: string): s
     resolvedBase = path.resolve(sessionsDir);
   }
 
-  // Resolve candidate path
-  let resolvedCandidate: string;
-  if (path.isAbsolute(trimmed)) {
-    // For absolute paths, try to resolve symlinks in the directory part
-    const dir = path.dirname(trimmed);
-    const base = path.basename(trimmed);
-    try {
-      const resolvedDir = fs.realpathSync(dir);
-      resolvedCandidate = path.join(resolvedDir, base);
-    } catch {
-      // Directory doesn't exist, just resolve the path
-      resolvedCandidate = path.resolve(trimmed);
+  // Normalize absolute paths that are within the sessions directory.
+  // Older versions stored absolute sessionFile paths in sessions.json;
+  // convert them to relative so the containment check passes.
+  const normalized = path.isAbsolute(trimmed) ? path.relative(resolvedBase, trimmed) : trimmed;
+  if (!normalized || normalized.startsWith("..") || path.isAbsolute(normalized)) {
+    // Resolve candidate path with symlink support.
+    let resolvedCandidate: string;
+    if (path.isAbsolute(trimmed)) {
+      const dir = path.dirname(trimmed);
+      const base = path.basename(trimmed);
+      try {
+        const resolvedDir = fs.realpathSync(dir);
+        resolvedCandidate = path.join(resolvedDir, base);
+      } catch {
+        resolvedCandidate = path.resolve(trimmed);
+      }
+    } else {
+      resolvedCandidate = path.resolve(resolvedBase, trimmed);
     }
-  } else {
-    resolvedCandidate = path.resolve(resolvedBase, trimmed);
-  }
 
-  const relative = path.relative(resolvedBase, resolvedCandidate);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    // Special case: allow .clawdbot paths since it's a symlink to .openclaw
-    if (trimmed.includes("/.clawdbot/")) {
-      // Return the original path, it will work through symlinks
-      return path.isAbsolute(trimmed) ? trimmed : path.resolve(resolvedBase, trimmed);
+    const relative = path.relative(resolvedBase, resolvedCandidate);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+      // Special case: allow .clawdbot paths since it's a symlink to .openclaw
+      if (trimmed.includes("/.clawdbot/")) {
+        // Return the original path, it will work through symlinks
+        return path.isAbsolute(trimmed) ? trimmed : path.resolve(resolvedBase, trimmed);
+      }
+      throw new Error("Session file path must be within sessions directory");
     }
-    throw new Error("Session file path must be within sessions directory");
+    return resolvedCandidate;
   }
-  return resolvedCandidate;
+  return path.resolve(resolvedBase, normalized);
 }
 
 export function resolveSessionTranscriptPathInDir(
