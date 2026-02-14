@@ -79,7 +79,7 @@ describe("loader", () => {
             handlers: [
               {
                 event: "command:new",
-                module: path.basename(handlerPath),
+                module: handlerPath,
               },
             ],
           },
@@ -106,8 +106,8 @@ describe("loader", () => {
           internal: {
             enabled: true,
             handlers: [
-              { event: "command:new", module: path.basename(handler1Path) },
-              { event: "command:stop", module: path.basename(handler2Path) },
+              { event: "command:new", module: handler1Path },
+              { event: "command:stop", module: handler2Path },
             ],
           },
         },
@@ -138,7 +138,7 @@ describe("loader", () => {
             handlers: [
               {
                 event: "command:new",
-                module: path.basename(handlerPath),
+                module: handlerPath,
                 export: "myHandler",
               },
             ],
@@ -158,7 +158,7 @@ describe("loader", () => {
             handlers: [
               {
                 event: "command:new",
-                module: "missing-handler.js",
+                module: "/nonexistent/path/handler.js",
               },
             ],
           },
@@ -182,7 +182,7 @@ describe("loader", () => {
             handlers: [
               {
                 event: "command:new",
-                module: path.basename(handlerPath),
+                module: handlerPath,
               },
             ],
           },
@@ -199,8 +199,8 @@ describe("loader", () => {
       const handlerPath = path.join(tmpDir, "relative-handler.js");
       await fs.writeFile(handlerPath, "export default async function() {}", "utf-8");
 
-      // Relative to workspaceDir (tmpDir)
-      const relativePath = path.relative(tmpDir, handlerPath);
+      // Get relative path from cwd
+      const relativePath = path.relative(process.cwd(), handlerPath);
 
       const cfg: OpenClawConfig = {
         hooks: {
@@ -241,7 +241,7 @@ describe("loader", () => {
             handlers: [
               {
                 event: "command:new",
-                module: path.basename(handlerPath),
+                module: handlerPath,
               },
             ],
           },

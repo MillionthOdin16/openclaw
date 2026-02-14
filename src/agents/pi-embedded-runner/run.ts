@@ -116,13 +116,21 @@ const mergeUsageIntoAccumulator = (
   if (!hasUsageValues(usage)) {
     return;
   }
-  target.input += usage.input ?? 0;
-  target.output += usage.output ?? 0;
-  target.cacheRead += usage.cacheRead ?? 0;
-  target.cacheWrite += usage.cacheWrite ?? 0;
-  target.total +=
+  // Use max instead of sum to avoid inflating token counts with prompt caching.
+  // With Anthropic caching, each tool call round-trip reports cacheRead equal to
+  // the full context size. Summing these would multiply the actual context size
+  // by the number of tool calls (e.g., 80k × 3 = 240k).
+  // The last API call represents the final context state, so we track max values.
+  // See GitHub issue #13782
+  target.input = Math.max(target.input, usage.input ?? 0);
+  target.output += usage.output ?? 0; // Output is additive (each response adds tokens)
+  target.cacheRead = Math.max(target.cacheRead, usage.cacheRead ?? 0);
+  target.cacheWrite = Math.max(target.cacheWrite, usage.cacheWrite ?? 0);
+  target.total = Math.max(
+    target.total,
     usage.total ??
-    (usage.input ?? 0) + (usage.output ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
+      (usage.input ?? 0) + (usage.output ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0),
+  );
   // Track the most recent API call's cache fields for accurate context-size reporting.
   // Accumulated cache totals inflate context size when there are multiple tool-call round-trips,
   // since each call reports cacheRead ≈ current_context_size.
@@ -500,6 +508,12 @@ export async function runEmbeddedPiAgent(
               ? lastAssistant.errorMessage?.trim() || formattedAssistantErrorText
               : undefined;
 
+          // Detect context overflow from: 1) error messages, 2) stopReason:length + zero output
+          // See: https://github.com/openclaw/openclaw/issues/14064
+          const isLengthStopWithZeroOutput =
+            lastAssistant?.stopReason === "length" &&
+            (lastAssistant?.usage as { output?: number } | undefined)?.output === 0;
+
           const contextOverflowError = !aborted
             ? (() => {
                 if (promptError) {
@@ -513,6 +527,14 @@ export async function runEmbeddedPiAgent(
                 }
                 if (assistantErrorText && isLikelyContextOverflowError(assistantErrorText)) {
                   return { text: assistantErrorText, source: "assistantError" as const };
+                }
+                // Treat stopReason:length with zero output as context overflow
+                // This happens when context exceeds model's effective window
+                if (isLengthStopWithZeroOutput) {
+                  return {
+                    text: "Model returned stopReason:length with zero output tokens - context exceeds effective window",
+                    source: "zeroOutputLength" as const,
+                  };
                 }
                 return null;
               })()

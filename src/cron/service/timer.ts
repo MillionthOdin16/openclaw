@@ -1,4 +1,3 @@
-import type { HeartbeatRunResult } from "../../infra/heartbeat-wake.js";
 import type { CronJob } from "../types.js";
 import type { CronEvent, CronServiceState } from "./state.js";
 import { DEFAULT_AGENT_ID } from "../../routing/session-key.js";
@@ -8,7 +7,6 @@ import {
   computeJobNextRunAtMs,
   nextWakeAtMs,
   recomputeNextRuns,
-  recomputeNextRunsForMaintenance,
   resolveJobPayloadTextForMain,
 } from "./jobs.js";
 import { locked } from "./locked.js";
@@ -70,7 +68,7 @@ function applyJobResult(
   }
 
   const shouldDelete =
-    job.schedule.kind === "at" && job.deleteAfterRun === true && result.status === "ok";
+    job.schedule.kind === "at" && result.status === "ok" && job.deleteAfterRun === true;
 
   if (!shouldDelete) {
     if (job.schedule.kind === "at") {
@@ -159,26 +157,6 @@ export function armTimer(state: CronServiceState) {
 
 export async function onTimer(state: CronServiceState) {
   if (state.running) {
-    // Re-arm the timer so the scheduler keeps ticking even when a job is
-    // still executing.  Without this, a long-running job (e.g. an agentTurn
-    // exceeding MAX_TIMER_DELAY_MS) causes the clamped 60 s timer to fire
-    // while `running` is true.  The early return then leaves no timer set,
-    // silently killing the scheduler until the next gateway restart.
-    //
-    // We use MAX_TIMER_DELAY_MS as a fixed re-check interval to avoid a
-    // zero-delay hot-loop when past-due jobs are waiting for the current
-    // execution to finish.
-    // See: https://github.com/openclaw/openclaw/issues/12025
-    if (state.timer) {
-      clearTimeout(state.timer);
-    }
-    state.timer = setTimeout(async () => {
-      try {
-        await onTimer(state);
-      } catch (err) {
-        state.deps.log.error({ err: String(err) }, "cron: timer tick failed");
-      }
-    }, MAX_TIMER_DELAY_MS);
     return;
   }
   state.running = true;
@@ -188,10 +166,7 @@ export async function onTimer(state: CronServiceState) {
       const due = findDueJobs(state);
 
       if (due.length === 0) {
-        // Use maintenance-only recompute to avoid advancing past-due nextRunAtMs
-        // values without execution. This prevents jobs from being silently skipped
-        // when the timer wakes up but findDueJobs returns empty (see #13992).
-        const changed = recomputeNextRunsForMaintenance(state);
+        const changed = recomputeNextRuns(state);
         if (changed) {
           await persist(state);
         }
@@ -373,10 +348,7 @@ export async function runMissedJobs(state: CronServiceState) {
       return false;
     }
     const next = j.state.nextRunAtMs;
-    if (j.schedule.kind === "at" && j.state.lastStatus) {
-      // Any terminal status (ok, error, skipped) means the job already
-      // ran at least once.  Don't re-fire it on restart — applyJobResult
-      // disables one-shot jobs, but guard here defensively (#13845).
+    if (j.schedule.kind === "at" && j.state.lastStatus === "ok") {
       return false;
     }
     return typeof next === "number" && now >= next;
@@ -439,39 +411,15 @@ async function executeJobCore(
       };
     }
     state.deps.enqueueSystemEvent(text, { agentId: job.agentId });
-    if (job.wakeMode === "now" && state.deps.runHeartbeatOnce) {
-      const reason = `cron:${job.id}`;
-      const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-      const maxWaitMs = 2 * 60_000;
-      const waitStartedAt = state.deps.nowMs();
 
-      let heartbeatResult: HeartbeatRunResult;
-      for (;;) {
-        heartbeatResult = await state.deps.runHeartbeatOnce({ reason, agentId: job.agentId });
-        if (
-          heartbeatResult.status !== "skipped" ||
-          heartbeatResult.reason !== "requests-in-flight"
-        ) {
-          break;
-        }
-        if (state.deps.nowMs() - waitStartedAt > maxWaitMs) {
-          state.deps.requestHeartbeatNow({ reason });
-          return { status: "ok", summary: text };
-        }
-        await delay(250);
-      }
+    const reason = `cron:${job.id}`;
+    state.deps.requestHeartbeatNow({ reason });
 
-      if (heartbeatResult.status === "ran") {
-        return { status: "ok", summary: text };
-      } else if (heartbeatResult.status === "skipped") {
-        return { status: "skipped", error: heartbeatResult.reason, summary: text };
-      } else {
-        return { status: "error", error: heartbeatResult.reason, summary: text };
-      }
-    } else {
-      state.deps.requestHeartbeatNow({ reason: `cron:${job.id}` });
-      return { status: "ok", summary: text };
-    }
+    // Don't block waiting for heartbeat - requestHeartbeatNow() already scheduled it
+    // and the heartbeat wake scheduler will auto-retry if main lane is busy.
+    // See: heartbeat-wake.ts requestHeartbeatNow() for built-in retry logic.
+    // This prevents cron lane from blocking for 60+ seconds on busy main lane.
+    return { status: "ok", summary: text };
   }
 
   if (job.payload.kind !== "agentTurn") {

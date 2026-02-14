@@ -231,6 +231,33 @@ describe("buildStatusMessage", () => {
     expect(normalizeTestText(text)).toContain("Model: openai/gpt-4.1-mini");
   });
 
+  it("uses model label override when provided", () => {
+    const text = buildStatusMessage({
+      agent: {
+        model: "anthropic/claude-opus-4-5",
+        contextTokens: 32_000,
+      },
+      sessionEntry: {
+        sessionId: "override-2",
+        updatedAt: 0,
+        providerOverride: "openai",
+        modelOverride: "gpt-4.1-mini",
+        modelProvider: "anthropic",
+        model: "claude-haiku-4-5",
+        contextTokens: 32_000,
+      },
+      sessionKey: "agent:main:main",
+      sessionScope: "per-sender",
+      queue: { mode: "collect", depth: 0 },
+      modelAuth: "api-key",
+      modelLabelOverride: "openai/gpt-4.1-mini → anthropic/claude-haiku-4-5 (fallback)",
+    });
+
+    expect(normalizeTestText(text)).toContain(
+      "Model: openai/gpt-4.1-mini → anthropic/claude-haiku-4-5 (fallback)",
+    );
+  });
+
   it("keeps provider prefix from configured model", () => {
     const text = buildStatusMessage({
       agent: {
@@ -256,6 +283,25 @@ describe("buildStatusMessage", () => {
     expect(normalized).toContain("Model:");
     expect(normalized).toContain("Context:");
     expect(normalized).toContain("Queue: collect");
+  });
+
+  it("treats stale cached totals as unknown context usage", () => {
+    const text = buildStatusMessage({
+      agent: { model: "anthropic/claude-opus-4-5", contextTokens: 32_000 },
+      sessionEntry: {
+        sessionId: "stale-1",
+        updatedAt: 0,
+        totalTokens: 12_345,
+        totalTokensFresh: false,
+        contextTokens: 32_000,
+      },
+      sessionKey: "agent:main:main",
+      sessionScope: "per-sender",
+      queue: { mode: "collect", depth: 0 },
+      modelAuth: "api-key",
+    });
+
+    expect(normalizeTestText(text)).toContain("Context: ?/32k");
   });
 
   it("includes group activation for group sessions", () => {

@@ -553,6 +553,7 @@ const ERROR_PATTERNS = {
   billing: [
     /["']?(?:status|code)["']?\s*[:=]\s*402\b|\bhttp\s*402\b|\berror(?:\s+code)?\s*[:=]?\s*402\b|\b(?:got|returned|received)\s+(?:a\s+)?402\b|^\s*402\s+payment/i,
     "payment required",
+    "membership benefits",
     "insufficient credits",
     "credit balance",
     "plans & billing",

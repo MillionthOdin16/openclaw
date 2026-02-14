@@ -1,5 +1,8 @@
 import type { AgentEvent } from "@mariozechner/pi-agent-core";
-import type { PluginHookAfterToolCallEvent } from "../plugins/types.js";
+import type {
+  PluginHookAfterToolCallEvent,
+  PluginHookBeforeToolCallEvent,
+} from "../plugins/types.js";
 import type { EmbeddedPiSubscribeContext } from "./pi-embedded-subscribe.handlers.types.js";
 import { emitAgentEvent } from "../infra/agent-events.js";
 import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
@@ -58,13 +61,33 @@ export async function handleToolExecutionStart(
   // Track start time and args for after_tool_call hook
   toolStartData.set(toolCallId, { startTime: Date.now(), args });
 
-  if (toolName === "read") {
+  // Call before_tool_call hook
+  const hookRunner = ctx.hookRunner ?? getGlobalHookRunner();
+  if (hookRunner?.hasHooks?.("before_tool_call")) {
+    try {
+      const hookEvent: PluginHookBeforeToolCallEvent = {
+        toolName,
+        params: args && typeof args === "object" ? (args as Record<string, unknown>) : {},
+      };
+      await hookRunner.runBeforeToolCall(hookEvent, { toolName });
+    } catch (err) {
+      ctx.log.debug(`before_tool_call hook failed: tool=${toolName} error=${String(err)}`);
+    }
+  }
+
+  if (toolName === "read" || toolName === "write" || toolName === "edit") {
     const record = args && typeof args === "object" ? (args as Record<string, unknown>) : {};
-    const filePath = typeof record.path === "string" ? record.path.trim() : "";
+    const filePath = (
+      typeof record.path === "string"
+        ? record.path
+        : typeof record.file_path === "string"
+          ? record.file_path
+          : ""
+    ).trim();
     if (!filePath) {
       const argsPreview = typeof args === "string" ? args.slice(0, 200) : undefined;
       ctx.log.warn(
-        `read tool called without path: toolCallId=${toolCallId} argsType=${typeof args}${argsPreview ? ` argsPreview=${argsPreview}` : ""}`,
+        `${toolName} tool called without path: toolCallId=${toolCallId} argsType=${typeof args}${argsPreview ? ` argsPreview=${argsPreview}` : ""}`,
       );
     }
   }
@@ -230,7 +253,7 @@ export async function handleToolExecutionEnd(
   if (ctx.params.onToolResult && ctx.shouldEmitToolOutput()) {
     const outputText = extractToolResultText(sanitizedResult);
     if (outputText) {
-      ctx.emitToolOutput(toolName, meta, outputText);
+      ctx.emitToolOutput(toolName, meta, outputText, toolCallId, isToolError);
     }
   }
 

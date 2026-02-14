@@ -139,7 +139,6 @@ export const SandboxBrowserSchema = z
     allowHostControl: z.boolean().optional(),
     autoStart: z.boolean().optional(),
     autoStartTimeoutMs: z.number().int().positive().optional(),
-    binds: z.array(z.string()).optional(),
   })
   .strict()
   .optional();

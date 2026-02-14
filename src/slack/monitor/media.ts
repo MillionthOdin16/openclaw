@@ -139,33 +139,6 @@ export type SlackMediaResult = {
 };
 
 const MAX_SLACK_MEDIA_FILES = 8;
-const MAX_SLACK_MEDIA_CONCURRENCY = 3;
-
-async function mapLimit<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  if (items.length === 0) {
-    return [];
-  }
-  const results: R[] = [];
-  results.length = items.length;
-  let nextIndex = 0;
-  const workerCount = Math.max(1, Math.min(limit, items.length));
-  await Promise.all(
-    Array.from({ length: workerCount }, async () => {
-      while (true) {
-        const idx = nextIndex++;
-        if (idx >= items.length) {
-          return;
-        }
-        results[idx] = await fn(items[idx]);
-      }
-    }),
-  );
-  return results;
-}
 
 /**
  * Downloads all files attached to a Slack message and returns them as an array.
@@ -179,50 +152,43 @@ export async function resolveSlackMedia(params: {
   const files = params.files ?? [];
   const limitedFiles =
     files.length > MAX_SLACK_MEDIA_FILES ? files.slice(0, MAX_SLACK_MEDIA_FILES) : files;
-
-  const resolved = await mapLimit<SlackFile, SlackMediaResult | null>(
-    limitedFiles,
-    MAX_SLACK_MEDIA_CONCURRENCY,
-    async (file) => {
-      const url = file.url_private_download ?? file.url_private;
-      if (!url) {
-        return null;
+  const results: SlackMediaResult[] = [];
+  for (const file of limitedFiles) {
+    const url = file.url_private_download ?? file.url_private;
+    if (!url) {
+      continue;
+    }
+    try {
+      // Note: fetchRemoteMedia calls fetchImpl(url) with the URL string today and
+      // handles size limits internally. Provide a fetcher that uses auth once, then lets
+      // the redirect chain continue without credentials.
+      const fetchImpl = createSlackMediaFetch(params.token);
+      const fetched = await fetchRemoteMedia({
+        url,
+        fetchImpl,
+        filePathHint: file.name,
+        maxBytes: params.maxBytes,
+      });
+      if (fetched.buffer.byteLength > params.maxBytes) {
+        continue;
       }
-      try {
-        // Note: fetchRemoteMedia calls fetchImpl(url) with the URL string today and
-        // handles size limits internally. Provide a fetcher that uses auth once, then lets
-        // the redirect chain continue without credentials.
-        const fetchImpl = createSlackMediaFetch(params.token);
-        const fetched = await fetchRemoteMedia({
-          url,
-          fetchImpl,
-          filePathHint: file.name,
-          maxBytes: params.maxBytes,
-        });
-        if (fetched.buffer.byteLength > params.maxBytes) {
-          return null;
-        }
-        const effectiveMime = resolveSlackMediaMimetype(file, fetched.contentType);
-        const saved = await saveMediaBuffer(
-          fetched.buffer,
-          effectiveMime,
-          "inbound",
-          params.maxBytes,
-        );
-        const label = fetched.fileName ?? file.name;
-        const contentType = effectiveMime ?? saved.contentType;
-        return {
-          path: saved.path,
-          ...(contentType ? { contentType } : {}),
-          placeholder: label ? `[Slack file: ${label}]` : "[Slack file]",
-        };
-      } catch {
-        return null;
-      }
-    },
-  );
-
-  const results = resolved.filter((entry): entry is SlackMediaResult => Boolean(entry));
+      const effectiveMime = resolveSlackMediaMimetype(file, fetched.contentType);
+      const saved = await saveMediaBuffer(
+        fetched.buffer,
+        effectiveMime,
+        "inbound",
+        params.maxBytes,
+      );
+      const label = fetched.fileName ?? file.name;
+      results.push({
+        path: saved.path,
+        contentType: effectiveMime ?? saved.contentType,
+        placeholder: label ? `[Slack file: ${label}]` : "[Slack file]",
+      });
+    } catch {
+      // Ignore download failures and try the next file.
+    }
+  }
   return results.length > 0 ? results : null;
 }
 
@@ -233,7 +199,70 @@ export type SlackThreadStarter = {
   files?: SlackFile[];
 };
 
-const THREAD_STARTER_CACHE = new Map<string, SlackThreadStarter>();
+// Bounded cache entry with timestamp for TTL
+type CacheEntry = {
+  value: SlackThreadStarter;
+  timestamp: number;
+};
+
+const THREAD_STARTER_CACHE = new Map<string, CacheEntry>();
+
+// Cache configuration to prevent unbounded memory growth
+// See: https://github.com/openclaw/openclaw/issues/5258
+const CACHE_MAX_SIZE = 10000;
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Clean up expired entries and enforce max size limit.
+ * Uses LRU eviction (oldest entries first).
+ */
+function pruneThreadStarterCache(): void {
+  const now = Date.now();
+  const cutoff = now - CACHE_TTL_MS;
+
+  // Remove expired entries
+  for (const [key, entry] of THREAD_STARTER_CACHE.entries()) {
+    if (entry.timestamp < cutoff) {
+      THREAD_STARTER_CACHE.delete(key);
+    }
+  }
+
+  // LRU eviction if still over max size
+  while (THREAD_STARTER_CACHE.size > CACHE_MAX_SIZE) {
+    const oldestKey = THREAD_STARTER_CACHE.keys().next().value;
+    if (!oldestKey) {
+      break;
+    }
+    THREAD_STARTER_CACHE.delete(oldestKey);
+  }
+}
+
+function getCachedThreadStarter(key: string): SlackThreadStarter | undefined {
+  const entry = THREAD_STARTER_CACHE.get(key);
+  if (!entry) {
+    return undefined;
+  }
+
+  // Check TTL
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    THREAD_STARTER_CACHE.delete(key);
+    return undefined;
+  }
+
+  // Update timestamp for LRU ordering (move to end)
+  THREAD_STARTER_CACHE.delete(key);
+  THREAD_STARTER_CACHE.set(key, { ...entry, timestamp: Date.now() });
+  return entry.value;
+}
+
+function setCachedThreadStarter(key: string, value: SlackThreadStarter): void {
+  // Prune before adding new entry
+  if (THREAD_STARTER_CACHE.size >= CACHE_MAX_SIZE) {
+    pruneThreadStarterCache();
+  }
+
+  THREAD_STARTER_CACHE.set(key, { value, timestamp: Date.now() });
+}
 
 export async function resolveSlackThreadStarter(params: {
   channelId: string;
@@ -241,7 +270,7 @@ export async function resolveSlackThreadStarter(params: {
   client: SlackWebClient;
 }): Promise<SlackThreadStarter | null> {
   const cacheKey = `${params.channelId}:${params.threadTs}`;
-  const cached = THREAD_STARTER_CACHE.get(cacheKey);
+  const cached = getCachedThreadStarter(cacheKey);
   if (cached) {
     return cached;
   }
@@ -263,7 +292,7 @@ export async function resolveSlackThreadStarter(params: {
       ts: message.ts,
       files: message.files,
     };
-    THREAD_STARTER_CACHE.set(cacheKey, starter);
+    setCachedThreadStarter(cacheKey, starter);
     return starter;
   } catch {
     return null;

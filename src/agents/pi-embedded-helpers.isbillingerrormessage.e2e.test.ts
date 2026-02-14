@@ -16,6 +16,7 @@ describe("isBillingErrorMessage", () => {
       "insufficient credits",
       "Payment Required",
       "HTTP 402 Payment Required",
+      "402 We're unable to verify your membership benefits at this time.",
       "plans & billing",
     ];
     for (const sample of samples) {

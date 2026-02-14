@@ -442,7 +442,9 @@ export async function summarizeText(params: {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    // Use .bind() instead of arrow function to avoid closure memory leak
+    // See: https://github.com/openclaw/openclaw/issues/7174
+    const timeout = setTimeout(controller.abort.bind(controller), timeoutMs);
 
     try {
       const res = await completeSimple(
@@ -546,7 +548,9 @@ export async function elevenLabsTTS(params: {
   const normalizedSeed = normalizeSeed(seed);
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  // Use .bind() instead of arrow function to avoid closure memory leak
+  // See: https://github.com/openclaw/openclaw/issues/7174
+  const timeout = setTimeout(controller.abort.bind(controller), timeoutMs);
 
   try {
     const url = new URL(`${normalizeElevenLabsBaseUrl(baseUrl)}/v1/text-to-speech/${voiceId}`);
@@ -606,7 +610,9 @@ export async function openaiTTS(params: {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  // Use .bind() instead of arrow function to avoid closure memory leak
+  // See: https://github.com/openclaw/openclaw/issues/7174
+  const timeout = setTimeout(controller.abort.bind(controller), timeoutMs);
 
   try {
     const response = await fetch(`${getOpenAITtsBaseUrl()}/audio/speech`, {

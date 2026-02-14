@@ -93,7 +93,7 @@ function coerceDisplayValue(value: unknown): string | undefined {
     if (!firstLine) {
       return undefined;
     }
-    return firstLine.length > 160 ? `${firstLine.slice(0, 157)}…` : firstLine;
+    return firstLine.length > 400 ? `${firstLine.slice(0, 397)}…` : firstLine;
   }
   if (typeof value === "boolean") {
     return value ? "true" : undefined;
@@ -188,7 +188,12 @@ function resolveReadDetail(args: unknown): string | undefined {
     return undefined;
   }
   const record = args as Record<string, unknown>;
-  const path = typeof record.path === "string" ? record.path : undefined;
+  const path =
+    typeof record.path === "string"
+      ? record.path
+      : typeof record.file_path === "string"
+        ? record.file_path
+        : undefined;
   if (!path) {
     return undefined;
   }
@@ -205,7 +210,12 @@ function resolveWriteDetail(args: unknown): string | undefined {
     return undefined;
   }
   const record = args as Record<string, unknown>;
-  const path = typeof record.path === "string" ? record.path : undefined;
+  const path =
+    typeof record.path === "string"
+      ? record.path
+      : typeof record.file_path === "string"
+        ? record.file_path
+        : undefined;
   return path;
 }
 

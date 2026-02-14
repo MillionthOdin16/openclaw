@@ -15,6 +15,7 @@ import {
   resolveApiKeyForProfile,
   resolveAuthProfileOrder,
   resolveAuthStorePathForDisplay,
+  saveAuthProfileStore,
 } from "./auth-profiles.js";
 import { normalizeProviderId } from "./model-selection.js";
 
@@ -204,7 +205,17 @@ export async function resolveApiKeyForProvider(params: {
 
   const customKey = getCustomProviderApiKey(cfg, provider);
   if (customKey) {
-    return { apiKey: customKey, source: "models.json", mode: "api-key" };
+    // Auto-create profile for API-key providers so they can be tracked for cooldowns
+    const profileId = `${provider}:default`;
+    if (!store.profiles[profileId]) {
+      store.profiles[profileId] = {
+        type: "api_key",
+        provider,
+        key: customKey,
+      };
+      saveAuthProfileStore(store, params.agentDir);
+    }
+    return { apiKey: customKey, source: "models.json", mode: "api-key", profileId };
   }
 
   const normalized = normalizeProviderId(provider);
@@ -283,8 +294,20 @@ export function resolveEnvApiKey(provider: string): EnvApiKeyResult | null {
     return pick("MINIMAX_OAUTH_TOKEN") ?? pick("MINIMAX_API_KEY");
   }
 
-  if (normalized === "kimi-coding") {
-    return pick("KIMI_API_KEY") ?? pick("KIMICODE_API_KEY");
+  const kimiSuffix = normalized.match(/^kimi-code-(\d+)$/)?.[1];
+  if (normalized === "kimi-code" || kimiSuffix) {
+    if (kimiSuffix) {
+      return (
+        pick(`KIMI_CODE_${kimiSuffix}`) ??
+        pick("KIMI_CODE") ??
+        pick("KIMI_CODE_1") ??
+        pick("KIMI_API_KEY") ??
+        pick("KIMICODE_API_KEY")
+      );
+    }
+    return (
+      pick("KIMI_CODE") ?? pick("KIMI_CODE_1") ?? pick("KIMI_API_KEY") ?? pick("KIMICODE_API_KEY")
+    );
   }
 
   if (normalized === "huggingface") {

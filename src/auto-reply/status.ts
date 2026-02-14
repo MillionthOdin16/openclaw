@@ -12,6 +12,7 @@ import { resolveSandboxRuntimeStatus } from "../agents/sandbox.js";
 import { derivePromptTokens, normalizeUsage, type UsageLike } from "../agents/usage.js";
 import {
   resolveMainSessionKey,
+  resolveFreshSessionTotalTokens,
   resolveSessionFilePath,
   resolveSessionFilePathOptions,
   type SessionEntry,
@@ -71,6 +72,7 @@ type StatusArgs = {
   modelAuth?: string;
   usageLine?: string;
   timeLine?: string;
+  modelLabelOverride?: string;
   queue?: QueueStatus;
   mediaDecisions?: MediaUnderstandingDecision[];
   subagentsLine?: string;
@@ -346,7 +348,7 @@ export function buildStatusMessage(args: StatusArgs): string {
 
   let inputTokens = entry?.inputTokens;
   let outputTokens = entry?.outputTokens;
-  let totalTokens = entry?.totalTokens ?? (entry?.inputTokens ?? 0) + (entry?.outputTokens ?? 0);
+  let totalTokens = resolveFreshSessionTotalTokens(entry);
 
   // Prefer prompt-size tokens from the session transcript when it looks larger
   // (cached prompt tokens are often missing from agent meta/store).
@@ -461,7 +463,8 @@ export function buildStatusMessage(args: StatusArgs): string {
       : undefined;
   const costLabel = showCost && hasUsage ? formatUsd(cost) : undefined;
 
-  const modelLabel = model ? `${provider}/${model}` : "unknown";
+  const modelLabel =
+    args.modelLabelOverride?.trim() || (model ? `${provider}/${model}` : "unknown");
   const authLabel = authLabelValue ? ` · 🔑 ${authLabelValue}` : "";
   const modelLine = `🧠 Model: ${modelLabel}${authLabel}`;
   const commit = resolveCommitHash();

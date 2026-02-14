@@ -8,6 +8,7 @@ export const PROVIDER_LABELS: Record<UsageProviderId, string> = {
   "github-copilot": "Copilot",
   "google-gemini-cli": "Gemini",
   "google-antigravity": "Antigravity",
+  "kimi-code": "Kimi",
   minimax: "MiniMax",
   "openai-codex": "Codex",
   xiaomi: "Xiaomi",
@@ -19,6 +20,7 @@ export const usageProviders: UsageProviderId[] = [
   "github-copilot",
   "google-gemini-cli",
   "google-antigravity",
+  "kimi-code",
   "minimax",
   "openai-codex",
   "xiaomi",
@@ -29,7 +31,11 @@ export function resolveUsageProviderId(provider?: string | null): UsageProviderI
   if (!provider) {
     return undefined;
   }
-  const normalized = normalizeProviderId(provider);
+  // Extract provider from "provider/model" format
+  const providerOnly = provider.split("/")[0]?.trim() || provider;
+  // Strip numerical suffix like "-2", "-3" from profile variants (e.g., "kimi-code-2" → "kimi-code")
+  const withoutSuffix = providerOnly.replace(/-\d+$/, "");
+  const normalized = normalizeProviderId(withoutSuffix);
   return usageProviders.includes(normalized as UsageProviderId)
     ? (normalized as UsageProviderId)
     : undefined;

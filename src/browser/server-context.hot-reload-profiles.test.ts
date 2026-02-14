@@ -17,26 +17,30 @@ function buildConfig() {
   };
 }
 
-vi.mock("../config/config.js", () => ({
-  createConfigIO: () => ({
+vi.mock("../config/config.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../config/config.js")>();
+  return {
+    ...actual,
+    createConfigIO: () => ({
+      loadConfig: () => {
+        // Always return fresh config for createConfigIO to simulate fresh disk read
+        return buildConfig();
+      },
+    }),
     loadConfig: () => {
-      // Always return fresh config for createConfigIO to simulate fresh disk read
-      return buildConfig();
+      // simulate stale loadConfig that doesn't see updates unless cache cleared
+      if (!cachedConfig) {
+        cachedConfig = buildConfig();
+      }
+      return cachedConfig;
     },
-  }),
-  loadConfig: () => {
-    // simulate stale loadConfig that doesn't see updates unless cache cleared
-    if (!cachedConfig) {
-      cachedConfig = buildConfig();
-    }
-    return cachedConfig;
-  },
-  clearConfigCache: vi.fn(() => {
-    // Clear the simulated cache
-    cachedConfig = null;
-  }),
-  writeConfigFile: vi.fn(async () => {}),
-}));
+    clearConfigCache: vi.fn(() => {
+      // Clear the simulated cache
+      cachedConfig = null;
+    }),
+    writeConfigFile: vi.fn(async () => {}),
+  };
+});
 
 vi.mock("./chrome.js", () => ({
   isChromeCdpReady: vi.fn(async () => false),
@@ -68,34 +72,8 @@ vi.mock("../media/store.js", () => ({
 }));
 
 describe("server-context hot-reload profiles", () => {
-  let modulesPromise: Promise<{
-    createBrowserRouteContext: typeof import("./server-context.js").createBrowserRouteContext;
-    resolveBrowserConfig: typeof import("./config.js").resolveBrowserConfig;
-    loadConfig: typeof import("../config/config.js").loadConfig;
-    clearConfigCache: typeof import("../config/config.js").clearConfigCache;
-  }> | null = null;
-
-  const getModules = async () => {
-    if (!modulesPromise) {
-      modulesPromise = (async () => {
-        // Avoid parallel imports here; Vitest mock factories use async importOriginal
-        // and parallel loading can observe partially-initialized modules.
-        const configMod = await import("../config/config.js");
-        const config = await import("./config.js");
-        const serverContext = await import("./server-context.js");
-        return {
-          createBrowserRouteContext: serverContext.createBrowserRouteContext,
-          resolveBrowserConfig: config.resolveBrowserConfig,
-          loadConfig: configMod.loadConfig,
-          clearConfigCache: configMod.clearConfigCache,
-        };
-      })();
-    }
-    return await modulesPromise;
-  };
-
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetModules();
     cfgProfiles = {
       openclaw: { cdpPort: 18800, color: "#FF4500" },
     };
@@ -103,10 +81,11 @@ describe("server-context hot-reload profiles", () => {
   });
 
   it("forProfile hot-reloads newly added profiles from config", async () => {
-    const { createBrowserRouteContext, resolveBrowserConfig, loadConfig, clearConfigCache } =
-      await getModules();
-
     // Start with only openclaw profile
+    const { createBrowserRouteContext } = await import("./server-context.js");
+    const { resolveBrowserConfig } = await import("./config.js");
+    const { loadConfig } = await import("../config/config.js");
+
     // 1. Prime the cache by calling loadConfig() first
     const cfg = loadConfig();
     const resolved = resolveBrowserConfig(cfg.browser, cfg);
@@ -150,11 +129,14 @@ describe("server-context hot-reload profiles", () => {
     expect(stillStaleCfg.browser.profiles.desktop).toBeUndefined();
 
     // Verify clearConfigCache was not called
+    const { clearConfigCache } = await import("../config/config.js");
     expect(clearConfigCache).not.toHaveBeenCalled();
   });
 
   it("forProfile still throws for profiles that don't exist in fresh config", async () => {
-    const { createBrowserRouteContext, resolveBrowserConfig, loadConfig } = await getModules();
+    const { createBrowserRouteContext } = await import("./server-context.js");
+    const { resolveBrowserConfig } = await import("./config.js");
+    const { loadConfig } = await import("../config/config.js");
 
     const cfg = loadConfig();
     const resolved = resolveBrowserConfig(cfg.browser, cfg);
@@ -175,7 +157,9 @@ describe("server-context hot-reload profiles", () => {
   });
 
   it("forProfile refreshes existing profile config after loadConfig cache updates", async () => {
-    const { createBrowserRouteContext, resolveBrowserConfig, loadConfig } = await getModules();
+    const { createBrowserRouteContext } = await import("./server-context.js");
+    const { resolveBrowserConfig } = await import("./config.js");
+    const { loadConfig } = await import("../config/config.js");
 
     const cfg = loadConfig();
     const resolved = resolveBrowserConfig(cfg.browser, cfg);
@@ -203,7 +187,9 @@ describe("server-context hot-reload profiles", () => {
   });
 
   it("listProfiles refreshes config before enumerating profiles", async () => {
-    const { createBrowserRouteContext, resolveBrowserConfig, loadConfig } = await getModules();
+    const { createBrowserRouteContext } = await import("./server-context.js");
+    const { resolveBrowserConfig } = await import("./config.js");
+    const { loadConfig } = await import("../config/config.js");
 
     const cfg = loadConfig();
     const resolved = resolveBrowserConfig(cfg.browser, cfg);

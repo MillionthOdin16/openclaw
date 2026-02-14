@@ -1,5 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import type { OpenClawConfig } from "../../config/config.js";
+import type { UsageProviderId } from "../../infra/provider-usage.types.js";
 import type { AnyAgentTool } from "./common.js";
 import { normalizeGroupActivation } from "../../auto-reply/group-activation.js";
 import { getFollowupQueueDepth, resolveQueueSettings } from "../../auto-reply/reply/queue.js";
@@ -372,25 +373,89 @@ export function createSessionStatusTool(opts?: {
 
       const agentDir = resolveAgentDir(cfg, agentId);
       const providerForCard = resolved.entry.providerOverride?.trim() || configured.provider;
-      const usageProvider = resolveUsageProviderId(providerForCard);
-      let usageLine: string | undefined;
-      if (usageProvider) {
+      const modelForCard = resolved.entry.modelOverride?.trim() || configured.model;
+      const actualProvider = resolved.entry.modelProvider ?? providerForCard;
+      const actualModel = resolved.entry.model ?? modelForCard;
+      const fallbackProvider =
+        resolved.entry.fallbackProvider?.trim() ||
+        (resolved.entry.fallbackModel ? actualProvider : undefined);
+      const fallbackModel = resolved.entry.fallbackModel?.trim();
+      const fallbackActive =
+        fallbackProvider &&
+        fallbackModel &&
+        (fallbackProvider !== providerForCard || fallbackModel !== modelForCard);
+      const selectionMatchesActual =
+        actualProvider === providerForCard && actualModel === modelForCard;
+      const useActualProviderForUsage = Boolean(fallbackActive || selectionMatchesActual);
+      const providerForUsage = useActualProviderForUsage ? actualProvider : providerForCard;
+      const actualUsageProvider = (() => {
         try {
+          return resolveUsageProviderId(providerForUsage);
+        } catch {
+          return undefined;
+        }
+      })();
+      const fallbackUsageProvider =
+        useActualProviderForUsage && fallbackProvider && fallbackProvider !== providerForUsage
+          ? (() => {
+              try {
+                return resolveUsageProviderId(fallbackProvider);
+              } catch {
+                return undefined;
+              }
+            })()
+          : undefined;
+      let usageLine: string | undefined;
+      const providersToFetch: string[] = [];
+      if (actualUsageProvider) {
+        providersToFetch.push(actualUsageProvider);
+      }
+      if (fallbackUsageProvider && fallbackUsageProvider !== actualUsageProvider) {
+        providersToFetch.push(fallbackUsageProvider);
+      }
+      if (providersToFetch.length > 0) {
+        try {
+          const providerAuths: Array<{ provider: UsageProviderId; token: string }> = [];
+          if (actualUsageProvider === "kimi-code" && providerForUsage) {
+            const match = providerForUsage.match(/kimi-code-(\d+)$/);
+            const suffix = match ? match[1] : null;
+            const envVar = suffix ? `KIMI_CODE_${suffix}` : "KIMI_CODE";
+            const apiKey = process.env[envVar];
+            if (apiKey) {
+              providerAuths.push({ provider: "kimi-code", token: apiKey });
+            }
+          }
           const usageSummary = await loadProviderUsageSummary({
             timeoutMs: 3500,
-            providers: [usageProvider],
+            providers: providersToFetch as UsageProviderId[],
+            auth: providerAuths.length > 0 ? providerAuths : undefined,
             agentDir,
           });
-          const snapshot = usageSummary.providers.find((entry) => entry.provider === usageProvider);
-          if (snapshot) {
-            const formatted = formatUsageWindowSummary(snapshot, {
+          const parts: string[] = [];
+          for (const usageEntry of usageSummary.providers) {
+            if (usageEntry.error || usageEntry.windows.length === 0) {
+              continue;
+            }
+            const isFallback = usageEntry.provider === fallbackUsageProvider;
+            const isActual = usageEntry.provider === actualUsageProvider;
+            const label = isFallback
+              ? `${usageEntry.displayName} (fallback)`
+              : isActual && fallbackUsageProvider
+                ? `${usageEntry.displayName} (active)`
+                : isActual && fallbackActive
+                  ? `${usageEntry.displayName} (fallback)`
+                  : usageEntry.displayName;
+            const summaryLine = formatUsageWindowSummary(usageEntry, {
               now: Date.now(),
               maxWindows: 2,
               includeResets: true,
             });
-            if (formatted && !formatted.startsWith("error:")) {
-              usageLine = `📊 Usage: ${formatted}`;
+            if (summaryLine) {
+              parts.push(`${label}: ${summaryLine}`);
             }
+          }
+          if (parts.length > 0) {
+            usageLine = `📊 Usage: ${parts.join(" · ")}`;
           }
         } catch {
           // ignore
@@ -425,11 +490,13 @@ export function createSessionStatusTool(opts?: {
         : `🕒 Time zone: ${userTimezone}`;
 
       const agentDefaults = cfg.agents?.defaults ?? {};
-      const defaultLabel = `${configured.provider}/${configured.model}`;
+      const primaryModelLabel = fallbackActive
+        ? `${providerForCard}/${modelForCard} → ${fallbackProvider}/${fallbackModel} (fallback)`
+        : `${providerForCard}/${modelForCard}`;
       const agentModel =
         typeof agentDefaults.model === "object" && agentDefaults.model
-          ? { ...agentDefaults.model, primary: defaultLabel }
-          : { primary: defaultLabel };
+          ? { ...agentDefaults.model, primary: primaryModelLabel }
+          : { primary: primaryModelLabel };
       const statusText = buildStatusMessage({
         config: cfg,
         agent: {
@@ -441,6 +508,7 @@ export function createSessionStatusTool(opts?: {
         sessionKey: resolved.key,
         sessionStorePath: storePath,
         groupActivation,
+        modelLabelOverride: primaryModelLabel,
         modelAuth: resolveModelAuthLabel({
           provider: providerForCard,
           cfg,

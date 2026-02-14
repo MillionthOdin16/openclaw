@@ -511,7 +511,7 @@ describe("initSessionState preserves behavior overrides across /new and /reset",
     expect(result.sessionEntry.verboseLevel).toBe("on");
   });
 
-  it("/reset preserves thinkingLevel and reasoningLevel from previous session", async () => {
+  it("/reset does not preserve thinkingLevel or reasoningLevel from previous session", async () => {
     const storePath = await createStorePath("openclaw-reset-thinking-");
     const sessionKey = "agent:main:telegram:dm:user2";
     const existingSessionId = "existing-session-thinking";
@@ -544,8 +544,8 @@ describe("initSessionState preserves behavior overrides across /new and /reset",
 
     expect(result.isNewSession).toBe(true);
     expect(result.resetTriggered).toBe(true);
-    expect(result.sessionEntry.thinkingLevel).toBe("full");
-    expect(result.sessionEntry.reasoningLevel).toBe("high");
+    expect(result.sessionEntry.thinkingLevel).toBeUndefined();
+    expect(result.sessionEntry.reasoningLevel).toBeUndefined();
   });
 
   it("/new preserves ttsAuto from previous session", async () => {
@@ -581,6 +581,42 @@ describe("initSessionState preserves behavior overrides across /new and /reset",
 
     expect(result.isNewSession).toBe(true);
     expect(result.sessionEntry.ttsAuto).toBe("on");
+  });
+
+  it("/new preserves model overrides from previous session", async () => {
+    const storePath = await createStorePath("openclaw-reset-model-");
+    const sessionKey = "agent:main:telegram:dm:user4";
+    const existingSessionId = "existing-session-model";
+    await seedSessionStoreWithOverrides({
+      storePath,
+      sessionKey,
+      sessionId: existingSessionId,
+      overrides: { providerOverride: "minimax", modelOverride: "MiniMax-M2.1" },
+    });
+
+    const cfg = {
+      session: { store: storePath, idleMinutes: 999 },
+    } as OpenClawConfig;
+
+    const result = await initSessionState({
+      ctx: {
+        Body: "/new",
+        RawBody: "/new",
+        CommandBody: "/new",
+        From: "user4",
+        To: "bot",
+        ChatType: "direct",
+        SessionKey: sessionKey,
+        Provider: "telegram",
+        Surface: "telegram",
+      },
+      cfg,
+      commandAuthorized: true,
+    });
+
+    expect(result.isNewSession).toBe(true);
+    expect(result.sessionEntry.providerOverride).toBe("minimax");
+    expect(result.sessionEntry.modelOverride).toBe("MiniMax-M2.1");
   });
 
   it("archives previous transcript file on /new reset", async () => {

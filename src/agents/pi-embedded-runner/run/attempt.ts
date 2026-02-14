@@ -690,24 +690,47 @@ export async function runEmbeddedAttempt(
         }
         void activeSession.abort();
       };
-      const abortable = <T>(promise: Promise<T>): Promise<T> => {
+      const abortable = <T>(promise: Promise<T>, hardTimeoutMs?: number): Promise<T> => {
         const signal = runAbortController.signal;
         if (signal.aborted) {
           return Promise.reject(makeAbortError(signal));
         }
         return new Promise<T>((resolve, reject) => {
-          const onAbort = () => {
+          let hardTimeoutId: NodeJS.Timeout | undefined;
+          const cleanup = () => {
             signal.removeEventListener("abort", onAbort);
+            if (hardTimeoutId) {
+              clearTimeout(hardTimeoutId);
+            }
+          };
+          const onAbort = () => {
+            cleanup();
             reject(makeAbortError(signal));
           };
           signal.addEventListener("abort", onAbort, { once: true });
+
+          // Hard timeout: force reject if abort signal doesn't propagate
+          // This handles cases where the SDK doesn't respond to abort during tool execution
+          // See GitHub issue #14228
+          if (hardTimeoutMs && hardTimeoutMs > 0) {
+            hardTimeoutId = setTimeout(() => {
+              if (!signal.aborted) {
+                log.warn(
+                  `abortable hard timeout reached: forcing abort runId=${params.runId} sessionId=${params.sessionId}`,
+                );
+                abortRun(true, new Error(`Hard timeout after ${hardTimeoutMs}ms`));
+              }
+              // The abort handler above will reject the promise
+            }, hardTimeoutMs);
+          }
+
           promise.then(
             (value) => {
-              signal.removeEventListener("abort", onAbort);
+              cleanup();
               resolve(value);
             },
             (err) => {
-              signal.removeEventListener("abort", onAbort);
+              cleanup();
               reject(err);
             },
           );
@@ -924,10 +947,16 @@ export async function runEmbeddedAttempt(
 
           // Only pass images option if there are actually images to pass
           // This avoids potential issues with models that don't expect the images parameter
+          // Hard timeout adds 30s buffer to normal timeout to force cleanup if SDK doesn't respond
+          // See GitHub issue #14228
+          const hardTimeoutMs = Math.max(params.timeoutMs + 30_000, 60_000);
           if (imageResult.images.length > 0) {
-            await abortable(activeSession.prompt(effectivePrompt, { images: imageResult.images }));
+            await abortable(
+              activeSession.prompt(effectivePrompt, { images: imageResult.images }),
+              hardTimeoutMs,
+            );
           } else {
-            await abortable(activeSession.prompt(effectivePrompt));
+            await abortable(activeSession.prompt(effectivePrompt), hardTimeoutMs);
           }
         } catch (err) {
           promptError = err;
@@ -938,9 +967,18 @@ export async function runEmbeddedAttempt(
         }
 
         try {
-          await waitForCompactionRetry();
+          // Wait for compaction with a 60-second timeout to prevent indefinite blocking
+          // if compaction state gets stuck (e.g., due to abort without proper cleanup).
+          // This is a safety net - normal compaction completes in seconds, but we allow
+          // up to 60s for large sessions or slow systems.
+          await waitForCompactionRetry(60_000);
         } catch (err) {
-          if (isRunnerAbortError(err)) {
+          // Log timeout but don't fail the run - compaction may have been interrupted
+          if (err instanceof Error && err.message.includes("timed out")) {
+            log.warn(
+              `waitForCompactionRetry timed out: runId=${params.runId} sessionId=${params.sessionId} compactionInFlight=${subscription.isCompacting()}`,
+            );
+          } else if (isRunnerAbortError(err)) {
             if (!promptError) {
               promptError = err;
             }

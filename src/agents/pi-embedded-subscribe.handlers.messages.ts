@@ -201,7 +201,7 @@ export function handleMessageEnd(
   ctx.recordAssistantUsage((assistantMessage as { usage?: unknown }).usage);
   promoteThinkingTagsToBlocks(assistantMessage);
 
-  const rawText = extractAssistantText(assistantMessage);
+  const rawText = extractAssistantText(assistantMessage, ctx.params.verboseLevel);
   appendRawStream({
     ts: Date.now(),
     event: "assistant_message_end",

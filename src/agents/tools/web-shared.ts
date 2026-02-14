@@ -65,6 +65,8 @@ export function withTimeout(signal: AbortSignal | undefined, timeoutMs: number):
     return signal ?? new AbortController().signal;
   }
   const controller = new AbortController();
+  // Use .bind() instead of arrow function to avoid closure memory leak
+  // See: https://github.com/openclaw/openclaw/issues/7174
   const timer = setTimeout(controller.abort.bind(controller), timeoutMs);
   if (signal) {
     signal.addEventListener(

@@ -1,46 +1,91 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type AddressInfo } from "node:net";
 import { fetch as realFetch } from "undici";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isAuthorizedBrowserRequest } from "./http-auth.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-let server: ReturnType<typeof createServer> | null = null;
-let port = 0;
+let testPort = 0;
+let prevGatewayPort: string | undefined;
+
+vi.mock("../config/config.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../config/config.js")>();
+  return {
+    ...actual,
+    loadConfig: () => ({
+      gateway: {
+        auth: {
+          token: "browser-control-secret",
+        },
+      },
+      browser: {
+        enabled: true,
+        defaultProfile: "openclaw",
+        profiles: {
+          openclaw: { cdpPort: testPort + 1, color: "#FF4500" },
+        },
+      },
+    }),
+  };
+});
+
+vi.mock("./routes/index.js", () => ({
+  registerBrowserRoutes(app: {
+    get: (
+      path: string,
+      handler: (req: unknown, res: { json: (body: unknown) => void }) => void,
+    ) => void;
+  }) {
+    app.get("/", (_req, res) => {
+      res.json({ ok: true });
+    });
+  },
+}));
+
+vi.mock("./server-context.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./server-context.js")>();
+  return {
+    ...actual,
+    createBrowserRouteContext: vi.fn(() => ({
+      forProfile: vi.fn(() => ({
+        stopRunningBrowser: vi.fn(async () => {}),
+      })),
+    })),
+  };
+});
 
 describe("browser control HTTP auth", () => {
   beforeEach(async () => {
-    server = createServer((req: IncomingMessage, res: ServerResponse) => {
-      if (!isAuthorizedBrowserRequest(req, { token: "browser-control-secret" })) {
-        res.statusCode = 401;
-        res.setHeader("Content-Type", "text/plain; charset=utf-8");
-        res.end("Unauthorized");
-        return;
-      }
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.end(JSON.stringify({ ok: true }));
-    });
+    prevGatewayPort = process.env.OPENCLAW_GATEWAY_PORT;
+
+    const probe = createServer();
     await new Promise<void>((resolve, reject) => {
-      server?.once("error", reject);
-      server?.listen(0, "127.0.0.1", () => resolve());
+      probe.once("error", reject);
+      probe.listen(0, "127.0.0.1", () => resolve());
     });
-    const addr = server.address();
-    if (!addr || typeof addr === "string") {
-      throw new Error("server address missing");
-    }
-    port = addr.port;
+    const addr = probe.address() as AddressInfo;
+    testPort = addr.port;
+    await new Promise<void>((resolve) => probe.close(() => resolve()));
+
+    process.env.OPENCLAW_GATEWAY_PORT = String(testPort - 2);
   });
 
   afterEach(async () => {
-    const current = server;
-    server = null;
-    if (!current) {
-      return;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    if (prevGatewayPort === undefined) {
+      delete process.env.OPENCLAW_GATEWAY_PORT;
+    } else {
+      process.env.OPENCLAW_GATEWAY_PORT = prevGatewayPort;
     }
-    await new Promise<void>((resolve) => current.close(() => resolve()));
+
+    const { stopBrowserControlServer } = await import("./server.js");
+    await stopBrowserControlServer();
   });
 
   it("requires bearer auth for standalone browser HTTP routes", async () => {
-    const base = `http://127.0.0.1:${port}`;
+    const { startBrowserControlServerFromConfig } = await import("./server.js");
+    const started = await startBrowserControlServerFromConfig();
+    expect(started?.port).toBe(testPort);
+
+    const base = `http://127.0.0.1:${testPort}`;
 
     const missingAuth = await realFetch(`${base}/`);
     expect(missingAuth.status).toBe(401);

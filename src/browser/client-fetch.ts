@@ -8,12 +8,6 @@ import {
 } from "./control-service.js";
 import { createBrowserRouteDispatcher } from "./routes/dispatcher.js";
 
-type LoopbackBrowserAuthDeps = {
-  loadConfig: typeof loadConfig;
-  resolveBrowserControlAuth: typeof resolveBrowserControlAuth;
-  getBridgeAuthForPort: typeof getBridgeAuthForPort;
-};
-
 function isAbsoluteHttp(url: string): boolean {
   return /^https?:\/\//i.test(url.trim());
 }
@@ -27,10 +21,9 @@ function isLoopbackHttpUrl(url: string): boolean {
   }
 }
 
-function withLoopbackBrowserAuthImpl(
+function withLoopbackBrowserAuth(
   url: string,
   init: (RequestInit & { timeoutMs?: number }) | undefined,
-  deps: LoopbackBrowserAuthDeps,
 ): RequestInit & { timeoutMs?: number } {
   const headers = new Headers(init?.headers ?? {});
   if (headers.has("authorization") || headers.has("x-openclaw-password")) {
@@ -41,8 +34,8 @@ function withLoopbackBrowserAuthImpl(
   }
 
   try {
-    const cfg = deps.loadConfig();
-    const auth = deps.resolveBrowserControlAuth(cfg);
+    const cfg = loadConfig();
+    const auth = resolveBrowserControlAuth(cfg);
     if (auth.token) {
       headers.set("Authorization", `Bearer ${auth.token}`);
       return { ...init, headers };
@@ -65,7 +58,7 @@ function withLoopbackBrowserAuthImpl(
         : parsed.protocol === "https:"
           ? 443
           : 80;
-    const bridgeAuth = deps.getBridgeAuthForPort(port);
+    const bridgeAuth = getBridgeAuthForPort(port);
     if (bridgeAuth?.token) {
       headers.set("Authorization", `Bearer ${bridgeAuth.token}`);
     } else if (bridgeAuth?.password) {
@@ -76,17 +69,6 @@ function withLoopbackBrowserAuthImpl(
   }
 
   return { ...init, headers };
-}
-
-function withLoopbackBrowserAuth(
-  url: string,
-  init: (RequestInit & { timeoutMs?: number }) | undefined,
-): RequestInit & { timeoutMs?: number } {
-  return withLoopbackBrowserAuthImpl(url, init, {
-    loadConfig,
-    resolveBrowserControlAuth,
-    getBridgeAuthForPort,
-  });
 }
 
 function enhanceBrowserFetchError(url: string, err: unknown, timeoutMs: number): Error {
@@ -233,7 +215,3 @@ export async function fetchBrowserJson<T>(
     throw enhanceBrowserFetchError(url, err, timeoutMs);
   }
 }
-
-export const __test = {
-  withLoopbackBrowserAuth: withLoopbackBrowserAuthImpl,
-};
