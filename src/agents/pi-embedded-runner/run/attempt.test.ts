@@ -1,7 +1,55 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { ImageContent } from "@mariozechner/pi-ai";
 import { describe, expect, it } from "vitest";
-import { injectHistoryImagesIntoMessages } from "./attempt.js";
+import {
+  injectHistoryImagesIntoMessages,
+  wrapStreamFnWithSiblingToolCallErrorHandling,
+} from "./attempt.js";
+
+describe("wrapStreamFnWithSiblingToolCallErrorHandling", () => {
+  it("catches sibling tool call error and rethrows as standard Error", async () => {
+    const errorMsg = "some error containing sibling tool call errored";
+
+    const throwingStreamFn = async function* () {
+      throw errorMsg; // throwing a string or whatever
+    };
+
+    const wrappedFn = wrapStreamFnWithSiblingToolCallErrorHandling(throwingStreamFn);
+
+    const consumeStream = async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _ of wrappedFn({}, {}, {})) {
+        // do nothing
+      }
+    };
+
+    // Expect it to reject with a standard Error object with specific message
+    await expect(consumeStream()).rejects.toThrow(/Anthropic sibling tool call error \(handled\)/);
+  });
+
+  it("rethrows other errors untouched", async () => {
+    const errorMsg = "random error";
+
+    const throwingStreamFn = async function* () {
+      throw new Error(errorMsg);
+    };
+
+    const wrappedFn = wrapStreamFnWithSiblingToolCallErrorHandling(throwingStreamFn);
+
+    const consumeStream = async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _ of wrappedFn({}, {}, {})) {
+        // do nothing
+      }
+    };
+
+    await expect(consumeStream()).rejects.toThrow(errorMsg);
+    // Should NOT match the handled error message
+    await expect(consumeStream()).rejects.not.toThrow(
+      /Anthropic sibling tool call error \(handled\)/,
+    );
+  });
+});
 
 describe("injectHistoryImagesIntoMessages", () => {
   const image: ImageContent = { type: "image", data: "abc", mimeType: "image/png" };

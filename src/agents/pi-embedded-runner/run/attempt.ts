@@ -91,6 +91,28 @@ import { splitSdkTools } from "../tool-split.js";
 import { describeUnknownError, mapThinkingLevel } from "../utils.js";
 import { detectAndLoadPromptImages } from "./images.js";
 
+// Helper to catch "sibling tool call errored" from Anthropic which causes gateway crashes
+// See: https://github.com/openclaw/openclaw/issues/16253
+export function wrapStreamFnWithSiblingToolCallErrorHandling(streamFn: any): any {
+  return async function* (model: any, context: any, options: any) {
+    try {
+      for await (const chunk of streamFn(model, context, options)) {
+        yield chunk;
+      }
+    } catch (err: any) {
+      // Check for Anthropic sibling tool call error
+      const msg = String(err?.message || err || "");
+      if (msg.includes("sibling tool call errored")) {
+        log.warn(`Caught Anthropic sibling tool call error: ${msg}. Suppressing potential crash.`);
+        // Re-throw as a standard Error to ensure it's caught by the prompt loop
+        // and doesn't cause an unhandled rejection if the original error was problematic.
+        throw new Error(`Anthropic sibling tool call error (handled): ${msg}`);
+      }
+      throw err;
+    }
+  };
+}
+
 export function injectHistoryImagesIntoMessages(
   messages: AgentMessage[],
   historyImagesByIndex: Map<number, ImageContent[]>,
@@ -541,6 +563,17 @@ export async function runEmbeddedAttempt(
       }
       if (anthropicPayloadLogger) {
         activeSession.agent.streamFn = anthropicPayloadLogger.wrapStreamFn(
+          activeSession.agent.streamFn,
+        );
+      }
+
+      // Fix for issue #16253: Catch "sibling tool call errored" crash
+      if (
+        params.provider === "anthropic" ||
+        params.provider?.toLowerCase() === "anthropic" ||
+        params.model.provider === "anthropic"
+      ) {
+        activeSession.agent.streamFn = wrapStreamFnWithSiblingToolCallErrorHandling(
           activeSession.agent.streamFn,
         );
       }
