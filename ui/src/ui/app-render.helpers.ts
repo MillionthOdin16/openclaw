@@ -61,6 +61,7 @@ export function renderChatControls(state: AppViewState) {
       stroke-width="2"
       stroke-linecap="round"
       stroke-linejoin="round"
+      aria-hidden="true"
     >
       <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
       <path d="M21 3v5h-5"></path>
@@ -76,6 +77,7 @@ export function renderChatControls(state: AppViewState) {
       stroke-width="2"
       stroke-linecap="round"
       stroke-linejoin="round"
+      aria-hidden="true"
     >
       <path d="M4 7V4h3"></path>
       <path d="M20 7V4h-3"></path>
@@ -144,6 +146,7 @@ export function renderChatControls(state: AppViewState) {
             });
           }
         }}
+        aria-label="Refresh chat data"
         title="Refresh chat data"
       >
         ${refreshIcon}
@@ -162,13 +165,18 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${showThinking}
+        aria-label=${
+          disableThinkingToggle
+            ? "Disabled during onboarding"
+            : "Toggle assistant thinking/working output"
+        }
         title=${
           disableThinkingToggle
             ? "Disabled during onboarding"
             : "Toggle assistant thinking/working output"
         }
       >
-        ${icons.brain}
+        <span aria-hidden="true" style="display: contents;">${icons.brain}</span>
       </button>
       <button
         class="btn btn--sm btn--icon ${focusActive ? "active" : ""}"
@@ -183,6 +191,11 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${focusActive}
+        aria-label=${
+          disableFocusToggle
+            ? "Disabled during onboarding"
+            : "Toggle focus mode (hide sidebar + page header)"
+        }
         title=${
           disableFocusToggle
             ? "Disabled during onboarding"
