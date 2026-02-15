@@ -87,8 +87,13 @@ export class VoiceCallWebhookServer {
             console.warn(`[voice-call] Rejecting media stream: invalid token for ${callId}`);
             return false;
           }
+          return true;
         }
-        return true;
+
+        console.warn(
+          `[voice-call] Rejecting media stream: provider ${this.provider.name} does not support secure streaming`,
+        );
+        return false;
       },
       onTranscript: (providerCallId, transcript) => {
         console.log(`[voice-call] Transcript for ${providerCallId}: ${transcript}`);
