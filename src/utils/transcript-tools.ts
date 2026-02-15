@@ -43,8 +43,33 @@ export const extractToolCallNames = (message: Record<string, unknown>): string[]
   return Array.from(names);
 };
 
-export const hasToolCall = (message: Record<string, unknown>): boolean =>
-  extractToolCallNames(message).length > 0;
+export const hasToolCall = (message: Record<string, unknown>): boolean => {
+  const toolNameRaw = message.toolName ?? message.tool_name;
+  if (typeof toolNameRaw === "string" && toolNameRaw.trim()) {
+    return true;
+  }
+
+  const content = message.content;
+  if (!Array.isArray(content)) {
+    return false;
+  }
+
+  for (const entry of content) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const block = entry as Record<string, unknown>;
+    const type = normalizeType(block.type);
+    if (!TOOL_CALL_TYPES.has(type)) {
+      continue;
+    }
+    const name = block.name;
+    if (typeof name === "string" && name.trim()) {
+      return true;
+    }
+  }
+  return false;
+};
 
 export const countToolResults = (message: Record<string, unknown>): ToolResultCounts => {
   const content = message.content;
