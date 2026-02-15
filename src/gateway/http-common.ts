@@ -87,3 +87,11 @@ export function setSseHeaders(res: ServerResponse) {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders?.();
 }
+
+export function setSecurityHeaders(res: ServerResponse) {
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Permissions-Policy", "geolocation=(), microphone=()");
+}
