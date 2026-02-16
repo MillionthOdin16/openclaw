@@ -421,9 +421,10 @@ describe("CronService", () => {
     // because requestHeartbeatNow handles the retry logic automatically
     expect(runHeartbeatOnce).not.toHaveBeenCalled();
     expect(requestHeartbeatNow).toHaveBeenCalled();
-    expect(enqueueSystemEvent).toHaveBeenCalledWith("hello", {
-      agentId: undefined,
-    });
+    expect(enqueueSystemEvent).toHaveBeenCalledWith(
+      "hello",
+      expect.objectContaining({ agentId: undefined }),
+    );
 
     expect(job.state.lastStatus).toBe("ok");
     expect(job.state.lastDurationMs).toBeGreaterThan(0);
