@@ -95,35 +95,32 @@ const loadPromise = (async () => {
     // Ignore discovery errors; will supplement with manual parse.
   }
 
-    // Fallback/Supplement: Manual parse of models.json to ensure everything is captured
-    // (Bypasses SDK filtering of unrecognized providers or models without keys)
-    try {
-      const modelsJsonPath = path.join(agentDir, "models.json");
-      if (fs.existsSync(modelsJsonPath)) {
-        const raw = fs.readFileSync(modelsJsonPath, "utf8");
-        const parsed = JSON.parse(raw);
-        if (parsed?.providers && typeof parsed.providers === "object") {
-          for (const [providerId, provider] of Object.entries(parsed.providers)) {
-            const p = provider as { models?: unknown[] };
-            if (p && typeof p === "object" && Array.isArray(p.models)) {
-              for (const m of p.models) {
-                const modelEntry = m as { id?: string; contextWindow?: number };
-                if (modelEntry?.id && typeof modelEntry.contextWindow === "number") {
-                  const fullId = `${providerId}/${modelEntry.id}`;
-                  MODEL_CACHE.set(fullId, modelEntry.contextWindow);
-                  // Overwrite even if exists, manual models.json is the source of truth for custom entries
-                  MODEL_CACHE.set(modelEntry.id, modelEntry.contextWindow);
-                }
+  // Fallback/Supplement: Manual parse of models.json to ensure everything is captured
+  // (Bypasses SDK filtering of unrecognized providers or models without keys)
+  try {
+    const modelsJsonPath = path.join(agentDir, "models.json");
+    if (fs.existsSync(modelsJsonPath)) {
+      const raw = fs.readFileSync(modelsJsonPath, "utf8");
+      const parsed = JSON.parse(raw);
+      if (parsed?.providers && typeof parsed.providers === "object") {
+        for (const [providerId, provider] of Object.entries(parsed.providers)) {
+          const p = provider as { models?: unknown[] };
+          if (p && typeof p === "object" && Array.isArray(p.models)) {
+            for (const m of p.models) {
+              const modelEntry = m as { id?: string; contextWindow?: number };
+              if (modelEntry?.id && typeof modelEntry.contextWindow === "number") {
+                const fullId = `${providerId}/${modelEntry.id}`;
+                MODEL_CACHE.set(fullId, modelEntry.contextWindow);
+                // Overwrite even if exists, manual models.json is the source of truth for custom entries
+                MODEL_CACHE.set(modelEntry.id, modelEntry.contextWindow);
               }
             }
           }
         }
       }
-    } catch {
-      // Ignore manual parse errors.
     }
   } catch {
-    // Top-level failure; lookup will fall back to defaults.
+    // Ignore manual parse errors.
   }
 
   applyConfiguredContextWindows({
