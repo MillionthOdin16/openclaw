@@ -1,7 +1,11 @@
-import { ConsoleLogger, LogService } from "@vector-im/matrix-bot-sdk";
-
 let matrixSdkLoggingConfigured = false;
-const matrixSdkBaseLogger = new ConsoleLogger();
+let matrixSdkBaseLogger: {
+  trace: (module: string, ...messageOrObject: unknown[]) => void;
+  debug: (module: string, ...messageOrObject: unknown[]) => void;
+  info: (module: string, ...messageOrObject: unknown[]) => void;
+  warn: (module: string, ...messageOrObject: unknown[]) => void;
+  error: (module: string, ...messageOrObject: unknown[]) => void;
+} | null = null;
 
 function shouldSuppressMatrixHttpNotFound(module: string, messageOrObject: unknown[]): boolean {
   if (module !== "MatrixHttpClient") {
@@ -15,22 +19,25 @@ function shouldSuppressMatrixHttpNotFound(module: string, messageOrObject: unkno
   });
 }
 
-export function ensureMatrixSdkLoggingConfigured(): void {
+export async function ensureMatrixSdkLoggingConfigured(): Promise<void> {
   if (matrixSdkLoggingConfigured) {
     return;
   }
   matrixSdkLoggingConfigured = true;
 
+  const { ConsoleLogger, LogService } = await import("@vector-im/matrix-bot-sdk");
+  matrixSdkBaseLogger = new ConsoleLogger();
+
   LogService.setLogger({
-    trace: (module, ...messageOrObject) => matrixSdkBaseLogger.trace(module, ...messageOrObject),
-    debug: (module, ...messageOrObject) => matrixSdkBaseLogger.debug(module, ...messageOrObject),
-    info: (module, ...messageOrObject) => matrixSdkBaseLogger.info(module, ...messageOrObject),
-    warn: (module, ...messageOrObject) => matrixSdkBaseLogger.warn(module, ...messageOrObject),
+    trace: (module, ...messageOrObject) => matrixSdkBaseLogger?.trace(module, ...messageOrObject),
+    debug: (module, ...messageOrObject) => matrixSdkBaseLogger?.debug(module, ...messageOrObject),
+    info: (module, ...messageOrObject) => matrixSdkBaseLogger?.info(module, ...messageOrObject),
+    warn: (module, ...messageOrObject) => matrixSdkBaseLogger?.warn(module, ...messageOrObject),
     error: (module, ...messageOrObject) => {
       if (shouldSuppressMatrixHttpNotFound(module, messageOrObject)) {
         return;
       }
-      matrixSdkBaseLogger.error(module, ...messageOrObject);
+      matrixSdkBaseLogger?.error(module, ...messageOrObject);
     },
   });
 }

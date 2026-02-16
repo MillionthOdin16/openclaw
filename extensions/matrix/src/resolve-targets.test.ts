@@ -1,23 +1,25 @@
 import type { ChannelDirectoryEntry } from "openclaw/plugin-sdk";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { listMatrixDirectoryPeersLive } from "./directory-live.js";
-import { resolveMatrixTargets } from "./resolve-targets.js";
+const listMatrixDirectoryPeersLiveMock = vi.hoisted(() => vi.fn());
+const listMatrixDirectoryGroupsLiveMock = vi.hoisted(() => vi.fn());
 
 vi.mock("./directory-live.js", () => ({
-  listMatrixDirectoryPeersLive: vi.fn(),
-  listMatrixDirectoryGroupsLive: vi.fn(),
+  listMatrixDirectoryPeersLive: listMatrixDirectoryPeersLiveMock,
+  listMatrixDirectoryGroupsLive: listMatrixDirectoryGroupsLiveMock,
 }));
+
+import { resolveMatrixTargets } from "./resolve-targets.js";
 
 describe("resolveMatrixTargets (users)", () => {
   beforeEach(() => {
-    vi.mocked(listMatrixDirectoryPeersLive).mockReset();
+    listMatrixDirectoryPeersLiveMock.mockReset();
   });
 
   it("resolves exact unique display name matches", async () => {
     const matches: ChannelDirectoryEntry[] = [
       { kind: "user", id: "@alice:example.org", name: "Alice" },
     ];
-    vi.mocked(listMatrixDirectoryPeersLive).mockResolvedValue(matches);
+    listMatrixDirectoryPeersLiveMock.mockResolvedValue(matches);
 
     const [result] = await resolveMatrixTargets({
       cfg: {},
@@ -34,7 +36,7 @@ describe("resolveMatrixTargets (users)", () => {
       { kind: "user", id: "@alice:example.org", name: "Alice" },
       { kind: "user", id: "@alice:evil.example", name: "Alice" },
     ];
-    vi.mocked(listMatrixDirectoryPeersLive).mockResolvedValue(matches);
+    listMatrixDirectoryPeersLiveMock.mockResolvedValue(matches);
 
     const [result] = await resolveMatrixTargets({
       cfg: {},

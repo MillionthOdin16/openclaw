@@ -440,14 +440,7 @@ async function executeJobCore(
       agentId: job.agentId,
       contextKey: `cron:${job.id}`,
     });
-    if (job.wakeMode === "now") {
-      const reason = `cron:${job.id}`;
-      state.deps.requestHeartbeatNow({ reason });
-      // Don't block waiting for heartbeat - requestHeartbeatNow() already scheduled it
-      // and the heartbeat wake scheduler will auto-retry if main lane is busy.
-      // See: heartbeat-wake.ts requestHeartbeatNow() for built-in retry logic.
-      // This prevents cron lane from blocking for 60+ seconds on busy main lane.
-    }
+    state.deps.requestHeartbeatNow({ reason: `cron:${job.id}` });
     return { status: "ok", summary: text };
   }
 
