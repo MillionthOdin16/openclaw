@@ -39,9 +39,31 @@ const RECOVERABLE_TOOL_ERROR_KEYWORDS = [
   "requires",
 ] as const;
 
+const EXEC_NORMAL_EXIT_CODE_RE = /\bcode 1\b/i;
+
 function isRecoverableToolError(error: string | undefined): boolean {
   const errorLower = (error ?? "").toLowerCase();
   return RECOVERABLE_TOOL_ERROR_KEYWORDS.some((keyword) => errorLower.includes(keyword));
+}
+
+function isExecNormalExit(error: string | undefined): boolean {
+  return EXEC_NORMAL_EXIT_CODE_RE.test(error ?? "");
+}
+
+function isNonFatalMutatingToolError(lastToolError: LastToolError): boolean {
+  const toolName = lastToolError.toolName.trim().toLowerCase();
+  const errorText = lastToolError.error?.toLowerCase() ?? "";
+  const metaText = lastToolError.meta?.toLowerCase() ?? "";
+  if ((toolName === "exec" || toolName === "bash") && isExecNormalExit(lastToolError.error)) {
+    return true;
+  }
+  if (
+    toolName === "sessions_send" &&
+    (errorText.includes("timeout") || metaText.includes("timeout"))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function shouldShowToolErrorWarning(params: {
@@ -52,7 +74,7 @@ function shouldShowToolErrorWarning(params: {
   const isMutatingToolError =
     params.lastToolError.mutatingAction ?? isLikelyMutatingToolName(params.lastToolError.toolName);
   if (isMutatingToolError) {
-    return true;
+    return !isNonFatalMutatingToolError(params.lastToolError);
   }
   if (params.suppressToolErrors) {
     return false;

@@ -1085,7 +1085,7 @@ OpenClaw 仅在存在 `channels.telegram` 配置段时启动 Telegram。机器�
       },
       network: {
         // 传输覆盖
-        autoSelectFamily: false,
+        autoSelectFamily: true,
       },
       proxy: "socks5://localhost:9050",
       webhookUrl: "https://example.com/telegram-webhook", // 需要 webhookSecret
