@@ -144,6 +144,7 @@ export function renderChatControls(state: AppViewState) {
             });
           }
         }}
+        aria-label="Refresh chat"
         title="Refresh chat data"
       >
         ${refreshIcon}
@@ -162,6 +163,7 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${showThinking}
+        aria-label="Toggle thinking output"
         title=${
           disableThinkingToggle
             ? "Disabled during onboarding"
@@ -183,6 +185,7 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${focusActive}
+        aria-label="Toggle focus mode"
         title=${
           disableFocusToggle
             ? "Disabled during onboarding"
