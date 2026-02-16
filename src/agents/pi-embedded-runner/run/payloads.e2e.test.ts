@@ -159,14 +159,33 @@ describe("buildEmbeddedRunPayloads", () => {
           },
         ],
       }),
-      lastToolError: { toolName: "exec", error: "Command exited with code 1" },
-      verboseLevel: "on",
+      lastToolError: { toolName: "exec", error: "Command exited with code 2" },
     });
 
     expect(payloads).toHaveLength(1);
     expect(payloads[0]?.isError).toBe(true);
     expect(payloads[0]?.text).toContain("Exec");
-    expect(payloads[0]?.text).toContain("code 1");
+    expect(payloads[0]?.text).toContain("code 2");
+  });
+
+  it("suppresses exec exit code 1 warnings", () => {
+    const payloads = buildPayloads({
+      lastAssistant: makeAssistant({
+        stopReason: "toolUse",
+        errorMessage: undefined,
+        content: [
+          {
+            type: "toolCall",
+            id: "toolu_01",
+            name: "exec",
+            arguments: { command: "grep foo bar.txt" },
+          },
+        ],
+      }),
+      lastToolError: { toolName: "exec", error: "Command exited with code 1" },
+    });
+
+    expect(payloads).toHaveLength(0);
   });
 
   it("does not add tool error fallback when assistant text exists after tool calls", () => {
@@ -267,6 +286,18 @@ describe("buildEmbeddedRunPayloads", () => {
     expect(payloads[0]?.text).toBe("Done.");
     expect(payloads[1]?.isError).toBe(true);
     expect(payloads[1]?.text).toContain("missing");
+  });
+
+  it("suppresses sessions_send timeouts", () => {
+    const payloads = buildPayloads({
+      lastToolError: {
+        toolName: "sessions_send",
+        meta: "timeout 15",
+        error: "timeout",
+      },
+    });
+
+    expect(payloads).toHaveLength(0);
   });
 
   it("does not treat session_status read failures as mutating when explicitly flagged", () => {

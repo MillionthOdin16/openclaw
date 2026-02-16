@@ -731,7 +731,7 @@ Telegram 反应作为**单独的 `message_reaction` 事件**到达，而不是�
 - `channels.telegram.streamMode`：`off | partial | block`（草稿流式传输）。
 - `channels.telegram.mediaMaxMb`：入站/出站媒体上限（MB）。
 - `channels.telegram.retry`：出站 Telegram API 调用的重试策略（attempts、minDelayMs、maxDelayMs、jitter）。
-- `channels.telegram.network.autoSelectFamily`：覆盖 Node autoSelectFamily（true=启用，false=禁用）。在 Node 22 上默认禁用以避免 Happy Eyeballs 超时。
+- `channels.telegram.network.autoSelectFamily`：覆盖 Node autoSelectFamily（true=启用，false=禁用）。在 Node 22 上默认启用（与 Node 默认一致）。
 - `channels.telegram.proxy`：Bot API 调用的代理 URL（SOCKS/HTTP）。
 - `channels.telegram.webhookUrl`：启用 webhook 模式（需要 `channels.telegram.webhookSecret`）。
 - `channels.telegram.webhookSecret`：webhook 密钥（设置 webhookUrl 时必需）。
