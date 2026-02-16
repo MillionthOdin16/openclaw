@@ -21,9 +21,22 @@ export type CompactionIndicatorStatus = {
   completedAt: number | null;
 };
 
+export type ChatItemsCache = {
+  lastArgs: {
+    messages: unknown[];
+    toolMessages: unknown[];
+    stream: string | null;
+    streamStartedAt: number | null;
+    showThinking: boolean;
+    sessionKey: string;
+  } | null;
+  lastResult: Array<ChatItem | MessageGroup> | null;
+};
+
 export type ChatProps = {
   sessionKey: string;
   onSessionKeyChange: (next: string) => void;
+  itemsCache?: ChatItemsCache;
   thinkingLevel: string | null;
   showThinking: boolean;
   loading: boolean;
@@ -222,7 +235,7 @@ export function renderChat(props: ChatProps) {
           : nothing
       }
       ${repeat(
-        buildChatItems(props),
+        memoizedBuildChatItems(props),
         (item) => item.key,
         (item) => {
           if (item.kind === "divider") {
@@ -429,6 +442,39 @@ export function renderChat(props: ChatProps) {
 
 const CHAT_HISTORY_RENDER_LIMIT = 200;
 
+export function memoizedBuildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
+  const cache = props.itemsCache;
+
+  if (
+    cache &&
+    cache.lastArgs &&
+    cache.lastArgs.messages === props.messages &&
+    cache.lastArgs.toolMessages === props.toolMessages &&
+    cache.lastArgs.stream === props.stream &&
+    cache.lastArgs.streamStartedAt === props.streamStartedAt &&
+    cache.lastArgs.showThinking === props.showThinking &&
+    cache.lastArgs.sessionKey === props.sessionKey
+  ) {
+    return cache.lastResult!;
+  }
+
+  const result = buildChatItems(props);
+
+  if (cache) {
+    cache.lastArgs = {
+      messages: props.messages,
+      toolMessages: props.toolMessages,
+      stream: props.stream,
+      streamStartedAt: props.streamStartedAt,
+      showThinking: props.showThinking,
+      sessionKey: props.sessionKey,
+    };
+    cache.lastResult = result;
+  }
+
+  return result;
+}
+
 function groupMessages(items: ChatItem[]): Array<ChatItem | MessageGroup> {
   const result: Array<ChatItem | MessageGroup> = [];
   let currentGroup: MessageGroup | null = null;
@@ -470,7 +516,7 @@ function groupMessages(items: ChatItem[]): Array<ChatItem | MessageGroup> {
   return result;
 }
 
-function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
+export function buildChatItems(props: ChatProps): Array<ChatItem | MessageGroup> {
   const items: ChatItem[] = [];
   const history = Array.isArray(props.messages) ? props.messages : [];
   const tools = Array.isArray(props.toolMessages) ? props.toolMessages : [];
