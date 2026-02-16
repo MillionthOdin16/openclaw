@@ -1,11 +1,4 @@
 import type { VerboseLevel } from "../../auto-reply/thinking.js";
-import type { OpenClawConfig } from "../../config/types.js";
-import { callGateway } from "../../gateway/call.js";
-import {
-  isAcpSessionKey,
-  isSubagentSessionKey,
-  normalizeMainKey,
-} from "../../routing/session-key.js";
 import { sanitizeUserFacingText } from "../pi-embedded-helpers.js";
 import {
   stripDowngradedToolCallText,
