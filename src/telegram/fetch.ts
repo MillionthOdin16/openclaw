@@ -7,7 +7,7 @@ import { resolveTelegramAutoSelectFamilyDecision } from "./network-config.js";
 let appliedAutoSelectFamily: boolean | null = null;
 const log = createSubsystemLogger("telegram/network");
 
-// Node 22 workaround: disable autoSelectFamily to avoid Happy Eyeballs timeouts.
+// Node 22: allow overriding autoSelectFamily; default enables Happy Eyeballs.
 // See: https://github.com/nodejs/node/issues/54359
 function applyTelegramNetworkWorkarounds(network?: TelegramNetworkConfig): void {
   const decision = resolveTelegramAutoSelectFamilyDecision({ network });
