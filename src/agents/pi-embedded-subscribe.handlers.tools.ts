@@ -1,5 +1,8 @@
 import type { AgentEvent } from "@mariozechner/pi-agent-core";
-import type { PluginHookAfterToolCallEvent, PluginHookBeforeToolCallEvent } from "../plugins/types.js";
+import type {
+  PluginHookAfterToolCallEvent,
+  PluginHookBeforeToolCallEvent,
+} from "../plugins/types.js";
 import type {
   EmbeddedPiSubscribeContext,
   ToolCallSummary,

@@ -25,7 +25,10 @@ import { listSkillCommandsForAgents } from "../auto-reply/skill-commands.js";
 import { resolveCommandAuthorizedFromAuthorizers } from "../channels/command-gating.js";
 import { createReplyPrefixOptions } from "../channels/reply-prefix.js";
 import { resolveMarkdownTableMode } from "../config/markdown-tables.js";
-import { normalizeTelegramCommandName, resolveTelegramCustomCommands } from "../config/telegram-custom-commands.js";
+import {
+  normalizeTelegramCommandName,
+  resolveTelegramCustomCommands,
+} from "../config/telegram-custom-commands.js";
 import { danger, logVerbose } from "../globals.js";
 import { getChildLogger } from "../logging.js";
 import { getAgentScopedMediaLocalRoots } from "../media/local-roots.js";
