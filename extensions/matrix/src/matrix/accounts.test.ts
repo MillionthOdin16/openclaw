@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoreConfig } from "../types.js";
-import { resolveMatrixAccount } from "./accounts.js";
+
+const loadMatrixCredentialsMock = vi.hoisted(() => vi.fn(() => null));
+const credentialsMatchConfigMock = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock("./credentials.js", () => ({
-  loadMatrixCredentials: () => null,
-  credentialsMatchConfig: () => false,
+  loadMatrixCredentials: loadMatrixCredentialsMock,
+  credentialsMatchConfig: credentialsMatchConfigMock,
 }));
+
+import { resolveMatrixAccount } from "./accounts.js";
 
 const envKeys = [
   "MATRIX_HOMESERVER",

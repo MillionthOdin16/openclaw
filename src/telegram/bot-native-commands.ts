@@ -375,10 +375,14 @@ export const registerTelegramNativeCommands = ({
         `Use channels.telegram.commands.native: false to disable, or reduce plugin/skill/custom commands.`,
     );
   }
-  if (nativeEnabled) {
+  if (nativeEnabled || customCommands.length > 0) {
     // Telegram only limits the setMyCommands payload (menu entries).
     // Keep hidden commands callable by registering handlers for the full catalog.
     syncTelegramMenuCommands({ bot, runtime, commandsToRegister });
+
+    if (!nativeEnabled) {
+      return;
+    }
 
     const resolveCommandRuntimeContext = (params: {
       msg: NonNullable<TelegramNativeCommandContext["message"]>;

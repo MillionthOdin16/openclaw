@@ -539,7 +539,11 @@ export async function runHeartbeatOnce(opts: {
   };
 
   try {
-    const replyResult = await getReplyFromConfig(ctx, { isHeartbeat: true }, cfg);
+    const heartbeatModelOverride = heartbeat?.model?.trim() || undefined;
+    const replyOpts = heartbeatModelOverride
+      ? { isHeartbeat: true, heartbeatModelOverride }
+      : { isHeartbeat: true };
+    const replyResult = await getReplyFromConfig(ctx, replyOpts, cfg);
     const replyPayload = resolveHeartbeatReplyPayload(replyResult);
     const includeReasoning = heartbeat?.includeReasoning === true;
     const reasoningPayloads = includeReasoning
@@ -789,6 +793,11 @@ export function startHeartbeatRunner(opts: {
     return now + intervalMs;
   };
 
+  const advanceAgentSchedule = (agent: HeartbeatAgentState, now: number) => {
+    agent.lastRunMs = now;
+    agent.nextDueMs = now + agent.intervalMs;
+  };
+
   const scheduleNext = () => {
     if (state.stopped) {
       return;
@@ -904,22 +913,31 @@ export function startHeartbeatRunner(opts: {
       }
 
       log.debug(`heartbeat: running for agent ${agent.agentId}`);
-      const res = await runOnce({
-        cfg: state.cfg,
-        agentId: agent.agentId,
-        heartbeat: agent.heartbeat,
-        reason,
-        deps: { runtime: state.runtime },
-      });
+      let res: HeartbeatRunResult;
+      try {
+        res = await runOnce({
+          cfg: state.cfg,
+          agentId: agent.agentId,
+          heartbeat: agent.heartbeat,
+          reason,
+          deps: { runtime: state.runtime },
+        });
+      } catch (err) {
+        const errMsg = formatErrorMessage(err);
+        log.error(`heartbeat runner: runOnce threw unexpectedly: ${errMsg}`, { error: errMsg });
+        advanceAgentSchedule(agent, now);
+        continue;
+      }
       log.debug(
         `heartbeat: completed for agent ${agent.agentId}, status=${res.status}${"reason" in res && res.reason ? `, reason=${res.reason}` : ""}`,
       );
       if (res.status === "skipped" && res.reason === "requests-in-flight") {
+        advanceAgentSchedule(agent, now);
+        scheduleNext();
         return res;
       }
       if (res.status !== "skipped" || res.reason !== "disabled") {
-        agent.lastRunMs = now;
-        agent.nextDueMs = now + agent.intervalMs;
+        advanceAgentSchedule(agent, now);
       }
       if (res.status === "ran") {
         ran = true;
