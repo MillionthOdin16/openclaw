@@ -1,5 +1,4 @@
 import type { MatrixClient } from "@vector-im/matrix-bot-sdk";
-import { LogService } from "@vector-im/matrix-bot-sdk";
 import { normalizeAccountId } from "openclaw/plugin-sdk/account-id";
 import type { CoreConfig } from "../../types.js";
 import { resolveMatrixAuth } from "./config.js";
@@ -80,6 +79,7 @@ async function ensureSharedClientStarted(params: {
           params.state.cryptoReady = true;
         }
       } catch (err) {
+        const { LogService } = await import("@vector-im/matrix-bot-sdk");
         LogService.warn("MatrixClientLite", "Failed to prepare crypto:", err);
       }
     }

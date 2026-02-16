@@ -1,17 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { listMatrixDirectoryGroupsLive, listMatrixDirectoryPeersLive } from "./directory-live.js";
-import { resolveMatrixAuth } from "./matrix/client.js";
+const resolveMatrixAuthMock = vi.hoisted(() => vi.fn());
 
 vi.mock("./matrix/client.js", () => ({
-  resolveMatrixAuth: vi.fn(),
+  resolveMatrixAuth: resolveMatrixAuthMock,
 }));
+
+import { listMatrixDirectoryGroupsLive, listMatrixDirectoryPeersLive } from "./directory-live.js";
 
 describe("matrix directory live", () => {
   const cfg = { channels: { matrix: {} } };
 
   beforeEach(() => {
-    vi.mocked(resolveMatrixAuth).mockReset();
-    vi.mocked(resolveMatrixAuth).mockResolvedValue({
+    resolveMatrixAuthMock.mockReset();
+    resolveMatrixAuthMock.mockResolvedValue({
       homeserver: "https://matrix.example.org",
       userId: "@bot:example.org",
       accessToken: "test-token",
@@ -38,7 +39,7 @@ describe("matrix directory live", () => {
       limit: 10,
     });
 
-    expect(resolveMatrixAuth).toHaveBeenCalledWith({ cfg, accountId: "assistant" });
+    expect(resolveMatrixAuthMock).toHaveBeenCalledWith({ cfg, accountId: "assistant" });
   });
 
   it("passes accountId to group directory auth resolution", async () => {
@@ -49,7 +50,7 @@ describe("matrix directory live", () => {
       limit: 10,
     });
 
-    expect(resolveMatrixAuth).toHaveBeenCalledWith({ cfg, accountId: "assistant" });
+    expect(resolveMatrixAuthMock).toHaveBeenCalledWith({ cfg, accountId: "assistant" });
   });
 
   it("returns no peer results for empty query without resolving auth", async () => {
