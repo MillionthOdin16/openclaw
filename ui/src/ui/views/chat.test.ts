@@ -154,4 +154,39 @@ describe("chat view", () => {
     expect(onNewSession).toHaveBeenCalledTimes(1);
     expect(container.textContent).not.toContain("Stop");
   });
+
+  it("shows empty state when no messages are present", () => {
+    const container = document.createElement("div");
+    render(
+      renderChat(
+        createProps({
+          messages: [],
+          stream: null,
+          loading: false,
+        }),
+      ),
+      container,
+    );
+
+    const emptyState = container.querySelector(".chat-empty-state");
+    expect(emptyState).not.toBeNull();
+    expect(emptyState?.textContent).toContain("Start a new conversation");
+  });
+
+  it("does not show empty state when messages are present", () => {
+    const container = document.createElement("div");
+    render(
+      renderChat(
+        createProps({
+          messages: [{ role: "user", content: "Hi" }],
+          stream: null,
+          loading: false,
+        }),
+      ),
+      container,
+    );
+
+    const emptyState = container.querySelector(".chat-empty-state");
+    expect(emptyState).toBeNull();
+  });
 });
