@@ -138,6 +138,31 @@
   flex-shrink: 0;
 }
 
+/* Chat empty state */
+.chat-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  gap: 16px;
+  min-height: 200px;
+  opacity: 0.5;
+  animation: fade-in 0.4s var(--ease-out);
+}
+
+.chat-empty-state__icon svg {
+  width: 48px;
+  height: 48px;
+  stroke-width: 1px;
+}
+
+.chat-empty-state__text {
+  font-size: 16px;
+  font-weight: 500;
+}
+
 /* Chat compose - sticky at bottom */
 .chat-compose {
   position: sticky;

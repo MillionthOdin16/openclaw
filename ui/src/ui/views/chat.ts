@@ -362,9 +362,22 @@ export function renderChat(props: ChatProps) {
               type="button"
               @click=${props.onScrollToBottom}
             >
-              New messages ${icons.arrowDown}
+              New messages <span style="display: flex;" aria-hidden="true">${icons.arrowDown}</span>
             </button>
           `
+          : nothing
+      }
+
+      ${
+        !props.loading &&
+        (!props.messages || props.messages.length === 0) &&
+        props.stream === null
+          ? html`
+              <div class="chat-empty-state">
+                <div class="chat-empty-state__icon">${icons.messageSquare}</div>
+                <div class="chat-empty-state__text">Start a new conversation</div>
+              </div>
+            `
           : nothing
       }
 

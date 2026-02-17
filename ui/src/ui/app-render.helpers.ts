@@ -103,6 +103,7 @@ export function renderChatControls(state: AppViewState) {
       stroke-width="2"
       stroke-linecap="round"
       stroke-linejoin="round"
+      aria-hidden="true"
     >
       <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
       <path d="M21 3v5h-5"></path>
@@ -132,6 +133,7 @@ export function renderChatControls(state: AppViewState) {
         <select
           .value=${state.sessionKey}
           ?disabled=${!state.connected}
+          aria-label="Select session"
           @change=${(e: Event) => {
             const next = (e.target as HTMLSelectElement).value;
             state.sessionKey = next;
@@ -186,6 +188,7 @@ export function renderChatControls(state: AppViewState) {
             });
           }
         }}
+        aria-label="Refresh chat data"
         title="Refresh chat data"
       >
         ${refreshIcon}
