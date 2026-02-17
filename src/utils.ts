@@ -168,9 +168,37 @@ function resolveLidMappingDirs(opts?: JidToE164Options): string[] {
   return [...dirs];
 }
 
+const lidCache = new Map<string, string | null>();
+const lidCacheMisses = new Map<string, number>();
+const CACHE_MISS_TTL = 60 * 1000; // 1 minute
+const MAX_CACHE_SIZE = 10000;
+
 function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | null {
-  const mappingFilename = `lid-mapping-${lid}_reverse.json`;
+  // Prevent unbounded growth
+  if (lidCache.size > MAX_CACHE_SIZE) {
+    lidCache.clear();
+    lidCacheMisses.clear();
+  }
+  // Construct a simpler cache key based on inputs, deferring path resolution.
+  // This avoids calling resolveLidMappingDirs (which does filesystem/homedir checks) on every call.
+  const p1 = opts?.authDir ?? "";
+  const p2 = opts?.lidMappingDirs ? opts.lidMappingDirs.join(";") : "";
+  const cacheKey = `${lid}|${p1}|${p2}`;
+
+  if (lidCache.has(cacheKey)) {
+    const cached = lidCache.get(cacheKey);
+    if (cached !== undefined && cached !== null) {
+      return cached;
+    }
+    // If cached is null, check if TTL has expired
+    const lastCheck = lidCacheMisses.get(cacheKey) || 0;
+    if (Date.now() - lastCheck < CACHE_MISS_TTL) {
+      return null;
+    }
+  }
+
   const mappingDirs = resolveLidMappingDirs(opts);
+  const mappingFilename = `lid-mapping-${lid}_reverse.json`;
   for (const dir of mappingDirs) {
     const mappingPath = path.join(dir, mappingFilename);
     try {
@@ -179,11 +207,16 @@ function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | n
       if (phone === null || phone === undefined) {
         continue;
       }
-      return normalizeE164(String(phone));
+      const result = normalizeE164(String(phone));
+      lidCache.set(cacheKey, result);
+      return result;
     } catch {
       // Try the next location.
     }
   }
+
+  lidCache.set(cacheKey, null);
+  lidCacheMisses.set(cacheKey, Date.now());
   return null;
 }
 
