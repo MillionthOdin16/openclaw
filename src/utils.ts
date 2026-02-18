@@ -168,7 +168,14 @@ function resolveLidMappingDirs(opts?: JidToE164Options): string[] {
   return [...dirs];
 }
 
+const lidCache = new Map<string, string>();
+const LID_CACHE_LIMIT = 5000;
+
 function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | null {
+  if (lidCache.has(lid)) {
+    return lidCache.get(lid)!;
+  }
+
   const mappingFilename = `lid-mapping-${lid}_reverse.json`;
   const mappingDirs = resolveLidMappingDirs(opts);
   for (const dir of mappingDirs) {
@@ -179,7 +186,14 @@ function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | n
       if (phone === null || phone === undefined) {
         continue;
       }
-      return normalizeE164(String(phone));
+      const result = normalizeE164(String(phone));
+
+      if (lidCache.size >= LID_CACHE_LIMIT) {
+        lidCache.clear();
+      }
+      lidCache.set(lid, result);
+
+      return result;
     } catch {
       // Try the next location.
     }
