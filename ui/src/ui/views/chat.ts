@@ -417,8 +417,9 @@ export function renderChat(props: ChatProps) {
               class="btn primary"
               ?disabled=${!props.connected}
               @click=${props.onSend}
+              aria-label=${isBusy ? "Queue message" : "Send message"}
             >
-              ${isBusy ? "Queue" : "Send"}<kbd class="btn-kbd">↵</kbd>
+              ${isBusy ? "Queue" : "Send"}<kbd class="btn-kbd" aria-hidden="true">↵</kbd>
             </button>
           </div>
         </div>

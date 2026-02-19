@@ -205,4 +205,15 @@ describe("control UI routing", () => {
     expect(window.location.pathname).toBe("/ui/overview");
     expect(window.location.hash).toBe("");
   });
+
+  it("sets aria-current='page' on the active navigation item", async () => {
+    const app = mountApp("/chat");
+    await app.updateComplete;
+
+    const chatLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/chat"]');
+    const channelsLink = app.querySelector<HTMLAnchorElement>('a.nav-item[href="/channels"]');
+
+    expect(chatLink?.getAttribute("aria-current")).toBe("page");
+    expect(channelsLink?.getAttribute("aria-current")).toBeNull();
+  });
 });
