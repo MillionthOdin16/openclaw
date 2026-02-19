@@ -2,6 +2,7 @@ import type { getReplyFromConfig } from "../../../auto-reply/reply.js";
 import type { MsgContext } from "../../../auto-reply/templating.js";
 import type { MentionConfig } from "../mentions.js";
 import type { WebInboundMsg } from "../types.js";
+import type { AckReactionTracker } from "./ack-reaction-tracker.js";
 import type { EchoTracker } from "./echo.js";
 import type { GroupHistoryEntry } from "./group-gating.js";
 import { loadConfig } from "../../../config/config.js";
@@ -29,6 +30,7 @@ export function createWebOnMessageHandler(params: {
   replyLogger: ReturnType<(typeof import("../../../logging.js"))["getChildLogger"]>;
   baseMentionConfig: MentionConfig;
   account: { authDir?: string; accountId?: string };
+  ackReactionTracker?: AckReactionTracker;
 }) {
   const processForRoute = async (
     msg: WebInboundMsg,
@@ -58,6 +60,7 @@ export function createWebOnMessageHandler(params: {
       buildCombinedEchoKey: params.echoTracker.buildCombinedKey,
       groupHistory: opts?.groupHistory,
       suppressGroupHistoryClear: opts?.suppressGroupHistoryClear,
+      ackReactionTracker: params.ackReactionTracker,
     });
 
   return async (msg: WebInboundMsg) => {

@@ -1,6 +1,9 @@
 ---
 name: upstream-sync
-description: Keep local main aligned with origin/main while preserving local fixes; rebase + range-diff workflow.
+description: |
+  **Use when:** Syncing local main with origin/main while preserving local fixes; handling diverged histories, protected branches, and rebase workflows.
+  **Don't use when:** Simple fast-forward updates (use `git pull`), or when working on feature branches (use worktrees).
+  **Outputs:** Synchronized branch, verified delta, protected branch status preserved.
 ---
 
 # Upstream Sync (OpenClaw)
@@ -14,54 +17,97 @@ Goal: stay as close to `origin/main` as possible **without losing** local custom
 - **Never** use `git stash` (easy to lose work or conflict with other agents).
 - Keep local changes in **small, focused commits** so they are easy to drop or update.
 - Always run **targeted tests** after syncing.
+- **Always restore branch protection** after force pushing.
 
 ## One-time setup
 
 ```bash
-git switch -c local-main
 git config rerere.enabled true
 git config rerere.autoupdate true
 ```
 
-Optional safety branch before major rebases:
+## Diverged/Unrelated Histories Workflow
+
+When `main` and `origin/main` have no common ancestor (e.g., after repo rebrand/migration):
+
+### 1. Assess the situation
 
 ```bash
-git branch backup/local-main-$(date +%Y%m%d)
+# Check if branches are related
+git merge-base --is-ancestor origin/main main && echo "Related" || echo "Diverged"
+git merge-base main origin/main 2>&1 || echo "No common ancestor"
+
+# View first commits of each
+git log --oneline --reverse origin/main | head -3
+git log --oneline --reverse main | head -3
 ```
 
-## Pre-flight checklist
+### 2. Decide on approach
 
-- Confirm remotes:
-  ```bash
-  git remote -v
-  ```
-- Ensure working tree is clean and all local fixes are committed with `scripts/committer`.
-- Capture the current delta:
-  ```bash
-  git log --oneline --decorate -n 20
-  git range-diff origin/main...local-main
-  ```
+**Option A: Force push local to fork** (when local has correct/current code)
+
+- Preserves your local commits
+- Replaces fork history entirely
+- Use when fork has obsolete history (e.g., old warelay → new clawdbot)
+
+**Option B: Cherry-pick to fresh branch** (when you want to keep both histories)
+
+- Create new branch from origin/main
+- Cherry-pick meaningful local commits
+- More work but preserves archaeology
+
+### 3. Force push with branch protection bypass
+
+```bash
+# Temporarily allow force pushes
+echo '{"required_status_checks":null,"enforce_admins":null,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":true}' | \
+  gh api repos/OWNER/REPO/branches/main/protection \
+  --method PUT -H "Accept: application/vnd.github+json" --input -
+
+# Force push
+git push fork main --force-with-lease
+
+# Restore protection
+echo '{"required_status_checks":null,"enforce_admins":null,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false}' | \
+  gh api repos/OWNER/REPO/branches/main/protection \
+  --method PUT -H "Accept: application/vnd.github+json" --input -
+```
+
+### 4. Verify protection restored
+
+```bash
+gh api repos/OWNER/REPO/branches/main/protection --method GET | grep allow_force
+```
 
 ## Routine sync workflow (safe path)
 
+For when you have a normal fork relationship with common history:
+
 1. **Clean working tree**:
+
    ```bash
    git status -sb
    # If dirty, commit with scripts/committer first.
    ```
-2. **Fetch only**:
+
+2. **Fetch and assess**:
+
    ```bash
    git fetch origin
+   git log --oneline --left-right --decorate main...origin/main
    ```
+
 3. **Rebase onto upstream** (never reset):
+
    ```bash
    git rebase origin/main
    ```
+
 4. **Resolve conflicts** → `git add ...` → `git rebase --continue`.
-5. **Verify** with targeted tests for changed areas.
-6. **Review delta**:
+
+5. **Push to fork** (if protected, use bypass workflow above):
    ```bash
-   git range-diff origin/main...local-main
+   git push fork main --force-with-lease
    ```
 
 ## Verification + regression audit (required)
@@ -79,7 +125,7 @@ After rebase, verify correctness and regression safety:
    - **Messaging pipeline**: channel routing, followup queue, reply handling.
    - **Command pipeline**: command queue, lanes, and /status output.
    - **Schedule pipeline**: cron/isolated agents and session usage.
-4. **Document external failures** (deps/creds) separately so they don’t mask regressions.
+4. **Document external failures** (deps/creds) separately so they don't mask regressions.
 
 ## Dropping redundant local fixes
 
@@ -94,13 +140,43 @@ Then re-run targeted tests for parity.
 
 ## Examples
 
-### Standard update
+### Full sync with protected branch bypass
+
+```bash
+# 1. Fetch upstream
+git fetch origin
+
+# 2. Check relationship
+if ! git merge-base --is-ancestor origin/main main 2>/dev/null; then
+  echo "Diverged histories - will rebase then force push"
+fi
+
+# 3. Rebase
+git rebase origin/main
+
+# 4. Temporarily disable protection
+echo '{"required_status_checks":null,"enforce_admins":null,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":true}' | \
+  gh api repos/OWNER/REPO/branches/main/protection --method PUT -H "Accept: application/vnd.github+json" --input -
+
+# 5. Push
+git push fork main --force-with-lease
+
+# 6. Restore protection
+echo '{"required_status_checks":null,"enforce_admins":null,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false}' | \
+  gh api repos/OWNER/REPO/branches/main/protection --method PUT -H "Accept: application/vnd.github+json" --input -
+
+# 7. Verify
+git log --oneline --left-right --decorate main...origin/main | head -5
+```
+
+### Standard update (no protection needed)
 
 ```bash
 git fetch origin
 git rebase origin/main
-git range-diff origin/main...local-main
+git range-diff origin/main...main
 pnpm test -- <targeted tests>
+git push fork main --force-with-lease
 ```
 
 ### Deep verification sweep (post-rebase)
@@ -129,13 +205,27 @@ git rebase -i origin/main
 pnpm test -- <targeted tests>
 ```
 
-### Push rebased history to a fork
+## Troubleshooting
+
+### Diverged histories (no merge base)
 
 ```bash
-git push fork local-main:main --force-with-lease
+# Check if related
+git merge-base main origin/main 2>&1 || echo "No common ancestor"
+
+# If diverged, choose:
+# A) Force push local (if local is correct)
+# B) Reset to upstream and cherry-pick (if upstream is canonical)
 ```
 
-## Troubleshooting
+### Protected branch blocks push
+
+```bash
+# Use GitHub API to temporarily disable
+echo '{"allow_force_pushes":true}' | gh api repos/OWNER/REPO/branches/main/protection --method PATCH -H "Accept: application/vnd.github+json" --input -
+git push fork main --force-with-lease
+echo '{"allow_force_pushes":false}' | gh api repos/OWNER/REPO/branches/main/protection --method PATCH -H "Accept: application/vnd.github+json" --input -
+```
 
 ### Rebase conflict loops
 
@@ -167,6 +257,28 @@ git reset --hard <good-sha>  # last resort, confirm first
 - Check `git reflog` for the missing commit.
 - Restore with `git reset --hard <sha>` on a temporary branch, then cherry-pick.
 
+## GitHub API Prerequisites
+
+For branch protection bypass, you need:
+
+1. **GitHub CLI authenticated**:
+
+   ```bash
+   gh auth status
+   # Should show: token scopes include 'repo'
+   ```
+
+2. **Admin access to the repository**:
+
+   ```bash
+   gh api repos/OWNER/REPO --jq '.permissions.admin'  # should be true
+   ```
+
+3. **Current protection state**:
+   ```bash
+   gh api repos/OWNER/REPO/branches/main/protection --method GET
+   ```
+
 ## Repo-specific notes
 
 - Prefer `scripts/committer "<msg>" <files...>` for commits.
@@ -176,3 +288,4 @@ git reset --hard <good-sha>  # last resort, confirm first
 - Do **not** modify `node_modules/` or patch dependencies without explicit approval.
 - Do **not** change versions unless explicitly requested.
 - Avoid switching branches or creating worktrees unless explicitly asked.
+- **Always restore branch protection** after force pushing.

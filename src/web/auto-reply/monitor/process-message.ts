@@ -135,6 +135,7 @@ export async function processMessage(params: {
   maxMediaTextChunkLimit?: number;
   groupHistory?: GroupHistoryEntry[];
   suppressGroupHistoryClear?: boolean;
+  ackReactionTracker?: import("./ack-reaction-tracker.js").AckReactionTracker;
 }) {
   const conversationId = params.msg.conversationId ?? params.msg.from;
   const storePath = resolveStorePath(params.cfg.session?.store, {
@@ -204,6 +205,7 @@ export async function processMessage(params: {
     accountId: params.route.accountId,
     info: params.replyLogger.info.bind(params.replyLogger),
     warn: params.replyLogger.warn.bind(params.replyLogger),
+    ackReactionTracker: params.ackReactionTracker,
   });
 
   const correlationId = params.msg.id ?? newConnectionId();
