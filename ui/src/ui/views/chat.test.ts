@@ -154,4 +154,17 @@ describe("chat view", () => {
     expect(onNewSession).toHaveBeenCalledTimes(1);
     expect(container.textContent).not.toContain("Stop");
   });
+
+  it("renders send button with accessible label and hidden keyboard hint", () => {
+    const container = document.createElement("div");
+    render(renderChat(createProps()), container);
+
+    const sendButton = container.querySelector(".chat-compose__actions button.primary");
+    expect(sendButton).not.toBeNull();
+    expect(sendButton?.getAttribute("aria-label")).toBe("Send message");
+
+    const kbd = sendButton?.querySelector("kbd");
+    expect(kbd).not.toBeNull();
+    expect(kbd?.getAttribute("aria-hidden")).toBe("true");
+  });
 });
