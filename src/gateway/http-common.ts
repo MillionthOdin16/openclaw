@@ -87,3 +87,10 @@ export function setSseHeaders(res: ServerResponse) {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders?.();
 }
+
+export function setSecurityHeaders(res: ServerResponse) {
+  // Prevent browsers from MIME-sniffing the response away from the declared content-type
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  // Do not send the Referer header to prevent leaking sensitive URLs
+  res.setHeader("Referrer-Policy", "no-referrer");
+}

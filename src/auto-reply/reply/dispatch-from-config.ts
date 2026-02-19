@@ -174,7 +174,7 @@ export async function dispatchReplyFromConfig(params: {
 
   const inboundAudio = isInboundAudioContext(ctx);
   const sessionTtsAuto = resolveSessionTtsAuto(ctx, cfg);
-  const sessionVerboseLevel = resolveSessionVerboseLevel(ctx, cfg);
+  const _sessionVerboseLevel = resolveSessionVerboseLevel(ctx, cfg);
   const hookRunner = getGlobalHookRunner();
   if (hookRunner?.hasHooks("message_received")) {
     const timestamp =
