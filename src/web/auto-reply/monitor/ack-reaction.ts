@@ -16,8 +16,17 @@ export function maybeSendAckReaction(params: {
   accountId?: string;
   info: (obj: unknown, msg: string) => void;
   warn: (obj: unknown, msg: string) => void;
+  ackReactionTracker?: AckReactionTracker;
 }) {
   if (!params.msg.id) {
+    return;
+  }
+
+  // Skip if we already sent an ack reaction for this message in broadcast scenarios
+  if (params.ackReactionTracker?.has(params.msg.chatId, params.msg.id)) {
+    logVerbose(
+      `Skipping ack reaction: already sent for message ${params.msg.id} in chat ${params.msg.chatId}`,
+    );
     return;
   }
 
@@ -50,6 +59,10 @@ export function maybeSendAckReaction(params: {
   if (!shouldSendReaction()) {
     return;
   }
+
+  // Mark this message as having received an ack reaction before sending
+  // This prevents duplicate reactions in broadcast scenarios
+  params.ackReactionTracker?.mark(params.msg.chatId, params.msg.id);
 
   params.info(
     { chatId: params.msg.chatId, messageId: params.msg.id, emoji },
