@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import type { ThinkLevel } from "../../auto-reply/thinking.js";
+import type { RunEmbeddedPiAgentParams } from "./run/params.js";
+import type { EmbeddedPiAgentMeta, EmbeddedPiRunResult } from "./types.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
 import { enqueueCommandInLane } from "../../process/command-queue.js";
 import { isMarkdownCapableMessageChannel } from "../../utils/message-channel.js";
@@ -50,13 +52,11 @@ import { resolveGlobalLane, resolveSessionLane } from "./lanes.js";
 import { log } from "./logger.js";
 import { resolveModel } from "./model.js";
 import { runEmbeddedAttempt } from "./run/attempt.js";
-import type { RunEmbeddedPiAgentParams } from "./run/params.js";
 import { buildEmbeddedRunPayloads } from "./run/payloads.js";
 import {
   truncateOversizedToolResultsInSession,
   sessionLikelyHasOversizedToolResults,
 } from "./tool-result-truncation.js";
-import type { EmbeddedPiAgentMeta, EmbeddedPiRunResult } from "./types.js";
 import { describeUnknownError } from "./utils.js";
 
 type ApiKeyInfo = ResolvedProviderAuth;
@@ -483,6 +483,8 @@ export async function runEmbeddedPiAgent(
       }
 
       const MAX_OVERFLOW_COMPACTION_ATTEMPTS = 3;
+      const MAX_TIMEOUT_RETRIES_BEFORE_ROTATION = 1;
+      const timeoutRetryCounts = new Map<string, number>();
       let overflowCompactionAttempts = 0;
       let toolResultTruncationAttempted = false;
       const usageAccumulator = createUsageAccumulator();
@@ -931,6 +933,20 @@ export async function runEmbeddedPiAgent(
                 timedOut || assistantFailoverReason === "timeout"
                   ? "timeout"
                   : (assistantFailoverReason ?? "unknown");
+              if (reason === "timeout") {
+                const retryCount = timeoutRetryCounts.get(lastProfileId) ?? 0;
+                if (retryCount < MAX_TIMEOUT_RETRIES_BEFORE_ROTATION) {
+                  timeoutRetryCounts.set(lastProfileId, retryCount + 1);
+                  const retryDelayMs = 100 * (retryCount + 1);
+                  log.warn(
+                    `Profile ${lastProfileId} timeout/network failure; retrying same profile ` +
+                      `(${retryCount + 1}/${MAX_TIMEOUT_RETRIES_BEFORE_ROTATION}) after ${retryDelayMs}ms.`,
+                  );
+                  await new Promise<void>((resolve) => setTimeout(resolve, retryDelayMs));
+                  continue;
+                }
+              }
+              timeoutRetryCounts.delete(lastProfileId);
               await markAuthProfileFailure({
                 store: authStore,
                 profileId: lastProfileId,

@@ -1,7 +1,7 @@
+import type { AssistantMessage } from "@mariozechner/pi-ai";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { AssistantMessage } from "@mariozechner/pi-ai";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
 import type { EmbeddedRunAttemptResult } from "./pi-embedded-runner/run/types.js";
@@ -184,6 +184,11 @@ async function expectProfileP2UsageUnchanged(agentDir: string) {
   expect(usageStats["openai:p2"]?.lastUsed).toBe(2);
 }
 
+async function expectProfileP1UsageUpdated(agentDir: string) {
+  const usageStats = await readUsageStats(agentDir);
+  expect(typeof usageStats["openai:p1"]?.lastUsed).toBe("number");
+}
+
 function mockSingleSuccessfulAttempt() {
   runEmbeddedAttemptMock.mockResolvedValueOnce(
     makeAttempt({
@@ -275,7 +280,7 @@ describe("runEmbeddedPiAgent auth profile rotation", () => {
     }
   });
 
-  it("rotates when stream ends without sending chunks", async () => {
+  it("retries same profile when stream ends without sending chunks once", async () => {
     const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-agent-"));
     const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-workspace-"));
     try {
@@ -289,6 +294,56 @@ describe("runEmbeddedPiAgent auth profile rotation", () => {
       });
 
       expect(runEmbeddedAttemptMock).toHaveBeenCalledTimes(2);
+      await expectProfileP2UsageUnchanged(agentDir);
+      await expectProfileP1UsageUpdated(agentDir);
+    } finally {
+      await fs.rm(agentDir, { recursive: true, force: true });
+      await fs.rm(workspaceDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rotates after repeated stream-without-chunks failures", async () => {
+    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-agent-"));
+    const workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-workspace-"));
+    try {
+      await writeAuthStore(agentDir);
+      runEmbeddedAttemptMock
+        .mockResolvedValueOnce(
+          makeAttempt({
+            assistantTexts: [],
+            lastAssistant: buildAssistant({
+              stopReason: "error",
+              errorMessage: "request ended without sending any chunks",
+            }),
+          }),
+        )
+        .mockResolvedValueOnce(
+          makeAttempt({
+            assistantTexts: [],
+            lastAssistant: buildAssistant({
+              stopReason: "error",
+              errorMessage: "request ended without sending any chunks",
+            }),
+          }),
+        )
+        .mockResolvedValueOnce(
+          makeAttempt({
+            assistantTexts: ["ok"],
+            lastAssistant: buildAssistant({
+              stopReason: "stop",
+              content: [{ type: "text", text: "ok" }],
+            }),
+          }),
+        );
+
+      await runAutoPinnedOpenAiTurn({
+        agentDir,
+        workspaceDir,
+        sessionKey: "agent:test:empty-chunk-stream-repeat",
+        runId: "run:empty-chunk-stream-repeat",
+      });
+
+      expect(runEmbeddedAttemptMock).toHaveBeenCalledTimes(3);
       await expectProfileP2UsageUpdated(agentDir);
     } finally {
       await fs.rm(agentDir, { recursive: true, force: true });
