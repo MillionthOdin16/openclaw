@@ -1,3 +1,4 @@
+import type { FollowupRun } from "./types.js";
 import { defaultRuntime } from "../../../runtime.js";
 import {
   buildCollectPrompt,
@@ -10,7 +11,6 @@ import {
 } from "../../../utils/queue-helpers.js";
 import { isRoutableChannel } from "../route-reply.js";
 import { FOLLOWUP_QUEUES } from "./state.js";
-import type { FollowupRun } from "./types.js";
 
 export function scheduleFollowupDrain(
   key: string,
@@ -73,40 +73,41 @@ export function scheduleFollowupDrain(
           }
 
           const items = queue.items.slice();
+          const processedCount = items.length;
           const summary = previewQueueSummaryPrompt({ state: queue, noun: "message" });
           const run = items.at(-1)?.run ?? queue.lastRun;
           if (!run) {
             continue;
           }
 
-            // Preserve originating channel from items when collecting same-channel.
-            const originatingChannel = items.find((i) => i.originatingChannel)?.originatingChannel;
-            const originatingTo = items.find((i) => i.originatingTo)?.originatingTo;
-            const originatingAccountId = items.find(
-              (i) => i.originatingAccountId,
-            )?.originatingAccountId;
-            const originatingThreadId = items.find(
-              (i) => i.originatingThreadId != null,
-            )?.originatingThreadId;
+          // Preserve originating channel from items when collecting same-channel.
+          const originatingChannel = items.find((i) => i.originatingChannel)?.originatingChannel;
+          const originatingTo = items.find((i) => i.originatingTo)?.originatingTo;
+          const originatingAccountId = items.find(
+            (i) => i.originatingAccountId,
+          )?.originatingAccountId;
+          const originatingThreadId = items.find(
+            (i) => i.originatingThreadId != null,
+          )?.originatingThreadId;
 
-            const prompt = buildCollectPrompt({
-              title: "[Queued messages while agent was busy]",
-              items,
-              summary,
-              renderItem: (item, idx) => `---\nQueued #${idx + 1}\n${item.prompt}`.trim(),
-            });
-            await runFollowup({
-              prompt,
-              run,
-              enqueuedAt: Date.now(),
-              originatingChannel,
-              originatingTo,
-              originatingAccountId,
-              originatingThreadId,
-            });
-            if (summary) {
-              clearQueueSummaryState(queue);
-            }
+          const prompt = buildCollectPrompt({
+            title: "[Queued messages while agent was busy]",
+            items,
+            summary,
+            renderItem: (item, idx) => `---\nQueued #${idx + 1}\n${item.prompt}`.trim(),
+          });
+          await runFollowup({
+            prompt,
+            run,
+            enqueuedAt: Date.now(),
+            originatingChannel,
+            originatingTo,
+            originatingAccountId,
+            originatingThreadId,
+          });
+          queue.items.splice(0, processedCount);
+          if (summary) {
+            clearQueueSummaryState(queue);
           }
           continue; // After collect processing, skip to next iteration
         }
