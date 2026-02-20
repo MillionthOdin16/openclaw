@@ -301,6 +301,15 @@ describe("isFailoverErrorMessage", () => {
       expect(isFailoverErrorMessage(sample)).toBe(true);
     }
   });
+
+  it("matches transport/network timeout variants", () => {
+    const samples = ["Connection error.", "network error", "socket hang up", "connection reset"];
+    for (const sample of samples) {
+      expect(isTimeoutErrorMessage(sample)).toBe(true);
+      expect(classifyFailoverReason(sample)).toBe("timeout");
+      expect(isFailoverErrorMessage(sample)).toBe(true);
+    }
+  });
 });
 
 describe("parseImageSizeError", () => {

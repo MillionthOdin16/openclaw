@@ -47,6 +47,12 @@ describe("failover-error", () => {
     expect(resolveFailoverReasonFromError({ message: "reason: network_error" })).toBe("timeout");
   });
 
+  it("infers timeout from transport error messages", () => {
+    expect(resolveFailoverReasonFromError({ message: "Connection error." })).toBe("timeout");
+    expect(resolveFailoverReasonFromError({ message: "socket hang up" })).toBe("timeout");
+    expect(resolveFailoverReasonFromError({ message: "connection reset by peer" })).toBe("timeout");
+  });
+
   it("treats AbortError reason=abort as timeout", () => {
     const err = Object.assign(new Error("aborted"), {
       name: "AbortError",

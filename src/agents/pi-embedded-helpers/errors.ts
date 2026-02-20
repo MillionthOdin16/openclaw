@@ -601,6 +601,10 @@ const ERROR_PATTERNS = {
     /\bstop reason:\s*network_error\b/i,
     /\breason:\s*network_error\b/i,
     /\bunhandled stop reason:\s*network_error\b/i,
+    /\bconnection error\b/i,
+    /\bnetwork error\b/i,
+    /\bsocket hang up\b/i,
+    /\bconnection reset\b/i,
   ],
   billing: [
     /["']?(?:status|code)["']?\s*[:=]\s*402\b|\bhttp\s*402\b|\berror(?:\s+code)?\s*[:=]?\s*402\b|\b(?:got|returned|received)\s+(?:a\s+)?402\b|^\s*402\s+payment/i,
