@@ -173,7 +173,7 @@ export async function monitorTelegramProvider(opts: MonitorTelegramOpts = {}) {
         return;
       }
       await new Promise<void>((resolve) => {
-        opts.abortSignal?.addEventListener("abort", resolve, { once: true });
+        opts.abortSignal?.addEventListener("abort", () => resolve(), { once: true });
       });
       webhook.stop();
       return;

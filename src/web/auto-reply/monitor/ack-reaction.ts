@@ -1,9 +1,10 @@
-import { shouldAckReactionForWhatsApp } from "../../../channels/ack-reactions.js";
 import type { loadConfig } from "../../../config/config.js";
+import type { WebInboundMsg } from "../types.js";
+import type { AckReactionTracker } from "./ack-reaction-tracker.js";
+import { shouldAckReactionForWhatsApp } from "../../../channels/ack-reactions.js";
 import { logVerbose } from "../../../globals.js";
 import { sendReactionWhatsApp } from "../../outbound.js";
 import { formatError } from "../../session.js";
-import type { WebInboundMsg } from "../types.js";
 import { resolveGroupActivationFor } from "./group-activation.js";
 
 export function maybeSendAckReaction(params: {
