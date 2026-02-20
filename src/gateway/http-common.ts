@@ -2,13 +2,20 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { GatewayAuthResult } from "./auth.js";
 import { readJsonBody } from "./hooks.js";
 
+export function setSecurityHeaders(res: ServerResponse) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer");
+}
+
 export function sendJson(res: ServerResponse, status: number, body: unknown) {
+  setSecurityHeaders(res);
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(JSON.stringify(body));
 }
 
 export function sendText(res: ServerResponse, status: number, body: string) {
+  setSecurityHeaders(res);
   res.statusCode = status;
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.end(body);
@@ -81,6 +88,7 @@ export function writeDone(res: ServerResponse) {
 }
 
 export function setSseHeaders(res: ServerResponse) {
+  setSecurityHeaders(res);
   res.statusCode = 200;
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");

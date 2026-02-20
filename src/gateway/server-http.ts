@@ -49,7 +49,7 @@ import {
   resolveHookChannel,
   resolveHookDeliver,
 } from "./hooks.js";
-import { sendGatewayAuthFailure } from "./http-common.js";
+import { sendGatewayAuthFailure, sendJson, setSecurityHeaders } from "./http-common.js";
 import { getBearerToken, getHeader } from "./http-utils.js";
 import { isPrivateOrLoopbackAddress, resolveGatewayClientIp } from "./net.js";
 import { handleOpenAiHttpRequest } from "./openai-http.js";
@@ -80,12 +80,6 @@ type HookDispatchers = {
     allowUnsafeExternalContent?: boolean;
   }) => string;
 };
-
-function sendJson(res: ServerResponse, status: number, body: unknown) {
-  res.statusCode = status;
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.end(JSON.stringify(body));
-}
 
 function isCanvasPath(pathname: string): boolean {
   return (
@@ -167,6 +161,8 @@ function writeUpgradeAuthFailure(
       [
         "HTTP/1.1 429 Too Many Requests",
         retryAfterSeconds ? `Retry-After: ${retryAfterSeconds}` : undefined,
+        "X-Content-Type-Options: nosniff",
+        "Referrer-Policy: no-referrer",
         "Content-Type: application/json; charset=utf-8",
         "Connection: close",
         "",
@@ -182,7 +178,9 @@ function writeUpgradeAuthFailure(
     );
     return;
   }
-  socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+  socket.write(
+    "HTTP/1.1 401 Unauthorized\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nConnection: close\r\n\r\n",
+  );
 }
 
 export type HooksRequestHandler = (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
@@ -262,6 +260,7 @@ export function createHooksRequestHandler(
     }
 
     if (url.searchParams.has("token")) {
+      setSecurityHeaders(res);
       res.statusCode = 400;
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.end(
@@ -275,6 +274,7 @@ export function createHooksRequestHandler(
     if (!safeEqualSecret(token, hooksConfig.token)) {
       const throttle = recordHookAuthFailure(clientKey, Date.now());
       if (throttle.throttled) {
+        setSecurityHeaders(res);
         const retryAfter = throttle.retryAfterSeconds ?? 1;
         res.statusCode = 429;
         res.setHeader("Retry-After", String(retryAfter));
@@ -283,6 +283,7 @@ export function createHooksRequestHandler(
         logHooks.warn(`hook auth throttled for ${clientKey}; retry-after=${retryAfter}s`);
         return true;
       }
+      setSecurityHeaders(res);
       res.statusCode = 401;
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.end("Unauthorized");
@@ -291,6 +292,7 @@ export function createHooksRequestHandler(
     clearHookAuthFailure(clientKey);
 
     if (req.method !== "POST") {
+      setSecurityHeaders(res);
       res.statusCode = 405;
       res.setHeader("Allow", "POST");
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
@@ -300,6 +302,7 @@ export function createHooksRequestHandler(
 
     const subPath = url.pathname.slice(basePath.length).replace(/^\/+/, "");
     if (!subPath) {
+      setSecurityHeaders(res);
       res.statusCode = 404;
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.end("Not Found");
@@ -374,6 +377,7 @@ export function createHooksRequestHandler(
             return true;
           }
           if (mapped.action === null) {
+            setSecurityHeaders(res);
             res.statusCode = 204;
             res.end();
             return true;
@@ -428,6 +432,7 @@ export function createHooksRequestHandler(
       }
     }
 
+    setSecurityHeaders(res);
     res.statusCode = 404;
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.end("Not Found");
@@ -584,10 +589,12 @@ export function createGatewayHttpServer(opts: {
         }
       }
 
+      setSecurityHeaders(res);
       res.statusCode = 404;
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.end("Not Found");
     } catch {
+      setSecurityHeaders(res);
       res.statusCode = 500;
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.end("Internal Server Error");
