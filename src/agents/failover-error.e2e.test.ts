@@ -37,6 +37,16 @@ describe("failover-error", () => {
     expect(resolveFailoverReasonFromError({ message: "reason: abort" })).toBe("timeout");
   });
 
+  it("infers timeout from network_error stop-reason messages", () => {
+    expect(
+      resolveFailoverReasonFromError({ message: "Unhandled stop reason: network_error" }),
+    ).toBe("timeout");
+    expect(resolveFailoverReasonFromError({ message: "stop reason: network_error" })).toBe(
+      "timeout",
+    );
+    expect(resolveFailoverReasonFromError({ message: "reason: network_error" })).toBe("timeout");
+  });
+
   it("treats AbortError reason=abort as timeout", () => {
     const err = Object.assign(new Error("aborted"), {
       name: "AbortError",
