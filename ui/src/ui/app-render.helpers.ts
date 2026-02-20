@@ -130,6 +130,7 @@ export function renderChatControls(state: AppViewState) {
     <div class="chat-controls">
       <label class="field chat-controls__session">
         <select
+          aria-label="Select session"
           .value=${state.sessionKey}
           ?disabled=${!state.connected}
           @change=${(e: Event) => {
@@ -168,6 +169,7 @@ export function renderChatControls(state: AppViewState) {
       <button
         class="btn btn--sm btn--icon"
         ?disabled=${state.chatLoading || !state.connected}
+        aria-label="Refresh chat data"
         @click=${async () => {
           const app = state as unknown as OpenClawApp;
           app.chatManualRefreshInFlight = true;
@@ -204,6 +206,7 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${showThinking}
+        aria-label="Toggle assistant thinking"
         title=${
           disableThinkingToggle
             ? "Disabled during onboarding"
@@ -225,6 +228,7 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${focusActive}
+        aria-label="Toggle focus mode"
         title=${
           disableFocusToggle
             ? "Disabled during onboarding"
