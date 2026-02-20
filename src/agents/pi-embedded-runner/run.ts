@@ -483,7 +483,7 @@ export async function runEmbeddedPiAgent(
       }
 
       const MAX_OVERFLOW_COMPACTION_ATTEMPTS = 3;
-      const MAX_TIMEOUT_RETRIES_BEFORE_ROTATION = 1;
+      const MAX_TIMEOUT_RETRIES_BEFORE_ROTATION = 2;
       const timeoutRetryCounts = new Map<string, number>();
       let overflowCompactionAttempts = 0;
       let toolResultTruncationAttempted = false;

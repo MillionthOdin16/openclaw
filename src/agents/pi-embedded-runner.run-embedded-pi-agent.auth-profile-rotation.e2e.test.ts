@@ -328,6 +328,15 @@ describe("runEmbeddedPiAgent auth profile rotation", () => {
         )
         .mockResolvedValueOnce(
           makeAttempt({
+            assistantTexts: [],
+            lastAssistant: buildAssistant({
+              stopReason: "error",
+              errorMessage: "request ended without sending any chunks",
+            }),
+          }),
+        )
+        .mockResolvedValueOnce(
+          makeAttempt({
             assistantTexts: ["ok"],
             lastAssistant: buildAssistant({
               stopReason: "stop",
@@ -343,7 +352,7 @@ describe("runEmbeddedPiAgent auth profile rotation", () => {
         runId: "run:empty-chunk-stream-repeat",
       });
 
-      expect(runEmbeddedAttemptMock).toHaveBeenCalledTimes(3);
+      expect(runEmbeddedAttemptMock).toHaveBeenCalledTimes(4);
       await expectProfileP2UsageUpdated(agentDir);
     } finally {
       await fs.rm(agentDir, { recursive: true, force: true });
