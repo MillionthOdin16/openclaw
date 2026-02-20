@@ -117,9 +117,18 @@ function buildLogger(settings: ResolvedSettings): TsLogger<LogObj> {
 }
 
 export function getLogger(): TsLogger<LogObj> {
-  const settings = resolveSettings();
   const cachedLogger = loggingState.cachedLogger as TsLogger<LogObj> | null;
   const cachedSettings = loggingState.cachedSettings as ResolvedSettings | null;
+
+  // Throttle configuration reads to reduce disk I/O in hot paths.
+  // This allows hot-reloading but avoids hitting the disk on every log call.
+  if (cachedLogger && cachedSettings && Date.now() - loggingState.lastSettingsCheck < 2000) {
+    return cachedLogger;
+  }
+
+  const settings = resolveSettings();
+  loggingState.lastSettingsCheck = Date.now();
+
   if (!cachedLogger || settingsChanged(cachedSettings, settings)) {
     loggingState.cachedLogger = buildLogger(settings);
     loggingState.cachedSettings = settings;
@@ -191,6 +200,7 @@ export function resetLogger() {
   loggingState.cachedSettings = null;
   loggingState.cachedConsoleSettings = null;
   loggingState.overrideSettings = null;
+  loggingState.lastSettingsCheck = 0;
 }
 
 export function registerLogTransport(transport: LogTransport): () => void {
