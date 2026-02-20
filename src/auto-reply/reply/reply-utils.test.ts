@@ -323,9 +323,9 @@ describe("createTypingSignaler", () => {
     });
 
     await signaler.signalReasoningDelta();
-    expect(typing.startTypingLoop).not.toHaveBeenCalled();
+    expect(typing.startTypingLoop).toHaveBeenCalledTimes(1);
     await signaler.signalTextDelta("hi");
-    expect(typing.startTypingLoop).toHaveBeenCalled();
+    expect(typing.startTypingLoop).toHaveBeenCalledTimes(2);
   });
 
   it("refreshes ttl on text for thinking mode", async () => {

@@ -1,10 +1,12 @@
+import { CURRENT_SESSION_VERSION, SessionManager } from "@mariozechner/pi-coding-agent";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { CURRENT_SESSION_VERSION, SessionManager } from "@mariozechner/pi-coding-agent";
+import type { OpenClawConfig } from "../../config/config.js";
+import type { TtsAutoMode } from "../../config/types.tts.js";
+import type { MsgContext, TemplateContext } from "../templating.js";
 import { resolveSessionAgentId } from "../../agents/agent-scope.js";
 import { normalizeChatType } from "../../channels/chat-type.js";
-import type { OpenClawConfig } from "../../config/config.js";
 import {
   DEFAULT_RESET_TRIGGERS,
   deriveSessionMetaPatch,
@@ -24,14 +26,12 @@ import {
   type SessionScope,
   updateSessionStore,
 } from "../../config/sessions.js";
-import type { TtsAutoMode } from "../../config/types.tts.js";
 import { archiveSessionTranscripts } from "../../gateway/session-utils.fs.js";
 import { deliverSessionMaintenanceWarning } from "../../infra/session-maintenance-warning.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
 import { normalizeMainKey } from "../../routing/session-key.js";
 import { normalizeSessionDeliveryFields } from "../../utils/delivery-context.js";
 import { resolveCommandAuthorization } from "../command-auth.js";
-import type { MsgContext, TemplateContext } from "../templating.js";
 import { normalizeInboundTextNewlines } from "./inbound-text.js";
 import { stripMentions, stripStructuralPrefixes } from "./mentions.js";
 
@@ -139,7 +139,6 @@ export async function initSessionState(params: {
   let systemSent = false;
   let abortedLastRun = false;
   let resetTriggered = false;
-  let resetCommand: "new" | "reset" | undefined;
 
   let persistedThinking: string | undefined;
   let persistedVerbose: string | undefined;
@@ -191,7 +190,6 @@ export async function initSessionState(params: {
       isNewSession = true;
       bodyStripped = "";
       resetTriggered = true;
-      resetCommand = triggerLower === "/reset" ? "reset" : "new";
       break;
     }
     const triggerPrefixLower = `${triggerLower} `;
@@ -202,7 +200,6 @@ export async function initSessionState(params: {
       isNewSession = true;
       bodyStripped = strippedForReset.slice(trigger.length).trimStart();
       resetTriggered = true;
-      resetCommand = triggerLower === "/reset" ? "reset" : "new";
       break;
     }
   }
@@ -254,7 +251,7 @@ export async function initSessionState(params: {
     // When a /new (or custom) reset trigger starts a new session, carry over
     // user-set behavior overrides (verbose, thinking, reasoning, ttsAuto)
     // so the user doesn't have to re-enable them every time.
-    if (resetTriggered && entry && resetCommand !== "reset") {
+    if (resetTriggered && entry) {
       persistedThinking = entry.thinkingLevel;
       persistedVerbose = entry.verboseLevel;
       persistedReasoning = entry.reasoningLevel;
