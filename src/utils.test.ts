@@ -4,8 +4,15 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
+  clamp,
+  clampInt,
+  clampNumber,
   CONFIG_DIR,
   ensureDir,
+  escapeRegExp,
+  isPlainObject,
+  isRecord,
+  isSelfChatMode,
   jidToE164,
   normalizeE164,
   normalizePath,
@@ -13,10 +20,13 @@ import {
   resolveHomeDir,
   resolveJidToE164,
   resolveUserPath,
+  safeParseJson,
   shortenHomeInString,
   shortenHomePath,
   sleep,
+  sliceUtf16Safe,
   toWhatsappJid,
+  truncateUtf16Safe,
   withWhatsAppPrefix,
 } from "./utils.js";
 
@@ -221,5 +231,155 @@ describe("resolveUserPath", () => {
   it("keeps blank paths blank", () => {
     expect(resolveUserPath("")).toBe("");
     expect(resolveUserPath("   ")).toBe("");
+  });
+});
+
+describe("clampNumber", () => {
+  it("clamps value to min", () => {
+    expect(clampNumber(0, 5, 10)).toBe(5);
+  });
+  it("clamps value to max", () => {
+    expect(clampNumber(15, 5, 10)).toBe(10);
+  });
+  it("keeps value within range", () => {
+    expect(clampNumber(7, 5, 10)).toBe(7);
+  });
+  it("is aliased as clamp", () => {
+    expect(clamp(0, 5, 10)).toBe(5);
+  });
+});
+
+describe("clampInt", () => {
+  it("clamps and floors value", () => {
+    expect(clampInt(4.9, 5, 10)).toBe(5); // 4.9 floors to 4, then clamps to 5
+    expect(clampInt(7.9, 5, 10)).toBe(7); // 7.9 floors to 7
+    expect(clampInt(10.1, 5, 10)).toBe(10); // 10.1 floors to 10
+    expect(clampInt(15.9, 5, 10)).toBe(10);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes special regex characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+  it("leaves normal strings alone", () => {
+    expect(escapeRegExp("abc")).toBe("abc");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid JSON", () => {
+    expect(safeParseJson('{"a":1}')).toEqual({ a: 1 });
+  });
+  it("returns null for invalid JSON", () => {
+    expect(safeParseJson("{a:1}")).toBeNull();
+  });
+  it("returns null for empty string", () => {
+    expect(safeParseJson("")).toBeNull();
+  });
+});
+
+describe("isPlainObject", () => {
+  it("returns true for plain objects", () => {
+    expect(isPlainObject({})).toBe(true);
+    expect(isPlainObject({ a: 1 })).toBe(true);
+  });
+  it("returns false for non-plain objects", () => {
+    expect(isPlainObject(null)).toBe(false);
+    expect(isPlainObject([])).toBe(false);
+    expect(isPlainObject(new Date())).toBe(false);
+    expect(isPlainObject(/abc/)).toBe(false);
+    expect(isPlainObject("abc")).toBe(false);
+    expect(isPlainObject(123)).toBe(false);
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for objects (less strict than isPlainObject)", () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ a: 1 })).toBe(true);
+    expect(isRecord(new Date())).toBe(true);
+    expect(isRecord(/abc/)).toBe(true);
+  });
+  it("returns false for arrays and null", () => {
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord([])).toBe(false);
+    expect(isRecord("abc")).toBe(false);
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns false if selfE164 is missing", () => {
+    expect(isSelfChatMode(null, ["+15551234567"])).toBe(false);
+  });
+
+  it("returns false if allowFrom is missing/empty", () => {
+    expect(isSelfChatMode("+15551234567", null)).toBe(false);
+    expect(isSelfChatMode("+15551234567", [])).toBe(false);
+  });
+
+  it("returns true if selfE164 matches an entry in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("whatsapp:+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("+15551234567", ["+15559999999", "+15551234567"])).toBe(true);
+  });
+
+  it("handles formatting differences", () => {
+    expect(isSelfChatMode("+15551234567", ["+1 (555) 123-4567"])).toBe(true);
+  });
+
+  it("returns false if allowFrom contains wildcard * but no explicit match", () => {
+    // The implementation specifically checks for * and returns false
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+  });
+});
+
+describe("sliceUtf16Safe", () => {
+  it("slices normal strings correctly", () => {
+    expect(sliceUtf16Safe("abcde", 1, 3)).toBe("bc");
+  });
+
+  it("handles start > end by swapping", () => {
+    expect(sliceUtf16Safe("abcde", 3, 1)).toBe("bc");
+  });
+
+  it("does not split surrogate pairs", () => {
+    const emoji = "😀"; // 2 chars: \ud83d \ude00
+    const str = "a" + emoji + "b"; // length 4
+    // Slicing right in the middle of the emoji
+    // index 1 is high surrogate, index 2 is low surrogate
+    // slice(1, 2) would normally return just the high surrogate
+    // but sliceUtf16Safe should adjust
+    expect(sliceUtf16Safe(str, 1, 2)).toBe(""); // Should be empty because it can't include half
+    expect(sliceUtf16Safe(str, 1, 3)).toBe(emoji);
+  });
+
+  it("handles negative indices", () => {
+    expect(sliceUtf16Safe("abcde", -2)).toBe("de");
+  });
+});
+
+describe("truncateUtf16Safe", () => {
+  it("truncates normal strings", () => {
+    expect(truncateUtf16Safe("hello world", 5)).toBe("hello");
+  });
+
+  it("does not split surrogate pairs at boundary", () => {
+    const emoji = "😀";
+    const str = "hi" + emoji; // "hi" is 2 chars, emoji is 2 chars. total 4.
+    // Truncate to 3 chars. Should stop before emoji because emoji takes 2 chars
+    // and we can't fit it fully if we blindly slice.
+    // Wait, let's trace logic:
+    // slice(0, 3) -> "hi" + high surrogate
+    // sliceUtf16Safe checks if end is between surrogates.
+    // input[2] is high, input[3] is low.
+    // to = 3. input[2] (before cut) is high, input[3] (after cut) is low.
+    // So to -= 1 -> 2.
+    // Returns "hi"
+    expect(truncateUtf16Safe(str, 3)).toBe("hi");
+  });
+
+  it("returns original string if maxLen is sufficient", () => {
+    expect(truncateUtf16Safe("abc", 5)).toBe("abc");
   });
 });
