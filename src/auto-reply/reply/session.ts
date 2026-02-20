@@ -96,6 +96,56 @@ function forkSessionFromParent(params: {
   }
 }
 
+function recoverTopicSessionEntry(params: {
+  sessionKey: string;
+  storePath: string;
+  messageThreadId?: string | number;
+}): SessionEntry | undefined {
+  const keyTopicMatch = params.sessionKey.match(/:topic:([^:]+)$/);
+  const topicId =
+    params.messageThreadId ??
+    (typeof keyTopicMatch?.[1] === "string" && keyTopicMatch[1].trim().length > 0
+      ? keyTopicMatch[1].trim()
+      : undefined);
+  if (topicId === undefined) {
+    return undefined;
+  }
+  const topicSuffix = `-topic-${encodeURIComponent(String(topicId))}.jsonl`;
+  const sessionsDir = path.dirname(params.storePath);
+  if (!fs.existsSync(sessionsDir)) {
+    return undefined;
+  }
+  try {
+    const latest = fs
+      .readdirSync(sessionsDir)
+      .filter((name) => name.endsWith(topicSuffix))
+      .map((name) => {
+        const fullPath = path.join(sessionsDir, name);
+        const stat = fs.statSync(fullPath);
+        return { name, fullPath, mtimeMs: stat.mtimeMs };
+      })
+      .toSorted((a, b) => b.mtimeMs - a.mtimeMs)[0];
+    if (!latest) {
+      return undefined;
+    }
+    const sessionId = latest.name.slice(0, -topicSuffix.length).trim();
+    if (!sessionId) {
+      return undefined;
+    }
+    return {
+      sessionId,
+      sessionFile: latest.fullPath,
+      updatedAt: latest.mtimeMs || Date.now(),
+      lastThreadId: topicId,
+    };
+  } catch (err) {
+    console.warn(
+      `[session-init] failed to recover topic session for ${params.sessionKey}: ${String(err)}`,
+    );
+    return undefined;
+  }
+}
+
 export async function initSessionState(params: {
   ctx: MsgContext;
   cfg: OpenClawConfig;
@@ -205,7 +255,18 @@ export async function initSessionState(params: {
   }
 
   sessionKey = resolveSessionKey(sessionScope, sessionCtxForState, mainKey);
-  const entry = sessionStore[sessionKey];
+  let entry = sessionStore[sessionKey];
+  if (!entry) {
+    const recoveredTopicEntry = recoverTopicSessionEntry({
+      sessionKey,
+      storePath,
+      messageThreadId: ctx.MessageThreadId,
+    });
+    if (recoveredTopicEntry) {
+      entry = recoveredTopicEntry;
+      sessionStore[sessionKey] = recoveredTopicEntry;
+    }
+  }
   const previousSessionEntry = resetTriggered && entry ? { ...entry } : undefined;
   const now = Date.now();
   const isThread = resolveThreadFlag({

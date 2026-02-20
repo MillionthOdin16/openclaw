@@ -1,9 +1,10 @@
-import fs from "node:fs/promises";
-import os from "node:os";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { ImageContent } from "@mariozechner/pi-ai";
 import { streamSimple } from "@mariozechner/pi-ai";
 import { createAgentSession, SessionManager, SettingsManager } from "@mariozechner/pi-coding-agent";
+import fs from "node:fs/promises";
+import os from "node:os";
+import type { EmbeddedRunAttemptParams, EmbeddedRunAttemptResult } from "./types.js";
 import { resolveHeartbeatPrompt } from "../../../auto-reply/heartbeat.js";
 import { resolveChannelCapabilities } from "../../../config/channel-capabilities.js";
 import { getMachineDisplayName } from "../../../infra/machine-name.js";
@@ -103,7 +104,6 @@ import {
   shouldFlagCompactionTimeout,
 } from "./compaction-timeout.js";
 import { detectAndLoadPromptImages } from "./images.js";
-import type { EmbeddedRunAttemptParams, EmbeddedRunAttemptResult } from "./types.js";
 
 export function injectHistoryImagesIntoMessages(
   messages: AgentMessage[],
@@ -959,18 +959,31 @@ export async function runEmbeddedAttempt(
           messages: activeSession.messages,
         });
 
-        // Repair orphaned trailing user messages so new prompts don't violate role ordering.
+        // Repair orphaned trailing user messages only when they would create
+        // consecutive user turns. A normal run should keep the current leaf
+        // user message intact.
         const leafEntry = sessionManager.getLeafEntry();
-        if (leafEntry?.type === "message" && leafEntry.message.role === "user") {
+        const hasConsecutiveUserTurns =
+          activeSession.messages.length >= 2 &&
+          activeSession.messages[activeSession.messages.length - 1]?.role === "user" &&
+          activeSession.messages[activeSession.messages.length - 2]?.role === "user";
+        if (
+          leafEntry?.type === "message" &&
+          leafEntry.message.role === "user" &&
+          hasConsecutiveUserTurns
+        ) {
           if (leafEntry.parentId) {
             sessionManager.branch(leafEntry.parentId);
           } else {
             sessionManager.resetLeaf();
           }
           const sessionContext = sessionManager.buildSessionContext();
-          const sanitizedOrphan = transcriptPolicy.normalizeAntigravityThinkingBlocks
-            ? sanitizeAntigravityThinkingBlocks(sessionContext.messages)
+          const pairingRepaired = transcriptPolicy.repairToolUseResultPairing
+            ? sanitizeToolUseResultPairing(sessionContext.messages)
             : sessionContext.messages;
+          const sanitizedOrphan = transcriptPolicy.normalizeAntigravityThinkingBlocks
+            ? sanitizeAntigravityThinkingBlocks(pairingRepaired)
+            : pairingRepaired;
           activeSession.agent.replaceMessages(sanitizedOrphan);
           log.warn(
             `Removed orphaned user message to prevent consecutive user turns. ` +

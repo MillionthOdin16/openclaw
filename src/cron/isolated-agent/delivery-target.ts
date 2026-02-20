@@ -1,13 +1,13 @@
 import type { ChannelId } from "../../channels/plugins/types.js";
-import { DEFAULT_CHAT_CHANNEL } from "../../channels/registry.js";
 import type { OpenClawConfig } from "../../config/config.js";
+import type { OutboundChannel } from "../../infra/outbound/targets.js";
+import { DEFAULT_CHAT_CHANNEL } from "../../channels/registry.js";
 import {
   loadSessionStore,
   resolveAgentMainSessionKey,
   resolveStorePath,
 } from "../../config/sessions.js";
 import { resolveMessageChannelSelection } from "../../infra/outbound/channel-selection.js";
-import type { OutboundChannel } from "../../infra/outbound/targets.js";
 import {
   resolveOutboundTarget,
   resolveSessionDeliveryTarget,
@@ -80,12 +80,27 @@ export async function resolveDeliveryTarget(
   const channel = resolved.channel ?? fallbackChannel ?? DEFAULT_CHAT_CHANNEL;
   const mode = resolved.mode as "explicit" | "implicit";
   let toCandidate = resolved.to;
+  // If an explicit delivery channel is requested but the stored context channel
+  // is unavailable/non-deliverable, still reuse the known recipient instead of
+  // failing with "cron delivery target is missing".
+  if (
+    !toCandidate &&
+    !explicitTo &&
+    requestedChannel !== "last" &&
+    resolved.lastTo &&
+    !resolved.lastChannel
+  ) {
+    toCandidate = resolved.lastTo;
+  }
 
   // When the session has no lastAccountId (e.g. first-run isolated cron
   // session), fall back to the agent's bound account from bindings config.
   // This ensures the message tool in isolated sessions resolves the correct
   // bot token for multi-account setups.
   let accountId = resolved.accountId;
+  if (!accountId && toCandidate && requestedChannel !== "last" && !resolved.lastChannel) {
+    accountId = resolved.lastAccountId;
+  }
   if (!accountId && channel) {
     const bindings = buildChannelAccountBindings(cfg);
     const byAgent = bindings.get(channel);

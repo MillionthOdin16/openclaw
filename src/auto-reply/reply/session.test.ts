@@ -2,9 +2,9 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildModelAliasIndex } from "../../agents/model-selection.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import type { SessionEntry } from "../../config/sessions.js";
+import { buildModelAliasIndex } from "../../agents/model-selection.js";
 import { saveSessionStore } from "../../config/sessions.js";
 import { formatZonedTimestamp } from "../../infra/format-time/format-datetime.ts";
 import { enqueueSystemEvent, resetSystemEventsForTest } from "../../infra/system-events.js";
@@ -149,6 +149,36 @@ describe("initSessionState thread forking", () => {
     expect(path.basename(sessionFile ?? "")).toBe(
       `${result.sessionEntry.sessionId}-topic-456.jsonl`,
     );
+  });
+
+  it("recovers topic session from existing transcript when sessions.json entry is missing", async () => {
+    const root = await makeCaseDir("openclaw-topic-session-recover-");
+    const storePath = path.join(root, "sessions.json");
+    const topicSessionId = "fd5bf3e1-b766-46c3-a9aa-3c0c748f5b65";
+    const topicSessionFile = path.join(root, `${topicSessionId}-topic-2731.jsonl`);
+    await fs.writeFile(
+      topicSessionFile,
+      `${JSON.stringify({ type: "session", version: 3, id: topicSessionId, timestamp: new Date().toISOString() })}\n`,
+      "utf-8",
+    );
+
+    const cfg = {
+      session: { store: storePath },
+    } as OpenClawConfig;
+
+    const result = await initSessionState({
+      ctx: {
+        Body: "resume topic",
+        SessionKey: "agent:main:telegram:group:-1003515510780:topic:2731",
+        MessageThreadId: 2731,
+      },
+      cfg,
+      commandAuthorized: true,
+    });
+
+    expect(result.sessionEntry.sessionId).toBe(topicSessionId);
+    expect(result.sessionEntry.sessionFile).toBe(topicSessionFile);
+    expect(result.isNewSession).toBe(false);
   });
 });
 

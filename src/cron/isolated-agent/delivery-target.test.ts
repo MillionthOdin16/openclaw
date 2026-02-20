@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_CHAT_CHANNEL } from "../../channels/registry.js";
 import type { OpenClawConfig } from "../../config/config.js";
+import { DEFAULT_CHAT_CHANNEL } from "../../channels/registry.js";
 
 vi.mock("../../config/sessions.js", () => ({
   loadSessionStore: vi.fn().mockReturnValue({}),
@@ -225,5 +225,23 @@ describe("resolveDeliveryTarget", () => {
     });
     expect(result.channel).toBe(DEFAULT_CHAT_CHANNEL);
     expect(result.to).toBeUndefined();
+  });
+
+  it("reuses last recipient when explicit channel is set but stored channel is non-deliverable", async () => {
+    setMainSessionEntry({
+      sessionId: "sess-4",
+      updatedAt: 1000,
+      deliveryContext: {
+        channel: "heartbeat",
+        to: "123456",
+      },
+    });
+
+    const result = await resolveForAgent({
+      cfg: makeCfg({ bindings: [] }),
+      target: { channel: "telegram", to: undefined },
+    });
+    expect(result.channel).toBe("telegram");
+    expect(result.to).toBe("123456");
   });
 });

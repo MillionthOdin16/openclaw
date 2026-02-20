@@ -243,4 +243,29 @@ describe("monitorTelegramProvider (grammY)", () => {
     );
     expect(runSpy).not.toHaveBeenCalled();
   });
+
+  it("keeps webhook mode running until aborted", async () => {
+    const stopSpy = vi.fn();
+    startTelegramWebhookSpy.mockResolvedValueOnce({
+      server: { close: vi.fn() },
+      stop: stopSpy,
+    });
+    const abort = new AbortController();
+    let settled = false;
+    const monitor = monitorTelegramProvider({
+      token: "tok",
+      useWebhook: true,
+      webhookUrl: "https://example.test/telegram",
+      webhookSecret: "secret",
+      abortSignal: abort.signal,
+    }).then(() => {
+      settled = true;
+    });
+
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    abort.abort();
+    await monitor;
+    expect(stopSpy).toHaveBeenCalledTimes(1);
+  });
 });

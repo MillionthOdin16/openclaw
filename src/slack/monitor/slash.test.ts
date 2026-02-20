@@ -370,6 +370,58 @@ describe("Slack native command argument menus", () => {
     harness.postEphemeral.mockClear();
   });
 
+  it("registers arg options when app.options needs bound this", async () => {
+    const listeners = {
+      options: new Map<string, (args: unknown) => Promise<void>>(),
+    };
+    const ctx = {
+      cfg: { commands: { native: true, nativeSkills: false } },
+      runtime: {},
+      botToken: "bot-token",
+      botUserId: "bot",
+      teamId: "T1",
+      allowFrom: ["*"],
+      dmEnabled: true,
+      dmPolicy: "open",
+      groupDmEnabled: false,
+      groupDmChannels: [],
+      defaultRequireMention: true,
+      groupPolicy: "open",
+      useAccessGroups: false,
+      channelsConfig: undefined,
+      slashCommand: {
+        enabled: true,
+        name: "openclaw",
+        ephemeral: true,
+        sessionPrefix: "slack:slash",
+      },
+      textLimit: 4000,
+      app: {
+        client: { chat: { postEphemeral: vi.fn().mockResolvedValue({ ok: true }) } },
+        command: vi.fn(),
+        action: vi.fn(),
+        options(
+          this: { listeners: typeof listeners },
+          id: string,
+          handler: (args: unknown) => Promise<void>,
+        ) {
+          this.listeners.options.set(id, handler);
+        },
+        listeners,
+      },
+      isChannelAllowed: () => true,
+      resolveChannelName: async () => ({ name: "dm", type: "im" }),
+      resolveUserName: async () => ({ name: "Ada" }),
+    } as unknown;
+    const account = {
+      accountId: "acct",
+      config: { commands: { native: true, nativeSkills: false } },
+    };
+
+    await expect(registerCommands(ctx, account)).resolves.toBeUndefined();
+    expect(listeners.options.has("openclaw_cmdarg")).toBe(true);
+  });
+
   it("shows a button menu when required args are omitted", async () => {
     const { respond } = await runCommandHandler(usageHandler);
     const actions = expectArgMenuLayout(respond);

@@ -213,7 +213,21 @@ export function repairToolUseResultPairing(messages: AgentMessage[]): ToolUseRep
     // See: https://github.com/openclaw/openclaw/issues/4597
     const stopReason = (assistant as { stopReason?: string }).stopReason;
     if (stopReason === "error" || stopReason === "aborted") {
-      out.push(msg);
+      if (!Array.isArray(assistant.content)) {
+        out.push(msg);
+        continue;
+      }
+      const nextContent = assistant.content.filter((block) => !isToolCallBlock(block));
+      if (nextContent.length === 0) {
+        changed = true;
+        continue;
+      }
+      if (nextContent.length !== assistant.content.length) {
+        changed = true;
+        out.push({ ...assistant, content: nextContent });
+      } else {
+        out.push(msg);
+      }
       continue;
     }
 
