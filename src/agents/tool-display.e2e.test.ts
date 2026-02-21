@@ -104,6 +104,19 @@ describe("tool display details", () => {
     expect(detail).toContain(".openclaw/workspace)");
   });
 
+  it("prefers informative stage when exec starts with cd", () => {
+    const detail = formatToolDetail(
+      resolveToolDisplay({
+        name: "exec",
+        args: {
+          command: "cd && ls /tmp",
+        },
+      }),
+    );
+
+    expect(detail).toBe("run cd -> list files in /tmp");
+  });
+
   it("recognizes heredoc/inline script exec details", () => {
     const pyDetail = formatToolDetail(
       resolveToolDisplay({

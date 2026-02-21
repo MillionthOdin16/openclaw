@@ -135,8 +135,8 @@ export function buildGatewayConnectionDetails(
   const remoteUrl =
     typeof remote?.url === "string" && remote.url.trim().length > 0 ? remote.url.trim() : undefined;
   const remoteMisconfigured = isRemoteMode && !urlOverride && !remoteUrl;
-  const url = urlOverride || remoteUrl || localUrl;
-  const urlSource = urlOverride
+  let url = urlOverride || remoteUrl || localUrl;
+  let urlSource = urlOverride
     ? "cli --url"
     : remoteUrl
       ? "config gateway.remote.url"
@@ -147,6 +147,16 @@ export function buildGatewayConnectionDetails(
           : preferLan && lanIPv4
             ? `local lan ${lanIPv4}`
             : "local loopback";
+  if (
+    !urlOverride &&
+    !remoteUrl &&
+    !isRemoteMode &&
+    !isSecureWebSocketUrl(url) &&
+    bindMode !== "loopback"
+  ) {
+    url = `ws://127.0.0.1:${localPort}`;
+    urlSource = `local loopback (secure fallback from ${urlSource})`;
+  }
   const remoteFallbackNote = remoteMisconfigured
     ? "Warn: gateway.mode=remote but gateway.remote.url is missing; set gateway.remote.url or switch gateway.mode=local."
     : undefined;

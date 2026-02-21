@@ -536,6 +536,23 @@ function firstTopLevelStage(command: string): string {
   return splitIndex >= 0 ? command.slice(0, splitIndex) : command;
 }
 
+function splitTopLevelStages(command: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+
+  scanTopLevelChars(command, (char, index) => {
+    const isDoubleSep = (char === "&" || char === "|") && command[index + 1] === char;
+    if (char === ";" || char === "\n" || isDoubleSep) {
+      parts.push(command.slice(start, index));
+      start = index + (isDoubleSep ? 2 : 1);
+    }
+    return true;
+  });
+
+  parts.push(command.slice(start));
+  return parts.map((part) => part.trim()).filter((part) => part.length > 0);
+}
+
 function splitTopLevelPipes(command: string): string[] {
   const parts: string[] = [];
   let start = 0;
@@ -853,13 +870,7 @@ function summarizeKnownExec(words: string[]): string {
   return /^[A-Za-z0-9._/-]+$/.test(arg) ? `run ${bin} ${arg}` : `run ${bin}`;
 }
 
-function summarizeExecCommand(command: string): string | undefined {
-  const cleaned = stripShellPreamble(command);
-  const stage = firstTopLevelStage(cleaned).trim();
-  if (!stage) {
-    return cleaned ? summarizeKnownExec(trimLeadingEnv(splitShellWords(cleaned))) : undefined;
-  }
-
+function summarizeExecStage(stage: string): string {
   const pipeline = splitTopLevelPipes(stage);
   if (pipeline.length > 1) {
     const first = summarizeKnownExec(trimLeadingEnv(splitShellWords(pipeline[0])));
@@ -869,6 +880,30 @@ function summarizeExecCommand(command: string): string | undefined {
   }
 
   return summarizeKnownExec(trimLeadingEnv(splitShellWords(stage)));
+}
+
+function isTrivialSetupStage(stage: string): boolean {
+  const words = trimLeadingEnv(splitShellWords(stage));
+  const bin = binaryName(words[0]) ?? "";
+  return bin === "cd" || bin === "pwd";
+}
+
+function summarizeExecCommand(command: string): string | undefined {
+  const cleaned = stripShellPreamble(command);
+  const stages = splitTopLevelStages(cleaned);
+  const stage = firstTopLevelStage(cleaned).trim();
+  if (!stage) {
+    return cleaned ? summarizeKnownExec(trimLeadingEnv(splitShellWords(cleaned))) : undefined;
+  }
+
+  if (stages.length > 1 && isTrivialSetupStage(stages[0])) {
+    const first = summarizeExecStage(stages[0]);
+    const second = summarizeExecStage(stages[1]);
+    const extra = stages.length > 2 ? ` (+${stages.length - 2} steps)` : "";
+    return `${first} -> ${second}${extra}`;
+  }
+
+  return summarizeExecStage(stage);
 }
 
 export function resolveExecDetail(args: unknown): string | undefined {
