@@ -11,6 +11,10 @@ import { readJsonBody } from "./hooks.js";
 export function setDefaultSecurityHeaders(res: ServerResponse) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
+  // Defense in depth: disable FLoC/Topics and payment API which are not used by the Gateway.
+  // Note: we do not disable camera/microphone/geolocation because some nodes or canvas apps
+  // may legitimately use them when served from the Gateway.
+  res.setHeader("Permissions-Policy", "browsing-topics=(), interest-cohort=(), payment=()");
 }
 
 export function sendJson(res: ServerResponse, status: number, body: unknown) {
