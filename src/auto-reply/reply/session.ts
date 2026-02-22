@@ -1,17 +1,18 @@
+import { CURRENT_SESSION_VERSION, SessionManager } from "@mariozechner/pi-coding-agent";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { CURRENT_SESSION_VERSION, SessionManager } from "@mariozechner/pi-coding-agent";
+import type { OpenClawConfig } from "../../config/config.js";
+import type { TtsAutoMode } from "../../config/types.tts.js";
+import type { MsgContext, TemplateContext } from "../templating.js";
 import { resolveSessionAgentId } from "../../agents/agent-scope.js";
 import { normalizeChatType } from "../../channels/chat-type.js";
-import type { OpenClawConfig } from "../../config/config.js";
 import {
   DEFAULT_RESET_TRIGGERS,
   deriveSessionMetaPatch,
   evaluateSessionFreshness,
   type GroupKeyResolution,
   loadSessionStore,
-  resolveAndPersistSessionFile,
   resolveChannelResetConfig,
   resolveThreadFlag,
   resolveSessionResetPolicy,
@@ -25,19 +26,14 @@ import {
   type SessionScope,
   updateSessionStore,
 } from "../../config/sessions.js";
-import type { TtsAutoMode } from "../../config/types.tts.js";
 import { archiveSessionTranscripts } from "../../gateway/session-utils.fs.js";
 import { deliverSessionMaintenanceWarning } from "../../infra/session-maintenance-warning.js";
-import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
 import { normalizeMainKey } from "../../routing/session-key.js";
 import { normalizeSessionDeliveryFields } from "../../utils/delivery-context.js";
 import { resolveCommandAuthorization } from "../command-auth.js";
-import type { MsgContext, TemplateContext } from "../templating.js";
 import { normalizeInboundTextNewlines } from "./inbound-text.js";
 import { stripMentions, stripStructuralPrefixes } from "./mentions.js";
-
-const log = createSubsystemLogger("session-init");
 
 export type SessionInitResult = {
   sessionCtx: TemplateContext;
@@ -97,6 +93,56 @@ function forkSessionFromParent(params: {
     return { sessionId, sessionFile };
   } catch {
     return null;
+  }
+}
+
+function recoverTopicSessionEntry(params: {
+  sessionKey: string;
+  storePath: string;
+  messageThreadId?: string | number;
+}): SessionEntry | undefined {
+  const keyTopicMatch = params.sessionKey.match(/:topic:([^:]+)$/);
+  const topicId =
+    params.messageThreadId ??
+    (typeof keyTopicMatch?.[1] === "string" && keyTopicMatch[1].trim().length > 0
+      ? keyTopicMatch[1].trim()
+      : undefined);
+  if (topicId === undefined) {
+    return undefined;
+  }
+  const topicSuffix = `-topic-${encodeURIComponent(String(topicId))}.jsonl`;
+  const sessionsDir = path.dirname(params.storePath);
+  if (!fs.existsSync(sessionsDir)) {
+    return undefined;
+  }
+  try {
+    const latest = fs
+      .readdirSync(sessionsDir)
+      .filter((name) => name.endsWith(topicSuffix))
+      .map((name) => {
+        const fullPath = path.join(sessionsDir, name);
+        const stat = fs.statSync(fullPath);
+        return { name, fullPath, mtimeMs: stat.mtimeMs };
+      })
+      .toSorted((a, b) => b.mtimeMs - a.mtimeMs)[0];
+    if (!latest) {
+      return undefined;
+    }
+    const sessionId = latest.name.slice(0, -topicSuffix.length).trim();
+    if (!sessionId) {
+      return undefined;
+    }
+    return {
+      sessionId,
+      sessionFile: latest.fullPath,
+      updatedAt: latest.mtimeMs || Date.now(),
+      lastThreadId: topicId,
+    };
+  } catch (err) {
+    console.warn(
+      `[session-init] failed to recover topic session for ${params.sessionKey}: ${String(err)}`,
+    );
+    return undefined;
   }
 }
 
@@ -209,7 +255,18 @@ export async function initSessionState(params: {
   }
 
   sessionKey = resolveSessionKey(sessionScope, sessionCtxForState, mainKey);
-  const entry = sessionStore[sessionKey];
+  let entry = sessionStore[sessionKey];
+  if (!entry) {
+    const recoveredTopicEntry = recoverTopicSessionEntry({
+      sessionKey,
+      storePath,
+      messageThreadId: ctx.MessageThreadId,
+    });
+    if (recoveredTopicEntry) {
+      entry = recoveredTopicEntry;
+      sessionStore[sessionKey] = recoveredTopicEntry;
+    }
+  }
   const previousSessionEntry = resetTriggered && entry ? { ...entry } : undefined;
   const now = Date.now();
   const isThread = resolveThreadFlag({
@@ -252,7 +309,7 @@ export async function initSessionState(params: {
     isNewSession = true;
     systemSent = false;
     abortedLastRun = false;
-    // When a reset trigger (/new, /reset) starts a new session, carry over
+    // When a /new (or custom) reset trigger starts a new session, carry over
     // user-set behavior overrides (verbose, thinking, reasoning, ttsAuto)
     // so the user doesn't have to re-enable them every time.
     if (resetTriggered && entry) {
@@ -260,6 +317,7 @@ export async function initSessionState(params: {
       persistedVerbose = entry.verboseLevel;
       persistedReasoning = entry.reasoningLevel;
       persistedTtsAuto = entry.ttsAuto;
+      // /new should also carry over model overrides.
       persistedModelOverride = entry.modelOverride;
       persistedProviderOverride = entry.providerOverride;
     }
@@ -342,8 +400,8 @@ export async function initSessionState(params: {
     parentSessionKey !== sessionKey &&
     sessionStore[parentSessionKey]
   ) {
-    log.warn(
-      `forking from parent session: parentKey=${parentSessionKey} → sessionKey=${sessionKey} ` +
+    console.warn(
+      `[session-init] forking from parent session: parentKey=${parentSessionKey} → sessionKey=${sessionKey} ` +
         `parentTokens=${sessionStore[parentSessionKey].totalTokens ?? "?"}`,
     );
     const forked = forkSessionFromParent({
@@ -355,24 +413,16 @@ export async function initSessionState(params: {
       sessionId = forked.sessionId;
       sessionEntry.sessionId = forked.sessionId;
       sessionEntry.sessionFile = forked.sessionFile;
-      log.warn(`forked session created: file=${forked.sessionFile}`);
+      console.warn(`[session-init] forked session created: file=${forked.sessionFile}`);
     }
   }
-  const fallbackSessionFile = !sessionEntry.sessionFile
-    ? resolveSessionTranscriptPath(sessionEntry.sessionId, agentId, ctx.MessageThreadId)
-    : undefined;
-  const resolvedSessionFile = await resolveAndPersistSessionFile({
-    sessionId: sessionEntry.sessionId,
-    sessionKey,
-    sessionStore,
-    storePath,
-    sessionEntry,
-    agentId,
-    sessionsDir: path.dirname(storePath),
-    fallbackSessionFile,
-    activeSessionKey: sessionKey,
-  });
-  sessionEntry = resolvedSessionFile.sessionEntry;
+  if (!sessionEntry.sessionFile) {
+    sessionEntry.sessionFile = resolveSessionTranscriptPath(
+      sessionEntry.sessionId,
+      agentId,
+      ctx.MessageThreadId,
+    );
+  }
   if (isNewSession) {
     sessionEntry.compactionCount = 0;
     sessionEntry.memoryFlushCompactionCount = undefined;
@@ -380,6 +430,7 @@ export async function initSessionState(params: {
     // Clear stale token metrics from previous session so /status doesn't
     // display the old session's context usage after /new or /reset.
     sessionEntry.totalTokens = undefined;
+    sessionEntry.totalTokensFresh = false;
     sessionEntry.inputTokens = undefined;
     sessionEntry.outputTokens = undefined;
     sessionEntry.contextTokens = undefined;
