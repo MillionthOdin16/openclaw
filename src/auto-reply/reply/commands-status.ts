@@ -1,3 +1,8 @@
+import type { UsageProviderId } from "../../infra/provider-usage.types.js";
+import type { MediaUnderstandingDecision } from "../../media-understanding/types.js";
+import type { ElevatedLevel, ReasoningLevel, ThinkLevel, VerboseLevel } from "../thinking.js";
+import type { ReplyPayload } from "../types.js";
+import type { CommandContext } from "./commands-types.js";
 import {
   resolveAgentDir,
   resolveDefaultAgentId,
@@ -17,13 +22,9 @@ import {
   loadProviderUsageSummary,
   resolveUsageProviderId,
 } from "../../infra/provider-usage.js";
-import type { MediaUnderstandingDecision } from "../../media-understanding/types.js";
 import { normalizeGroupActivation } from "../group-activation.js";
 import { resolveSelectedAndActiveModel } from "../model-runtime.js";
 import { buildStatusMessage } from "../status.js";
-import type { ElevatedLevel, ReasoningLevel, ThinkLevel, VerboseLevel } from "../thinking.js";
-import type { ReplyPayload } from "../types.js";
-import type { CommandContext } from "./commands-types.js";
 import { getFollowupQueueDepth, resolveQueueSettings } from "./queue.js";
 import { resolveSubagentLabel } from "./subagents-utils.js";
 
@@ -32,7 +33,6 @@ export async function buildStatusReply(params: {
   command: CommandContext;
   sessionEntry?: SessionEntry;
   sessionKey: string;
-  parentSessionKey?: string;
   sessionScope?: SessionScope;
   storePath?: string;
   provider: string;
@@ -52,7 +52,6 @@ export async function buildStatusReply(params: {
     command,
     sessionEntry,
     sessionKey,
-    parentSessionKey,
     sessionScope,
     storePath,
     provider,
@@ -74,31 +73,100 @@ export async function buildStatusReply(params: {
     ? resolveSessionAgentId({ sessionKey, config: cfg })
     : resolveDefaultAgentId(cfg);
   const statusAgentDir = resolveAgentDir(cfg, statusAgentId);
-  const currentUsageProvider = (() => {
+
+  const actualProvider = sessionEntry?.modelProvider || provider;
+  const actualModel = sessionEntry?.model ?? model;
+  const fallbackProvider =
+    sessionEntry?.fallbackProvider?.trim() ||
+    (sessionEntry?.fallbackModel ? actualProvider : undefined);
+  const fallbackModel = sessionEntry?.fallbackModel?.trim();
+  const fallbackActive =
+    fallbackProvider && fallbackModel && (fallbackProvider !== provider || fallbackModel !== model);
+  const selectionMatchesActual = actualProvider === provider && actualModel === model;
+  const useActualProviderForUsage = Boolean(fallbackActive || selectionMatchesActual);
+  const providerForUsage = useActualProviderForUsage ? actualProvider : provider;
+  const actualUsageProvider = (() => {
     try {
-      return resolveUsageProviderId(provider);
+      return resolveUsageProviderId(providerForUsage);
     } catch {
       return undefined;
     }
   })();
+
+  const fallbackUsageProvider =
+    useActualProviderForUsage && fallbackProvider && fallbackProvider !== providerForUsage
+      ? (() => {
+          try {
+            return resolveUsageProviderId(fallbackProvider);
+          } catch {
+            return undefined;
+          }
+        })()
+      : undefined;
+
   let usageLine: string | null = null;
-  if (currentUsageProvider) {
+  const providersToFetch: string[] = [];
+  if (actualUsageProvider) {
+    providersToFetch.push(actualUsageProvider);
+  }
+  if (fallbackUsageProvider && fallbackUsageProvider !== actualUsageProvider) {
+    providersToFetch.push(fallbackUsageProvider);
+  }
+
+  if (providersToFetch.length > 0) {
     try {
+      // Resolve auth for the ACTUAL provider variant (e.g., kimi-code-9, not just kimi-code)
+      // This ensures we use the correct API key for the running provider
+      const providerAuths: Array<{ provider: UsageProviderId; token: string }> = [];
+
+      if (actualUsageProvider === "kimi-code" && providerForUsage) {
+        // Extract suffix from providerForUsage (e.g., "kimi-code-9" → "9")
+        const match = providerForUsage.match(/kimi-code-(\d+)$/);
+        const suffix = match ? match[1] : null;
+        const envVar = suffix ? `KIMI_CODE_${suffix}` : "KIMI_CODE";
+        const apiKey = process.env[envVar];
+
+        if (apiKey) {
+          providerAuths.push({
+            provider: "kimi-code",
+            token: apiKey,
+          });
+        }
+      }
+
       const usageSummary = await loadProviderUsageSummary({
         timeoutMs: 3500,
-        providers: [currentUsageProvider],
+        providers: providersToFetch as UsageProviderId[],
+        auth: providerAuths.length > 0 ? providerAuths : undefined,
         agentDir: statusAgentDir,
       });
-      const usageEntry = usageSummary.providers[0];
-      if (usageEntry && !usageEntry.error && usageEntry.windows.length > 0) {
+
+      const parts: string[] = [];
+      for (const usageEntry of usageSummary.providers) {
+        if (usageEntry.error || usageEntry.windows.length === 0) {
+          continue;
+        }
+        const isFallback = usageEntry.provider === fallbackUsageProvider;
+        const isActual = usageEntry.provider === actualUsageProvider;
+        const label = isFallback
+          ? `${usageEntry.displayName} (fallback)`
+          : isActual && fallbackUsageProvider
+            ? `${usageEntry.displayName} (active)`
+            : isActual && fallbackActive
+              ? `${usageEntry.displayName} (fallback)`
+              : usageEntry.displayName;
         const summaryLine = formatUsageWindowSummary(usageEntry, {
           now: Date.now(),
           maxWindows: 2,
           includeResets: true,
         });
         if (summaryLine) {
-          usageLine = `📊 Usage: ${summaryLine}`;
+          parts.push(`${label}: ${summaryLine}`);
         }
+      }
+
+      if (parts.length > 0) {
+        usageLine = `📊 Usage: ${parts.join(" · ")}`;
       }
     } catch {
       usageLine = null;
@@ -159,13 +227,16 @@ export async function buildStatusReply(params: {
       })
     : selectedModelAuth;
   const agentDefaults = cfg.agents?.defaults ?? {};
+  const primaryModelLabel = fallbackActive
+    ? `${provider}/${model} → ${fallbackProvider}/${fallbackModel} (fallback)`
+    : `${provider}/${model}`;
   const statusText = buildStatusMessage({
     config: cfg,
     agent: {
       ...agentDefaults,
       model: {
         ...agentDefaults.model,
-        primary: `${provider}/${model}`,
+        primary: primaryModelLabel,
       },
       contextTokens,
       thinkingDefault: agentDefaults.thinkingDefault,
@@ -175,7 +246,6 @@ export async function buildStatusReply(params: {
     agentId: statusAgentId,
     sessionEntry,
     sessionKey,
-    parentSessionKey,
     sessionScope,
     sessionStorePath: storePath,
     groupActivation,
