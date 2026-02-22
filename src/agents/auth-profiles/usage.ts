@@ -1,7 +1,7 @@
 import type { OpenClawConfig } from "../../config/config.js";
+import type { AuthProfileFailureReason, AuthProfileStore, ProfileUsageStats } from "./types.js";
 import { normalizeProviderId } from "../model-selection.js";
 import { saveAuthProfileStore, updateAuthProfileStoreWithLock } from "./store.js";
-import type { AuthProfileFailureReason, AuthProfileStore, ProfileUsageStats } from "./types.js";
 
 export function resolveProfileUnusableUntil(
   stats: Pick<ProfileUsageStats, "cooldownUntil" | "disabledUntil">,
@@ -122,6 +122,44 @@ export function clearExpiredCooldowns(store: AuthProfileStore, now?: number): bo
   }
 
   return mutated;
+}
+
+/**
+ * Force clear cooldowns for specific profiles or all profiles.
+ * More aggressive than clearExpiredCooldowns - clears even if not expired.
+ *
+ * Use when profiles appear "stuck" and need immediate recovery.
+ *
+ * @returns Number of profiles cleared
+ */
+export function forceClearCooldowns(store: AuthProfileStore, profileIds?: string[]): number {
+  const usageStats = store.usageStats;
+  if (!usageStats) {
+    return 0;
+  }
+
+  const targetIds = profileIds ?? Object.keys(usageStats);
+  let cleared = 0;
+
+  for (const profileId of targetIds) {
+    const stats = usageStats[profileId];
+    if (!stats) {
+      continue;
+    }
+
+    const hadCooldown = stats.cooldownUntil ?? stats.disabledUntil;
+    stats.cooldownUntil = undefined;
+    stats.disabledUntil = undefined;
+    stats.disabledReason = undefined;
+    stats.errorCount = 0;
+    stats.failureCounts = undefined;
+
+    if (hadCooldown) {
+      cleared++;
+    }
+  }
+
+  return cleared;
 }
 
 /**
@@ -256,17 +294,6 @@ export function resolveProfileUnusableUntilForDisplay(
   return resolveProfileUnusableUntil(stats);
 }
 
-function keepActiveWindowOrRecompute(params: {
-  existingUntil: number | undefined;
-  now: number;
-  recomputedUntil: number;
-}): number {
-  const { existingUntil, now, recomputedUntil } = params;
-  const hasActiveWindow =
-    typeof existingUntil === "number" && Number.isFinite(existingUntil) && existingUntil > now;
-  return hasActiveWindow ? existingUntil : recomputedUntil;
-}
-
 function computeNextProfileUsageStats(params: {
   existing: ProfileUsageStats;
   now: number;
@@ -298,23 +325,11 @@ function computeNextProfileUsageStats(params: {
       baseMs: params.cfgResolved.billingBackoffMs,
       maxMs: params.cfgResolved.billingMaxMs,
     });
-    // Keep active disable windows immutable so retries within the window cannot
-    // extend recovery time indefinitely.
-    updatedStats.disabledUntil = keepActiveWindowOrRecompute({
-      existingUntil: params.existing.disabledUntil,
-      now: params.now,
-      recomputedUntil: params.now + backoffMs,
-    });
+    updatedStats.disabledUntil = params.now + backoffMs;
     updatedStats.disabledReason = "billing";
   } else {
     const backoffMs = calculateAuthProfileCooldownMs(nextErrorCount);
-    // Keep active cooldown windows immutable so retries within the window
-    // cannot push recovery further out.
-    updatedStats.cooldownUntil = keepActiveWindowOrRecompute({
-      existingUntil: params.existing.cooldownUntil,
-      now: params.now,
-      recomputedUntil: params.now + backoffMs,
-    });
+    updatedStats.cooldownUntil = params.now + backoffMs;
   }
 
   return updatedStats;
