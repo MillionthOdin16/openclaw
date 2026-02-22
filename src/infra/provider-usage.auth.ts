@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import type { UsageProviderId } from "./provider-usage.types.js";
 import {
   dedupeProfileIds,
   ensureAuthProfileStore,
@@ -8,12 +9,10 @@ import {
   resolveApiKeyForProfile,
   resolveAuthProfileOrder,
 } from "../agents/auth-profiles.js";
-import { getCustomProviderApiKey } from "../agents/model-auth.js";
+import { getCustomProviderApiKey, resolveEnvApiKey } from "../agents/model-auth.js";
 import { normalizeProviderId } from "../agents/model-selection.js";
 import { loadConfig } from "../config/config.js";
 import { normalizeSecretInput } from "../utils/normalize-secret-input.js";
-import { resolveRequiredHomeDir } from "./home-dir.js";
-import type { UsageProviderId } from "./provider-usage.types.js";
 
 export type ProviderAuth = {
   provider: UsageProviderId;
@@ -59,12 +58,7 @@ function resolveZaiApiKey(): string | undefined {
   }
 
   try {
-    const authPath = path.join(
-      resolveRequiredHomeDir(process.env, os.homedir),
-      ".pi",
-      "agent",
-      "auth.json",
-    );
+    const authPath = path.join(os.homedir(), ".pi", "agent", "auth.json");
     if (!fs.existsSync(authPath)) {
       return undefined;
     }
@@ -125,6 +119,61 @@ function resolveProviderApiKeyFromConfigAndStore(params: {
     return normalizeSecretInput(cred.key);
   }
   return normalizeSecretInput(cred.token);
+}
+
+function resolveKimiApiKey(): string | undefined {
+  const envDirect =
+    normalizeSecretInput(process.env.KIMI_API_KEY) ??
+    normalizeSecretInput(process.env.KIMICODE_API_KEY);
+  if (envDirect) {
+    return envDirect;
+  }
+
+  // Try KIMI_CODE and numbered variants (KIMI_CODE_2, KIMI_CODE_3, etc.)
+  // Prefer the base key when present; fall back to numbered keys.
+  const baseKey = resolveEnvApiKey("kimi-code");
+  const numberedKeys: string[] = [];
+
+  // Check KIMI_CODE_2 through KIMI_CODE_20
+  for (let i = 2; i <= 20; i++) {
+    const envVar = `KIMI_CODE_${i}`;
+    const value = normalizeSecretInput(process.env[envVar]);
+    if (value) {
+      numberedKeys.push(value);
+    }
+  }
+
+  if (baseKey?.apiKey) {
+    return baseKey.apiKey;
+  }
+
+  // Return first numbered key if any exist, otherwise base key
+  if (numberedKeys.length > 0) {
+    return numberedKeys[0];
+  }
+
+  const cfg = loadConfig();
+  const key = getCustomProviderApiKey(cfg, "kimi-code");
+  if (key) {
+    return key;
+  }
+
+  const store = ensureAuthProfileStore();
+  const apiProfile = listProfilesForProvider(store, "kimi-code").find((id) => {
+    const cred = store.profiles[id];
+    return cred?.type === "api_key" || cred?.type === "token";
+  });
+  if (!apiProfile) {
+    return undefined;
+  }
+  const cred = store.profiles[apiProfile];
+  if (cred?.type === "api_key" && normalizeSecretInput(cred.key)) {
+    return normalizeSecretInput(cred.key);
+  }
+  if (cred?.type === "token" && normalizeSecretInput(cred.token)) {
+    return normalizeSecretInput(cred.token);
+  }
+  return undefined;
 }
 
 async function resolveOAuthToken(params: {
@@ -238,6 +287,13 @@ export async function resolveProviderAuths(params: {
     }
     if (provider === "xiaomi") {
       const apiKey = resolveXiaomiApiKey();
+      if (apiKey) {
+        auths.push({ provider, token: apiKey });
+      }
+      continue;
+    }
+    if (provider === "kimi-code") {
+      const apiKey = resolveKimiApiKey();
       if (apiKey) {
         auths.push({ provider, token: apiKey });
       }
