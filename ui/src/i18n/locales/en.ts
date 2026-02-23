@@ -106,6 +106,7 @@ export const en: TranslationMap = {
     thinkingToggle: "Toggle assistant thinking/working output",
     focusToggle: "Toggle focus mode (hide sidebar + page header)",
     onboardingDisabled: "Disabled during onboarding",
+    selectSession: "Select session",
   },
   languages: {
     en: "English",

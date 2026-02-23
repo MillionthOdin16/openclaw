@@ -133,6 +133,7 @@ export function renderChatControls(state: AppViewState) {
         <select
           .value=${state.sessionKey}
           ?disabled=${!state.connected}
+          aria-label=${t("chat.selectSession")}
           @change=${(e: Event) => {
             const next = (e.target as HTMLSelectElement).value;
             state.sessionKey = next;
@@ -187,6 +188,7 @@ export function renderChatControls(state: AppViewState) {
             });
           }
         }}
+        aria-label=${t("chat.refreshTitle")}
         title=${t("chat.refreshTitle")}
       >
         ${refreshIcon}
@@ -205,6 +207,7 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${showThinking}
+        aria-label=${t("chat.thinkingToggle")}
         title=${disableThinkingToggle ? t("chat.onboardingDisabled") : t("chat.thinkingToggle")}
       >
         ${icons.brain}
@@ -222,6 +225,7 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${focusActive}
+        aria-label=${t("chat.focusToggle")}
         title=${disableFocusToggle ? t("chat.onboardingDisabled") : t("chat.focusToggle")}
       >
         ${focusIcon}
