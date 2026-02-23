@@ -148,6 +148,7 @@ export async function handleToolExecutionStart(
 
   // Track start time and args for after_tool_call hook
   toolStartData.set(toolCallId, { startTime: Date.now(), args });
+  ctx.state.activeToolCount += 1;
 
   // Call before_tool_call hook
   const hookRunner = ctx.hookRunner ?? getGlobalHookRunner();
@@ -279,6 +280,8 @@ export async function handleToolExecutionEnd(
 ) {
   const toolName = normalizeToolName(String(evt.toolName));
   const toolCallId = String(evt.toolCallId);
+  ctx.state.activeToolCount = Math.max(0, ctx.state.activeToolCount - 1);
+
   const isError = Boolean(evt.isError);
   const result = evt.result;
   const isToolError = isError || isToolResultError(result);

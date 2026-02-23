@@ -25,7 +25,7 @@ export function scheduleFollowupDrain(
   }
   queue.draining = true;
   const drainStartTime = Date.now();
-  const retryCount = (queue as Record<string, unknown>)._retryCount ?? 0;
+  const retryCount = ((queue as Record<string, unknown>)._retryCount as number) ?? 0;
 
   void (async () => {
     try {

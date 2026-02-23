@@ -8,6 +8,7 @@ type EmbeddedPiQueueHandle = {
   queueMessage: (text: string) => Promise<void>;
   isStreaming: () => boolean;
   isCompacting: () => boolean;
+  isExecutingTools: () => boolean;
   abort: () => void;
 };
 
@@ -30,6 +31,10 @@ export function queueEmbeddedPiMessage(sessionId: string, text: string): boolean
   }
   if (handle.isCompacting()) {
     diag.debug(`queue message failed: sessionId=${sessionId} reason=compacting`);
+    return false;
+  }
+  if (handle.isExecutingTools()) {
+    diag.debug(`queue message failed: sessionId=${sessionId} reason=executing_tools`);
     return false;
   }
   logMessageQueued({ sessionId, source: "pi-embedded-runner" });

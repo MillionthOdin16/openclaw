@@ -77,6 +77,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     pendingMessagingTargets: new Map(),
     successfulCronAdds: 0,
     pendingMessagingMediaUrls: new Map(),
+    activeToolCount: 0,
   };
   const usageTotals = {
     input: 0,
@@ -700,6 +701,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     getLastToolError: () => (state.lastToolError ? { ...state.lastToolError } : undefined),
     getUsageTotals,
     getCompactionCount: () => compactionCount,
+    isExecutingTools: () => state.activeToolCount > 0,
     waitForCompactionRetry: (timeoutMs?: number) => {
       const createTimeoutPromise = (ms: number) =>
         new Promise<void>((_, reject) => {
