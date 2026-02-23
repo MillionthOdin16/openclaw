@@ -11,6 +11,12 @@ import { readJsonBody } from "./hooks.js";
 export function setDefaultSecurityHeaders(res: ServerResponse) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
+  // Defense in depth: prevent Flash/Adobe abuse
+  res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+  // Defense in depth: restrict cross-origin resource access
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  // Defense in depth: opt out of cohort tracking
+  res.setHeader("Permissions-Policy", "browsing-topics=(), interest-cohort=()");
 }
 
 export function sendJson(res: ServerResponse, status: number, body: unknown) {
