@@ -158,9 +158,28 @@ function resolveLidMappingDirs(opts?: JidToE164Options): string[] {
   return [...dirs];
 }
 
+const LID_CACHE_TTL = 60_000;
+const LID_CACHE_LIMIT = 10_000;
+const lidCache = new Map<string, { val: string | null; time: number }>();
+
 function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | null {
+  // Use cache only if standard paths are used (no custom opts that alter search path)
+  const useCache = !opts?.authDir && (!opts?.lidMappingDirs || opts.lidMappingDirs.length === 0);
+
+  if (useCache) {
+    const cached = lidCache.get(lid);
+    if (cached) {
+      if (Date.now() - cached.time < LID_CACHE_TTL) {
+        return cached.val;
+      }
+      lidCache.delete(lid);
+    }
+  }
+
   const mappingFilename = `lid-mapping-${lid}_reverse.json`;
   const mappingDirs = resolveLidMappingDirs(opts);
+  let result: string | null = null;
+
   for (const dir of mappingDirs) {
     const mappingPath = path.join(dir, mappingFilename);
     try {
@@ -169,12 +188,24 @@ function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | n
       if (phone === null || phone === undefined) {
         continue;
       }
-      return normalizeE164(String(phone));
+      result = normalizeE164(String(phone));
+      break;
     } catch {
       // Try the next location.
     }
   }
-  return null;
+
+  if (useCache) {
+    if (lidCache.size >= LID_CACHE_LIMIT) {
+      const firstKey = lidCache.keys().next().value;
+      if (firstKey !== undefined) {
+        lidCache.delete(firstKey);
+      }
+    }
+    lidCache.set(lid, { val: result, time: Date.now() });
+  }
+
+  return result;
 }
 
 export function jidToE164(jid: string, opts?: JidToE164Options): string | null {
