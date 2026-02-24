@@ -89,6 +89,10 @@ export type SessionEntry = {
   fallbackNoticeSelectedModel?: string;
   fallbackNoticeActiveModel?: string;
   fallbackNoticeReason?: string;
+  /** Fallback provider used when primary model failed */
+  fallbackProvider?: string;
+  /** Fallback model used when primary model failed */
+  fallbackModel?: string;
   contextTokens?: number;
   compactionCount?: number;
   memoryFlushAt?: number;
@@ -152,7 +156,7 @@ export type GroupKeyResolution = {
 
 export type SessionSkillSnapshot = {
   prompt: string;
-  skills: Array<{ name: string; primaryEnv?: string; requiredEnv?: string[] }>;
+  skills: Array<{ name: string; primaryEnv?: string }>;
   /** Normalized agent-level filter used to build this snapshot; undefined means unrestricted. */
   skillFilter?: string[];
   resolvedSkills?: Skill[];

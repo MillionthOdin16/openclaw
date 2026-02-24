@@ -1,6 +1,6 @@
 import {
   abortEmbeddedPiRun,
-  compactEmbeddedPiSession,
+  compactEmbeddedPiSessionDirect,
   isEmbeddedPiRunActive,
   waitForEmbeddedPiRunEnd,
 } from "../../agents/pi-embedded.js";
@@ -75,7 +75,7 @@ export const handleCompactCommand: CommandHandler = async (params) => {
     agentId: params.agentId,
     isGroup: params.isGroup,
   });
-  const result = await compactEmbeddedPiSession({
+  const result = await compactEmbeddedPiSessionDirect({
     sessionId,
     sessionKey: params.sessionKey,
     messageChannel: params.command.channel,
@@ -94,8 +94,8 @@ export const handleCompactCommand: CommandHandler = async (params) => {
     workspaceDir: params.workspaceDir,
     config: params.cfg,
     skillsSnapshot: params.sessionEntry.skillsSnapshot,
-    provider: params.provider,
-    model: params.model,
+    provider: params.sessionEntry?.fallbackProvider ?? params.provider,
+    model: params.sessionEntry?.fallbackModel ?? params.model,
     thinkLevel: params.resolvedThinkLevel ?? (await params.resolveDefaultThinkingLevel()),
     bashElevated: {
       enabled: false,
