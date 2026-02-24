@@ -88,6 +88,9 @@ export function renderNostrProfileForm(params: {
     const error = state.fieldErrors[field];
 
     const inputId = `nostr-profile-${field}`;
+    const helpId = help ? `${inputId}-help` : undefined;
+    const errorId = error ? `${inputId}-error` : undefined;
+    const describedBy = [helpId, errorId].filter(Boolean).join(" ");
 
     if (type === "textarea") {
       return html`
@@ -102,14 +105,20 @@ export function renderNostrProfileForm(params: {
             maxlength=${maxLength ?? 2000}
             rows="3"
             style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; resize: vertical; font-family: inherit;"
+            aria-describedby=${describedBy || nothing}
+            aria-invalid=${error ? "true" : nothing}
             @input=${(e: InputEvent) => {
               const target = e.target as HTMLTextAreaElement;
               callbacks.onFieldChange(field, target.value);
             }}
             ?disabled=${state.saving}
           ></textarea>
-          ${help ? html`<div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${help}</div>` : nothing}
-          ${error ? html`<div style="font-size: 12px; color: var(--danger-color); margin-top: 2px;">${error}</div>` : nothing}
+          ${help
+            ? html`<div id="${helpId}" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${help}</div>`
+            : nothing}
+          ${error
+            ? html`<div id="${errorId}" style="font-size: 12px; color: var(--danger-color); margin-top: 2px;">${error}</div>`
+            : nothing}
         </div>
       `;
     }
@@ -126,14 +135,20 @@ export function renderNostrProfileForm(params: {
           placeholder=${placeholder ?? ""}
           maxlength=${maxLength ?? 256}
           style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;"
+          aria-describedby=${describedBy || nothing}
+          aria-invalid=${error ? "true" : nothing}
           @input=${(e: InputEvent) => {
             const target = e.target as HTMLInputElement;
             callbacks.onFieldChange(field, target.value);
           }}
           ?disabled=${state.saving}
         />
-        ${help ? html`<div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${help}</div>` : nothing}
-        ${error ? html`<div style="font-size: 12px; color: var(--danger-color); margin-top: 2px;">${error}</div>` : nothing}
+        ${help
+          ? html`<div id="${helpId}" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">${help}</div>`
+          : nothing}
+        ${error
+          ? html`<div id="${errorId}" style="font-size: 12px; color: var(--danger-color); margin-top: 2px;">${error}</div>`
+          : nothing}
       </div>
     `;
   };
@@ -243,22 +258,27 @@ export function renderNostrProfileForm(params: {
 
       <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
         <button
+          type="button"
           class="btn primary"
           @click=${callbacks.onSave}
           ?disabled=${state.saving || !isDirty}
+          aria-busy=${state.saving ? "true" : nothing}
         >
           ${state.saving ? "Saving..." : "Save & Publish"}
         </button>
 
         <button
+          type="button"
           class="btn"
           @click=${callbacks.onImport}
           ?disabled=${state.importing || state.saving}
+          aria-busy=${state.importing ? "true" : nothing}
         >
           ${state.importing ? "Importing..." : "Import from Relays"}
         </button>
 
         <button
+          type="button"
           class="btn"
           @click=${callbacks.onToggleAdvanced}
         >
@@ -266,6 +286,7 @@ export function renderNostrProfileForm(params: {
         </button>
 
         <button
+          type="button"
           class="btn"
           @click=${callbacks.onCancel}
           ?disabled=${state.saving}
