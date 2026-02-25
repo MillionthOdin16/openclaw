@@ -10,7 +10,6 @@ import {
   resolveDefaultAgentId,
   resolveAgentWorkspaceDir,
   resolveAgentDir,
-  resolveAgentModelPrimary,
 } from "../agents/agent-scope.js";
 import { runEmbeddedPiAgent } from "../agents/pi-embedded.js";
 
@@ -27,30 +26,6 @@ export async function generateSlugViaLLM(params: {
     const agentId = resolveDefaultAgentId(params.cfg);
     const workspaceDir = resolveAgentWorkspaceDir(params.cfg, agentId);
     const agentDir = resolveAgentDir(params.cfg, agentId);
-
-    // Resolve the effective model string to use for slug generation.
-    // Prefer the agent-specific model if set, otherwise use the global default primary.
-    const agentModel = resolveAgentModelPrimary(params.cfg, agentId);
-    const defaultModel =
-      typeof params.cfg.agents?.defaults?.model === "object"
-        ? params.cfg.agents.defaults.model.primary
-        : undefined;
-    const effectiveModelStr = (agentModel || defaultModel || "").trim();
-
-    let provider: string | undefined;
-    let model: string | undefined;
-
-    if (effectiveModelStr) {
-      if (effectiveModelStr.includes("/")) {
-        const parts = effectiveModelStr.split("/");
-        provider = parts[0];
-        model = parts[1];
-      } else {
-        // If no provider prefix, let runEmbeddedPiAgent default provider (Anthropic) take over,
-        // or just pass the model ID if that's what was configured.
-        model = effectiveModelStr;
-      }
-    }
 
     // Create a temporary session file for this one-off LLM call
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-slug-"));
@@ -72,8 +47,6 @@ Reply with ONLY the slug, nothing else. Examples: "vendor-pitch", "api-design", 
       agentDir,
       config: params.cfg,
       prompt,
-      provider,
-      model,
       timeoutMs: 15_000, // 15 second timeout
       runId: `slug-gen-${Date.now()}`,
     });
