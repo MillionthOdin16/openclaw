@@ -1,3 +1,7 @@
+/**
+ * Tests for queue-helpers utility.
+ * Covers queue management, text truncation, and prompt building.
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   elideQueueText,
