@@ -2,12 +2,6 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { GatewayAuthResult } from "./auth.js";
 import { readJsonBody } from "./hooks.js";
 
-export function setSecurityHeaders(res: ServerResponse) {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("Referrer-Policy", "no-referrer");
-  res.setHeader("X-Frame-Options", "DENY");
-}
-
 export function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");

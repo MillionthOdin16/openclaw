@@ -15,7 +15,6 @@ import {
   normalizeControlUiBasePath,
   resolveAssistantAvatarUrl,
 } from "./control-ui-shared.js";
-import { setSecurityHeaders } from "./http-common.js";
 
 const ROOT_PREFIX = "/";
 
@@ -73,8 +72,10 @@ type ControlUiAvatarMeta = {
 };
 
 function applyControlUiSecurityHeaders(res: ServerResponse) {
-  setSecurityHeaders(res);
+  res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Content-Security-Policy", buildControlUiCspHeader());
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer");
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown) {
