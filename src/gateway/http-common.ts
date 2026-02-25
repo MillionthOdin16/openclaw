@@ -11,14 +11,11 @@ import { readJsonBody } from "./hooks.js";
 export function setDefaultSecurityHeaders(res: ServerResponse) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
-  res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
-  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
 }
 
 export function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(body));
 }
 
