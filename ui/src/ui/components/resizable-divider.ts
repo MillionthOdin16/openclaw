@@ -24,6 +24,11 @@ export class ResizableDivider extends LitElement {
       flex-shrink: 0;
       position: relative;
     }
+    :host(:focus-visible) {
+      outline: 2px solid var(--accent, #007bff);
+      outline-offset: -1px;
+      z-index: 1;
+    }
     :host::before {
       content: "";
       position: absolute;
@@ -46,15 +51,70 @@ export class ResizableDivider extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.setAttribute("role", "separator");
+    this.setAttribute("tabindex", "0");
+    this.setAttribute("aria-label", "Resize sidebar");
+    this.updateAriaValues();
     this.addEventListener("mousedown", this.handleMouseDown);
+    this.addEventListener("keydown", this.handleKeyDown);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener("mousedown", this.handleMouseDown);
+    this.removeEventListener("keydown", this.handleKeyDown);
     document.removeEventListener("mousemove", this.handleMouseMove);
     document.removeEventListener("mouseup", this.handleMouseUp);
   }
+
+  updated(changedProperties: Map<string, unknown>) {
+    if (
+      changedProperties.has("splitRatio") ||
+      changedProperties.has("minRatio") ||
+      changedProperties.has("maxRatio")
+    ) {
+      this.updateAriaValues();
+    }
+  }
+
+  private updateAriaValues() {
+    this.setAttribute("aria-valuenow", String(Math.round(this.splitRatio * 100)));
+    this.setAttribute("aria-valuemin", String(Math.round(this.minRatio * 100)));
+    this.setAttribute("aria-valuemax", String(Math.round(this.maxRatio * 100)));
+    this.setAttribute("aria-valuetext", `${Math.round(this.splitRatio * 100)}%`);
+  }
+
+  private handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") {
+      return;
+    }
+
+    e.preventDefault();
+    const step = 0.05;
+    let newRatio = this.splitRatio;
+
+    if (e.key === "ArrowLeft") {
+      newRatio -= step;
+    } else {
+      newRatio += step;
+    }
+
+    // Clamp value
+    newRatio = Math.max(this.minRatio, Math.min(this.maxRatio, newRatio));
+
+    // Round to avoid floating point issues (e.g. 0.6000000001)
+    newRatio = Math.round(newRatio * 1000) / 1000;
+
+    if (newRatio !== this.splitRatio) {
+      this.dispatchEvent(
+        new CustomEvent("resize", {
+          detail: { splitRatio: newRatio },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+  };
 
   private handleMouseDown = (e: MouseEvent) => {
     this.isDragging = true;
