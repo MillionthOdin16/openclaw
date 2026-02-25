@@ -1,0 +1,3 @@
+## 2024-03-08 - Synchronous File I/O in Hot Paths
+**Learning:** `jidToE164` (utility function) performs synchronous `fs.readFileSync` calls to check for LID reverse mappings. This function is used in message processing loops (e.g. `monitor.ts`, `mentions.ts`). Even though `fs.readFileSync` is fast (~0.1ms), repeated calls in a loop add up. Caching these lookups yielded a ~3x performance improvement in benchmarks.
+**Action:** Be wary of utility functions that perform file I/O, especially if they are used in high-frequency paths like message processing. Prefer caching static configuration or mapping data in memory.
