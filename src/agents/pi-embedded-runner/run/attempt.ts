@@ -93,6 +93,7 @@ import { buildModelAliasLines } from "../model.js";
 import {
   clearActiveEmbeddedRun,
   type EmbeddedPiQueueHandle,
+  isEmbeddedPiRunActive,
   setActiveEmbeddedRun,
 } from "../runs.js";
 import { buildEmbeddedSandboxInfo } from "../sandbox-info.js";
@@ -112,6 +113,7 @@ import { flushPendingToolResultsAfterIdle } from "../wait-for-idle-before-flush.
 import {
   selectCompactionTimeoutSnapshot,
   shouldFlagCompactionTimeout,
+  waitForCompactionRetryWithTimeout,
 } from "./compaction-timeout.js";
 import { detectAndLoadPromptImages } from "./images.js";
 import type { EmbeddedRunAttemptParams, EmbeddedRunAttemptResult } from "./types.js";
@@ -127,6 +129,8 @@ type PromptBuildHookRunner = {
     ctx: PluginHookAgentContext,
   ) => Promise<PluginHookBeforeAgentStartResult | undefined>;
 };
+
+const COMPACTION_RETRY_WAIT_TIMEOUT_MS = 60_000;
 
 export function injectHistoryImagesIntoMessages(
   messages: AgentMessage[],
@@ -584,6 +588,7 @@ export async function runEmbeddedAttempt(
 
     const sessionLock = await acquireSessionWriteLock({
       sessionFile: params.sessionFile,
+      allowReentrant: false,
       maxHoldMs: resolveSessionLockMaxHoldFromTimeout({
         timeoutMs: params.timeoutMs,
       }),
@@ -968,6 +973,18 @@ export async function runEmbeddedAttempt(
 
       let abortWarnTimer: NodeJS.Timeout | undefined;
       const isProbeSession = params.sessionId?.startsWith("probe-") ?? false;
+      const forceCleanupAfterAbort = async () => {
+        if (!isEmbeddedPiRunActive(params.sessionId)) {
+          return;
+        }
+        if (!isProbeSession) {
+          log.error(
+            `embedded run force cleanup: runId=${params.runId} sessionId=${params.sessionId}`,
+          );
+        }
+        clearActiveEmbeddedRun(params.sessionId, queueHandle, params.sessionKey);
+        await sessionLock.release();
+      };
       const abortTimer = setTimeout(
         () => {
           if (!isProbeSession) {
@@ -986,13 +1003,27 @@ export async function runEmbeddedAttempt(
           }
           abortRun(true);
           if (!abortWarnTimer) {
-            abortWarnTimer = setTimeout(() => {
-              if (!activeSession.isStreaming) {
+            abortWarnTimer = setTimeout(async () => {
+              if (!isEmbeddedPiRunActive(params.sessionId)) {
+                return;
+              }
+              const stillBusy =
+                activeSession.isStreaming ||
+                activeSession.isCompacting ||
+                subscription.isCompacting();
+              if (!stillBusy) {
                 return;
               }
               if (!isProbeSession) {
                 log.warn(
-                  `embedded run abort still streaming: runId=${params.runId} sessionId=${params.sessionId}`,
+                  `embedded run abort still active: runId=${params.runId} sessionId=${params.sessionId}`,
+                );
+              }
+              try {
+                await forceCleanupAfterAbort();
+              } catch (err) {
+                log.error(
+                  `embedded run force cleanup failed: runId=${params.runId} sessionId=${params.sessionId} error=${String(err)}`,
                 );
               }
             }, 10_000);
@@ -1200,7 +1231,20 @@ export async function runEmbeddedAttempt(
         const preCompactionSessionId = activeSession.sessionId;
 
         try {
-          await abortable(waitForCompactionRetry());
+          const compactionSettled = await abortable(
+            waitForCompactionRetryWithTimeout({
+              waitForCompactionRetry,
+              timeoutMs: COMPACTION_RETRY_WAIT_TIMEOUT_MS,
+            }),
+          );
+          if (!compactionSettled) {
+            timedOutDuringCompaction = true;
+            if (!isProbeSession) {
+              log.warn(
+                `compaction wait timeout: runId=${params.runId} sessionId=${params.sessionId} timeoutMs=${COMPACTION_RETRY_WAIT_TIMEOUT_MS}`,
+              );
+            }
+          }
         } catch (err) {
           if (isRunnerAbortError(err)) {
             if (!promptError) {
