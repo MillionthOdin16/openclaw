@@ -1,5 +1,5 @@
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import { describe, expect, it, vi } from "vitest";
+import { castAgentMessage } from "../../test-helpers/agent-message-fixtures.js";
 import {
   selectCompactionTimeoutSnapshot,
   shouldFlagCompactionTimeout,
@@ -33,8 +33,8 @@ describe("compaction-timeout helpers", () => {
   });
 
   it("uses pre-compaction snapshot when compaction timeout occurs", () => {
-    const pre = [{ role: "assistant", content: "pre" } as unknown as AgentMessage] as const;
-    const current = [{ role: "assistant", content: "current" } as unknown as AgentMessage] as const;
+    const pre = [castAgentMessage({ role: "assistant", content: "pre" })] as const;
+    const current = [castAgentMessage({ role: "assistant", content: "current" })] as const;
     const selected = selectCompactionTimeoutSnapshot({
       timedOutDuringCompaction: true,
       preCompactionSnapshot: [...pre],
@@ -48,7 +48,7 @@ describe("compaction-timeout helpers", () => {
   });
 
   it("falls back to current snapshot when pre-compaction snapshot is unavailable", () => {
-    const current = [{ role: "assistant", content: "current" } as unknown as AgentMessage] as const;
+    const current = [castAgentMessage({ role: "assistant", content: "current" })] as const;
     const selected = selectCompactionTimeoutSnapshot({
       timedOutDuringCompaction: true,
       preCompactionSnapshot: null,
