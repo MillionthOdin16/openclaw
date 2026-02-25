@@ -104,7 +104,6 @@ export function renderChatControls(state: AppViewState) {
       stroke-width="2"
       stroke-linecap="round"
       stroke-linejoin="round"
-      aria-hidden="true"
     >
       <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
       <path d="M21 3v5h-5"></path>
@@ -120,7 +119,6 @@ export function renderChatControls(state: AppViewState) {
       stroke-width="2"
       stroke-linecap="round"
       stroke-linejoin="round"
-      aria-hidden="true"
     >
       <path d="M4 7V4h3"></path>
       <path d="M20 7V4h-3"></path>
@@ -135,7 +133,6 @@ export function renderChatControls(state: AppViewState) {
         <select
           .value=${state.sessionKey}
           ?disabled=${!state.connected}
-          aria-label=${t("chat.sessionSelect")}
           @change=${(e: Event) => {
             const next = (e.target as HTMLSelectElement).value;
             state.sessionKey = next;
@@ -191,7 +188,6 @@ export function renderChatControls(state: AppViewState) {
           }
         }}
         title=${t("chat.refreshTitle")}
-        aria-label=${t("chat.refreshTitle")}
       >
         ${refreshIcon}
       </button>
@@ -210,9 +206,8 @@ export function renderChatControls(state: AppViewState) {
         }}
         aria-pressed=${showThinking}
         title=${disableThinkingToggle ? t("chat.onboardingDisabled") : t("chat.thinkingToggle")}
-        aria-label=${t("chat.thinkingToggle")}
       >
-        <span aria-hidden="true">${icons.brain}</span>
+        ${icons.brain}
       </button>
       <button
         class="btn btn--sm btn--icon ${focusActive ? "active" : ""}"
@@ -228,7 +223,6 @@ export function renderChatControls(state: AppViewState) {
         }}
         aria-pressed=${focusActive}
         title=${disableFocusToggle ? t("chat.onboardingDisabled") : t("chat.focusToggle")}
-        aria-label=${t("chat.focusToggle")}
       >
         ${focusIcon}
       </button>

@@ -1,23 +1,8 @@
-import { describe, expect, it, vi, beforeAll } from "vitest";
+import { describe, expect, it } from "vitest";
+import { parseSessionKey, resolveSessionDisplayName } from "./app-render.helpers.ts";
 import type { SessionsListResult } from "./types.ts";
 
-// Mock localStorage before importing modules that might use it
-if (typeof localStorage === "undefined") {
-  global.localStorage = {
-    getItem: vi.fn(),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
-    length: 0,
-    key: vi.fn(),
-  } as unknown as Storage;
-}
-
 type SessionRow = SessionsListResult["sessions"][number];
-
-// Dynamic imports to ensure mocks are applied first
-let parseSessionKey: typeof import("./app-render.helpers.ts").parseSessionKey;
-let resolveSessionDisplayName: typeof import("./app-render.helpers.ts").resolveSessionDisplayName;
 
 function row(overrides: Partial<SessionRow> & { key: string }): SessionRow {
   return { kind: "direct", updatedAt: 0, ...overrides };
@@ -28,12 +13,6 @@ function row(overrides: Partial<SessionRow> & { key: string }): SessionRow {
  * ================================================================ */
 
 describe("parseSessionKey", () => {
-  beforeAll(async () => {
-    const mod = await import("./app-render.helpers.ts");
-    parseSessionKey = mod.parseSessionKey;
-    resolveSessionDisplayName = mod.resolveSessionDisplayName;
-  });
-
   it("identifies main session (bare 'main')", () => {
     expect(parseSessionKey("main")).toEqual({ prefix: "", fallbackName: "Main Session" });
   });
