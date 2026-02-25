@@ -52,7 +52,12 @@ import {
 } from "./post-compaction-audit.js";
 import { readPostCompactionContext } from "./post-compaction-context.js";
 import { resolveActiveRunQueueAction } from "./queue-policy.js";
-import { enqueueFollowupRun, type FollowupRun, type QueueSettings } from "./queue.js";
+import {
+  enqueueFollowupRun,
+  getFollowupQueueDepth,
+  type FollowupRun,
+  type QueueSettings,
+} from "./queue.js";
 import { createReplyToModeFilterForChannel, resolveReplyToMode } from "./reply-threading.js";
 import { incrementRunCompactionCount, persistRunSessionUsage } from "./session-run-accounting.js";
 import { createTypingSignaler } from "./typing-mode.js";
@@ -238,6 +243,7 @@ export async function runReplyAgent(params: {
 
   const activeRunQueueAction = resolveActiveRunQueueAction({
     isActive,
+    hasQueuedFollowups: getFollowupQueueDepth(queueKey) > 0,
     isHeartbeat,
     shouldFollowup,
     queueMode: resolvedQueue.mode,
