@@ -7,6 +7,12 @@ import { readJsonBody } from "./hooks.js";
  * HTML pages, static assets, SSE streams). Headers that restrict framing or set a
  * Content-Security-Policy are intentionally omitted here because some handlers
  * (canvas host, A2UI) serve content that may be loaded inside frames.
+ *
+ * Included headers:
+ * - X-Content-Type-Options: nosniff
+ * - Referrer-Policy: no-referrer
+ * - X-Permitted-Cross-Domain-Policies: none
+ * - Cross-Origin-Resource-Policy: same-origin
  */
 export function setDefaultSecurityHeaders(
   res: ServerResponse,
@@ -14,6 +20,8 @@ export function setDefaultSecurityHeaders(
 ) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
   const strictTransportSecurity = opts?.strictTransportSecurity;
   if (typeof strictTransportSecurity === "string" && strictTransportSecurity.length > 0) {
     res.setHeader("Strict-Transport-Security", strictTransportSecurity);
