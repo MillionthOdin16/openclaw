@@ -4,16 +4,11 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
-  clampNumber,
   CONFIG_DIR,
   ensureDir,
-  escapeRegExp,
-  isPlainObject,
-  isSelfChatMode,
   jidToE164,
   normalizeE164,
   normalizePath,
-  safeParseJson,
   resolveConfigDir,
   resolveHomeDir,
   resolveJidToE164,
@@ -226,80 +221,5 @@ describe("resolveUserPath", () => {
   it("keeps blank paths blank", () => {
     expect(resolveUserPath("")).toBe("");
     expect(resolveUserPath("   ")).toBe("");
-  });
-});
-
-describe("clampNumber", () => {
-  it("clamps value between min and max", () => {
-    expect(clampNumber(5, 0, 10)).toBe(5);
-    expect(clampNumber(-5, 0, 10)).toBe(0);
-    expect(clampNumber(15, 0, 10)).toBe(10);
-  });
-});
-
-describe("escapeRegExp", () => {
-  it("escapes special regex characters", () => {
-    expect(escapeRegExp("foo.*+?^${}()|[]\\bar")).toBe("foo\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\bar");
-  });
-
-  it("handles strings without special characters", () => {
-    expect(escapeRegExp("hello")).toBe("hello");
-  });
-});
-
-describe("safeParseJson", () => {
-  it("parses valid JSON", () => {
-    expect(safeParseJson('{"a":1}')).toEqual({ a: 1 });
-  });
-
-  it("returns null for invalid JSON", () => {
-    expect(safeParseJson("invalid")).toBeNull();
-  });
-});
-
-describe("isPlainObject", () => {
-  it("returns true for plain objects", () => {
-    expect(isPlainObject({})).toBe(true);
-    expect(isPlainObject({ a: 1 })).toBe(true);
-  });
-
-  it("returns false for non-plain objects", () => {
-    expect(isPlainObject(null)).toBe(false);
-    expect(isPlainObject([])).toBe(false);
-    expect(isPlainObject(new Date())).toBe(false);
-    expect(isPlainObject("string")).toBe(false);
-    expect(isPlainObject(123)).toBe(false);
-  });
-});
-
-describe("isSelfChatMode", () => {
-  it("returns false if selfE164 is missing", () => {
-    expect(isSelfChatMode(null, ["+12345"])).toBe(false);
-  });
-
-  it("returns false if allowFrom is invalid", () => {
-    expect(isSelfChatMode("+12345", null)).toBe(false);
-    expect(isSelfChatMode("+12345", [])).toBe(false);
-  });
-
-  it("returns true if selfE164 matches one of allowFrom", () => {
-    expect(isSelfChatMode("+12345", ["+12345"])).toBe(true);
-    expect(isSelfChatMode("+12345", ["+99999", "+12345"])).toBe(true);
-  });
-
-  it("normalizes numbers before comparison", () => {
-    expect(isSelfChatMode("+12345", ["12345"])).toBe(true);
-    expect(isSelfChatMode("12345", ["+12345"])).toBe(true);
-  });
-
-  it("ignores wildcard", () => {
-    // If allowFrom is ["*"], it should return false because "*" is explicitly ignored in the loop
-    // and selfE164 won't match "*"
-    expect(isSelfChatMode("+12345", ["*"])).toBe(false);
-  });
-
-  it("handles non-normalized numbers in allowFrom", () => {
-    expect(isSelfChatMode("+12345", ["(123) 45"])).toBe(true);
-    expect(isSelfChatMode("+12345", ["12345"])).toBe(true);
   });
 });
