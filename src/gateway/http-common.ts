@@ -14,6 +14,10 @@ export function setDefaultSecurityHeaders(
 ) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
+  // Prevent Flash/PDF from loading data from this site.
+  res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+  // Restrict cross-origin reads of resources.
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
   const strictTransportSecurity = opts?.strictTransportSecurity;
   if (typeof strictTransportSecurity === "string" && strictTransportSecurity.length > 0) {
     res.setHeader("Strict-Transport-Security", strictTransportSecurity);
