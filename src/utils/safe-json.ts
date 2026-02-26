@@ -14,7 +14,7 @@ export function safeJsonStringify(value: unknown): string | null {
         return { type: "Uint8Array", data: Buffer.from(val).toString("base64") };
       }
       return val;
-    });
+    }) ?? null;
   } catch {
     return null;
   }
