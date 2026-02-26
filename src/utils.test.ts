@@ -246,3 +246,83 @@ describe("resolveUserPath", () => {
     expect(resolveUserPath(null as unknown as string)).toBe("");
   });
 });
+
+describe("readLidReverseMapping caching (via jidToE164)", () => {
+  it("uses cache for subsequent calls", () => {
+    const mappingPath = path.join(CONFIG_DIR, "credentials", "lid-mapping-111_reverse.json");
+    const spy = vi.spyOn(fs, "readFileSync").mockImplementation((p) => {
+      if (p === mappingPath) {
+        return JSON.stringify("5551111");
+      }
+      throw new Error("ENOENT");
+    });
+
+    // First call: reads file
+    expect(jidToE164("111@lid")).toBe("+5551111");
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    // Second call: should use cache
+    expect(jidToE164("111@lid")).toBe("+5551111");
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    spy.mockRestore();
+  });
+
+  it("expires cache entries", () => {
+    vi.useFakeTimers();
+    const mappingPath = path.join(CONFIG_DIR, "credentials", "lid-mapping-222_reverse.json");
+    const spy = vi.spyOn(fs, "readFileSync").mockImplementation((p) => {
+      if (p === mappingPath) {
+        return JSON.stringify("5552222");
+      }
+      throw new Error("ENOENT");
+    });
+
+    // First call
+    expect(jidToE164("222@lid")).toBe("+5552222");
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    // Advance time past TTL (60s)
+    vi.advanceTimersByTime(61000);
+
+    // Second call: should read file again
+    expect(jidToE164("222@lid")).toBe("+5552222");
+    expect(spy).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
+    spy.mockRestore();
+  });
+
+  it("bypasses cache when custom opts provided", () => {
+    const spy = vi.spyOn(fs, "readFileSync").mockImplementation(() => {
+      return JSON.stringify("5553333");
+    });
+
+    // Call with custom authDir
+    expect(jidToE164("333@lid", { authDir: "/tmp/custom" })).toBe("+5553333");
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    // Call again with same opts -> should not use cache because opts are custom
+    expect(jidToE164("333@lid", { authDir: "/tmp/custom" })).toBe("+5553333");
+    expect(spy).toHaveBeenCalledTimes(2);
+
+    spy.mockRestore();
+  });
+
+  it("caches null results (negative caching)", () => {
+    const spy = vi.spyOn(fs, "readFileSync").mockImplementation(() => {
+      throw new Error("ENOENT");
+    });
+
+    // First call: file not found
+    expect(jidToE164("444@lid")).toBeNull();
+    expect(spy).toHaveBeenCalled(); // Called at least once
+    spy.mockClear();
+
+    // Second call: should use cache (which remembered null)
+    expect(jidToE164("444@lid")).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+
+    spy.mockRestore();
+  });
+});
