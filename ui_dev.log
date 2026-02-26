@@ -1,0 +1,13 @@
+
+> openclaw@2026.2.25 ui:dev /app
+> node scripts/ui.js dev
+
+
+> openclaw-control-ui@ dev /app/ui
+> vite
+
+
+  VITE v7.3.1  ready in 276 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://192.168.0.2:5173/
