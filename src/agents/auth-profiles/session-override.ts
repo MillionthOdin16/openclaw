@@ -142,7 +142,20 @@ export async function resolveSessionAuthProfileOverride(params: {
     sessionStore[sessionKey] = sessionEntry;
     if (storePath) {
       await updateSessionStore(storePath, (store) => {
-        store[sessionKey] = sessionEntry;
+        // Safe update: merge changes into the existing store entry to avoid
+        // persisting transient fields from the in-memory sessionEntry object.
+        const existing = store[sessionKey];
+        if (existing) {
+          store[sessionKey] = {
+            ...existing,
+            authProfileOverride: next,
+            authProfileOverrideSource: "auto",
+            authProfileOverrideCompactionCount: compactionCount,
+            updatedAt: sessionEntry.updatedAt,
+          };
+        } else {
+          store[sessionKey] = sessionEntry;
+        }
       });
     }
   }
