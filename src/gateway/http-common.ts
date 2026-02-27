@@ -14,6 +14,8 @@ export function setDefaultSecurityHeaders(
 ) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
   const strictTransportSecurity = opts?.strictTransportSecurity;
   if (typeof strictTransportSecurity === "string" && strictTransportSecurity.length > 0) {
     res.setHeader("Strict-Transport-Security", strictTransportSecurity);
@@ -23,6 +25,7 @@ export function setDefaultSecurityHeaders(
 export function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(body));
 }
 
