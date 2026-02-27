@@ -1,4 +1,4 @@
-import { LitElement, css, nothing } from "lit";
+import { LitElement, css, nothing, type PropertyValues } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
 /**
@@ -10,6 +10,8 @@ export class ResizableDivider extends LitElement {
   @property({ type: Number }) splitRatio = 0.6;
   @property({ type: Number }) minRatio = 0.4;
   @property({ type: Number }) maxRatio = 0.7;
+  @property({ type: String }) label = "Resize";
+  @property({ type: String }) orientation = "vertical";
 
   private isDragging = false;
   private startX = 0;
@@ -47,14 +49,72 @@ export class ResizableDivider extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener("mousedown", this.handleMouseDown);
+    this.addEventListener("keydown", this.handleKeyDown);
+
+    // Accessibility attributes
+    this.setAttribute("role", "separator");
+    this.setAttribute("tabindex", "0");
+    this.updateAriaValues();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener("mousedown", this.handleMouseDown);
+    this.removeEventListener("keydown", this.handleKeyDown);
     document.removeEventListener("mousemove", this.handleMouseMove);
     document.removeEventListener("mouseup", this.handleMouseUp);
   }
+
+  protected updated(changedProperties: PropertyValues) {
+    super.updated(changedProperties);
+    if (
+      changedProperties.has("splitRatio") ||
+      changedProperties.has("minRatio") ||
+      changedProperties.has("maxRatio") ||
+      changedProperties.has("label") ||
+      changedProperties.has("orientation")
+    ) {
+      this.updateAriaValues(changedProperties.has("label"));
+    }
+  }
+
+  private updateAriaValues(labelChanged = false) {
+    this.setAttribute("aria-valuenow", String(this.splitRatio));
+    this.setAttribute("aria-valuemin", String(this.minRatio));
+    this.setAttribute("aria-valuemax", String(this.maxRatio));
+
+    // If label explicitly changed via property, enforce it.
+    // Otherwise, only set if missing (initial load).
+    if (labelChanged || !this.hasAttribute("aria-label")) {
+      this.setAttribute("aria-label", this.label);
+    }
+
+    this.setAttribute("aria-orientation", this.orientation);
+  }
+
+  private handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      const step = 0.05;
+      let newRatio = this.splitRatio;
+
+      if (e.key === "ArrowLeft") {
+        newRatio -= step;
+      } else {
+        newRatio += step;
+      }
+
+      newRatio = Math.max(this.minRatio, Math.min(this.maxRatio, newRatio));
+
+      this.dispatchEvent(
+        new CustomEvent("resize", {
+          detail: { splitRatio: newRatio },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+  };
 
   private handleMouseDown = (e: MouseEvent) => {
     this.isDragging = true;
