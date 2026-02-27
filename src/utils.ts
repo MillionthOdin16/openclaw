@@ -158,9 +158,21 @@ function resolveLidMappingDirs(opts?: JidToE164Options): string[] {
   return [...dirs];
 }
 
+// In-memory cache for LID reverse lookups to avoid repeated disk I/O.
+// Keys are LIDs (e.g. "12345"), values are the resolved E164 (e.g. "+1555...") or null if not found.
+const lidReverseCache = new Map<string, string | null>();
+const LID_CACHE_MAX_SIZE = 10000;
+
 function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | null {
+  // Check cache first
+  if (lidReverseCache.has(lid)) {
+    return lidReverseCache.get(lid) ?? null;
+  }
+
   const mappingFilename = `lid-mapping-${lid}_reverse.json`;
   const mappingDirs = resolveLidMappingDirs(opts);
+  let result: string | null = null;
+
   for (const dir of mappingDirs) {
     const mappingPath = path.join(dir, mappingFilename);
     try {
@@ -169,12 +181,20 @@ function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | n
       if (phone === null || phone === undefined) {
         continue;
       }
-      return normalizeE164(String(phone));
+      result = normalizeE164(String(phone));
+      break; // Found it, stop searching
     } catch {
       // Try the next location.
     }
   }
-  return null;
+
+  // Update cache
+  if (lidReverseCache.size >= LID_CACHE_MAX_SIZE) {
+    lidReverseCache.clear();
+  }
+  lidReverseCache.set(lid, result);
+
+  return result;
 }
 
 export function jidToE164(jid: string, opts?: JidToE164Options): string | null {
