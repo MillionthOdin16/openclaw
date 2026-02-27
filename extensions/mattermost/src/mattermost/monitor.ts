@@ -380,6 +380,7 @@ export async function monitorMattermostProvider(opts: MonitorMattermostOpts = {}
       allowFrom: normalizedAllowFrom,
       groupAllowFrom: normalizedGroupAllowFrom,
       storeAllowFrom,
+      groupAllowFromFallbackToAllowFrom: false,
       isSenderAllowed: (allowFrom) =>
         isMattermostSenderAllowed({
           senderId,
@@ -880,6 +881,7 @@ export async function monitorMattermostProvider(opts: MonitorMattermostOpts = {}
       allowFrom: normalizeMattermostAllowList(account.config.allowFrom ?? []),
       groupAllowFrom: normalizeMattermostAllowList(account.config.groupAllowFrom ?? []),
       storeAllowFrom,
+      groupAllowFromFallbackToAllowFrom: false,
       isSenderAllowed: (allowFrom) =>
         isMattermostSenderAllowed({
           senderId: userId,
