@@ -110,4 +110,114 @@ describe("redactSensitiveText", () => {
     });
     expect(output).toBe(input);
   });
+
+  describe("Vendor Specific Tokens", () => {
+    it("redacts OpenAI API keys", () => {
+      const input = "Found key: sk-1234567890abcdef1234567890abcdef";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("Found key: sk-123…cdef");
+    });
+
+    it("redacts GitHub Personal Access Tokens (ghp_)", () => {
+      const input = "Token: ghp_1234567890abcdef1234567890abcdef";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("Token: ghp_12…cdef");
+    });
+
+    it("redacts GitHub Fine-grained PATs (github_pat_)", () => {
+      const input = "PAT: github_pat_1234567890abcdef1234567890abcdef";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("PAT: github…cdef");
+    });
+
+    it("redacts Slack User/Bot tokens (xoxb-)", () => {
+      const input = "Slack: xoxb-1234567890-abcdef";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("Slack: xoxb-1…cdef");
+    });
+
+    it("redacts Slack User tokens (xoxp-)", () => {
+        const input = "Slack User: xoxp-1234567890-abcdef";
+        const output = redactSensitiveText(input, {
+          mode: "tools",
+          patterns: defaults,
+        });
+        expect(output).toBe("Slack User: xoxp-1…cdef");
+    });
+
+    it("redacts Slack App tokens (xapp-)", () => {
+      const input = "App Token: xapp-1234567890-abcdef";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("App Token: xapp-1…cdef");
+    });
+
+    it("redacts Google API Keys (AIza)", () => {
+      const input = "Google Key: AIzaSyB1234567890abcdef1234567890";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("Google Key: AIzaSy…7890");
+    });
+
+    it("redacts Google Client Secrets (gsk_)", () => {
+      const input = "Google Secret: gsk_1234567890abcdef1234567890";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("Google Secret: gsk_12…7890");
+    });
+
+    it("redacts NPM Automation Tokens (npm_)", () => {
+      const input = "NPM Token: npm_1234567890abcdef1234567890";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("NPM Token: npm_12…7890");
+    });
+
+    it("redacts Perplexity API Keys (pplx-)", () => {
+      const input = "PPLX Key: pplx-1234567890abcdef1234567890";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("PPLX Key: pplx-1…7890");
+    });
+
+    it("redacts multiple tokens in a single string", () => {
+      const input = "Keys: sk-1234567890abcdef and ghp_1234567890abcdef1234567890abcdef";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("Keys: sk-123…cdef and ghp_12…cdef");
+    });
+
+    it("redacts tokens at string boundaries", () => {
+      const input = "sk-1234567890abcdef";
+      const output = redactSensitiveText(input, {
+        mode: "tools",
+        patterns: defaults,
+      });
+      expect(output).toBe("sk-123…cdef");
+    });
+  });
 });
