@@ -1,6 +1,7 @@
 # Repository Guidelines
 
 - Repo: https://github.com/openclaw/openclaw
+- In chat replies, file references must be repo-root relative only (example: `extensions/bluebubbles/src/channel.ts:80`); never absolute paths or `~/...`.
 - GitHub issues/comments/PR comments: use literal multiline strings or `-F - <<'EOF'` (or $'...') for real newlines; never embed "\\n".
 - GitHub comment footgun: never use `gh issue/pr comment -b "..."` when body contains backticks or shell chars. Always use single-quoted heredoc (`-F - <<'EOF'`) so no command substitution/escaping corruption.
 - GitHub linking footgun: don’t wrap issue/PR refs like `#24643` in backticks when you want auto-linking. Use plain `#24643` (optionally add full URL).
@@ -120,6 +121,23 @@
 
 - If `git branch -d/-D <branch>` is policy-blocked, delete the local ref directly: `git update-ref -d refs/heads/<branch>`.
 - Bulk PR close/reopen safety: if a close action would affect more than 5 PRs, first ask for explicit user confirmation with the exact PR count and target scope/query.
+- Fork rollup policy: keep `bugfixes/rollup` rebased on `upstream/main` as bugfix-only commits; use `sync/upstream-rollup` only as a disposable integration PR branch.
+- Fork rollup refresh process (durable/safe path):
+  1. `git fetch --prune origin upstream`, create backup ref from remote rollup (`backup/rollup-refresh-<timestamp>`), and record pre-refresh commits (`upstream/main..origin/bugfixes/rollup`).
+  2. Refresh in an isolated `git worktree` branch from `origin/bugfixes/rollup` (keep main worktree and local dirty files untouched).
+  3. `git rebase upstream/main`, resolve conflicts explicitly, and continue non-interactively once staged.
+  4. Validate refreshed branch with targeted tests + build, and compare commit intent with `git cherry -v upstream/main HEAD` + `git range-diff`.
+  5. Publish only with `git push --force-with-lease=refs/heads/bugfixes/rollup:<old-remote-sha>`.
+  6. Verify remote commit set, keep backup ref for rollback, and remove temporary worktree/refresh branch.
+- Adding future fixes/modifications to rollup (best practice):
+  1. Start each change on a short-lived feature branch from latest `upstream/main` (not directly on `bugfixes/rollup`).
+  2. Validate on the feature branch first, then move only intended commits into `bugfixes/rollup` via `git cherry-pick -x` (or controlled rebase).
+  3. Keep `bugfixes/rollup` as a clean, intentional patch stack (bugfixes + explicitly approved fork deltas; avoid unrelated experiments).
+  4. Before any rollup refresh/publish, create a backup ref and verify intent with `git cherry -v upstream/main bugfixes/rollup`.
+  5. Push rollup updates with `--force-with-lease` only, and keep at least one recent rollback backup ref.
+- Rollup automation:
+  - Local safe refresh helper: `scripts/refresh-rollup-safe.sh` (`--push` to publish, default is no push).
+  - CI policy guard: `.github/workflows/rollup-policy-check.yml` runs `scripts/check-rollup-policy.sh` on `bugfixes/rollup`.
 
 ## GitHub Search (`gh`)
 
