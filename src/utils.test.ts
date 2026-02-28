@@ -4,8 +4,12 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
+  clampInt,
+  clampNumber,
   CONFIG_DIR,
   ensureDir,
+  escapeRegExp,
+  formatTerminalLink,
   jidToE164,
   normalizeE164,
   normalizePath,
@@ -13,6 +17,7 @@ import {
   resolveHomeDir,
   resolveJidToE164,
   resolveUserPath,
+  safeParseJson,
   shortenHomeInString,
   shortenHomePath,
   sleep,
@@ -56,6 +61,58 @@ describe("ensureDir", () => {
       await ensureDir(target);
       expect(fs.existsSync(target)).toBe(true);
     });
+  });
+});
+
+describe("clampNumber", () => {
+  it("returns the value when within bounds", () => {
+    expect(clampNumber(5, 0, 10)).toBe(5);
+  });
+
+  it("returns the min when value is below min", () => {
+    expect(clampNumber(-5, 0, 10)).toBe(0);
+  });
+
+  it("returns the max when value is above max", () => {
+    expect(clampNumber(15, 0, 10)).toBe(10);
+  });
+});
+
+describe("clampInt", () => {
+  it("returns the floored value when within bounds", () => {
+    expect(clampInt(5.7, 0, 10)).toBe(5);
+  });
+
+  it("returns the min when floored value is below min", () => {
+    expect(clampInt(-0.5, 0, 10)).toBe(0); // Math.floor(-0.5) = -1 -> clamped to 0
+  });
+
+  it("returns the max when floored value is above max", () => {
+    expect(clampInt(10.5, 0, 10)).toBe(10);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes special characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+
+  it("keeps regular characters intact", () => {
+    expect(escapeRegExp("hello world 123")).toBe("hello world 123");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid JSON", () => {
+    expect(safeParseJson('{"foo": "bar"}')).toEqual({ foo: "bar" });
+    expect(safeParseJson("[1, 2, 3]")).toEqual([1, 2, 3]);
+    expect(safeParseJson('"hello"')).toBe("hello");
+  });
+
+  it("returns null for invalid JSON", () => {
+    expect(safeParseJson("{ foo: 'bar' }")).toBeNull();
+    expect(safeParseJson("undefined")).toBeNull();
+    expect(safeParseJson("")).toBeNull();
   });
 });
 
@@ -244,5 +301,44 @@ describe("resolveUserPath", () => {
   it("returns empty string for undefined/null input", () => {
     expect(resolveUserPath(undefined as unknown as string)).toBe("");
     expect(resolveUserPath(null as unknown as string)).toBe("");
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats as terminal link sequence when allow is true", () => {
+    expect(formatTerminalLink("Click here", "https://example.com", { force: true })).toBe(
+      "\u001b]8;;https://example.com\u0007Click here\u001b]8;;\u0007",
+    );
+  });
+
+  it("removes escape characters from label and url", () => {
+    expect(formatTerminalLink("C\u001blick", "https://e\u001bxample.com", { force: true })).toBe(
+      "\u001b]8;;https://example.com\u0007Click\u001b]8;;\u0007",
+    );
+  });
+
+  it("falls back to default format when not allowed", () => {
+    expect(formatTerminalLink("Click here", "https://example.com", { force: false })).toBe(
+      "Click here (https://example.com)",
+    );
+  });
+
+  it("uses provided fallback when not allowed", () => {
+    expect(
+      formatTerminalLink("Click here", "https://example.com", {
+        force: false,
+        fallback: "fallback text",
+      }),
+    ).toBe("fallback text");
+  });
+
+  it("uses process.stdout.isTTY by default", () => {
+    const isTTY = Boolean(process.stdout.isTTY);
+    const result = formatTerminalLink("Click here", "https://example.com");
+    if (isTTY) {
+      expect(result).toBe("\u001b]8;;https://example.com\u0007Click here\u001b]8;;\u0007");
+    } else {
+      expect(result).toBe("Click here (https://example.com)");
+    }
   });
 });
