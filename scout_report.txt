@@ -1,0 +1,15 @@
+🦅 Scout: Critical Inherited Defect Report - 2026-02-28
+
+1. **Context Overflow Auto-Compaction Missing Stream Event (Issue #14143)**
+   * **Upstream Issue Link/ID:** #14143
+   * **Local File Path & Line Numbers:** `src/agents/pi-embedded-runner/run.ts` lines 755-765
+   * **Observed Behavior:** When a prompt exceeds the context window and triggers auto-compaction during the fallback phase (`overflowCompactionAttempts`), the embedded agent runner successfully compacts the session and increments `autoCompactionCount`, but fails to emit a `compaction` stream event via `emitAgentEvent`. This causes UI desynchronization and breaks the `memoryFlush` count tracking.
+   * **Expected Behavior:** An `emitAgentEvent({ stream: "compaction", ... })` event should be dispatched during explicit overflow auto-compaction, matching the behavior of in-attempt compaction.
+   * **Impact Severity:** High. Breaks auto-reply memory flush logic (which relies on `compactionCount` parity) and leaves the user unaware that context has been pruned.
+
+2. **WhatsApp E164 Normalization Failure for Brazilian Numbers (Issue #27565)**
+   * **Upstream Issue Link/ID:** #27565
+   * **Local File Path & Line Numbers:** `src/utils.ts` lines 87-94
+   * **Observed Behavior:** The `normalizeE164` function strictly matches and normalizes digits but fails to account for the mandatory 9th digit added to Brazilian mobile numbers. This causes strict `allowFrom` matching to fail when the gateway compares the normalized incoming JID against the configured owner numbers.
+   * **Expected Behavior:** The function should support Brazilian mobile number rules (e.g., dynamically handling the presence or absence of the 9th digit) to ensure reliable identity matching.
+   * **Impact Severity:** Critical. Causes total authentication failure for Brazilian users attempting to interact with the WhatsApp gateway.
