@@ -158,7 +158,21 @@ function resolveLidMappingDirs(opts?: JidToE164Options): string[] {
   return [...dirs];
 }
 
+const lidMappingCache = new Map<string, { value: string | null; expiresAt: number }>();
+
 function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | null {
+  const cacheKey = `${lid}:${opts ? JSON.stringify(opts) : ""}`;
+  const now = Date.now();
+
+  if (lidMappingCache.has(cacheKey)) {
+    const cached = lidMappingCache.get(cacheKey)!;
+    if (cached.expiresAt > now) {
+      return cached.value;
+    } else {
+      lidMappingCache.delete(cacheKey);
+    }
+  }
+
   const mappingFilename = `lid-mapping-${lid}_reverse.json`;
   const mappingDirs = resolveLidMappingDirs(opts);
   for (const dir of mappingDirs) {
@@ -169,11 +183,23 @@ function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | n
       if (phone === null || phone === undefined) {
         continue;
       }
-      return normalizeE164(String(phone));
+      const result = normalizeE164(String(phone));
+      if (lidMappingCache.size >= 10000) {
+        lidMappingCache.clear();
+      }
+      // Positive cache: valid for 1 hour
+      lidMappingCache.set(cacheKey, { value: result, expiresAt: now + 60 * 60 * 1000 });
+      return result;
     } catch {
       // Try the next location.
     }
   }
+
+  if (lidMappingCache.size >= 10000) {
+    lidMappingCache.clear();
+  }
+  // Negative cache: valid for 5 minutes
+  lidMappingCache.set(cacheKey, { value: null, expiresAt: now + 5 * 60 * 1000 });
   return null;
 }
 
