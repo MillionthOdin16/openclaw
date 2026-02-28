@@ -1,4 +1,4 @@
-import { LitElement, css, nothing } from "lit";
+import { LitElement, css, nothing, type PropertyValues } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
 /**
@@ -32,8 +32,10 @@ export class ResizableDivider extends LitElement {
       right: -4px;
       bottom: 0;
     }
-    :host(:hover) {
+    :host(:hover),
+    :host(:focus-visible) {
       background: var(--accent, #007bff);
+      outline: none;
     }
     :host(.dragging) {
       background: var(--accent, #007bff);
@@ -47,14 +49,65 @@ export class ResizableDivider extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener("mousedown", this.handleMouseDown);
+    this.addEventListener("keydown", this.handleKeyDown);
+
+    this.setAttribute("role", "separator");
+    this.setAttribute("aria-orientation", "vertical");
+    if (!this.hasAttribute("tabindex")) {
+      this.setAttribute("tabindex", "0");
+    }
+    this.updateAriaValues();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener("mousedown", this.handleMouseDown);
+    this.removeEventListener("keydown", this.handleKeyDown);
     document.removeEventListener("mousemove", this.handleMouseMove);
     document.removeEventListener("mouseup", this.handleMouseUp);
   }
+
+  protected updated(changedProperties: PropertyValues) {
+    super.updated(changedProperties);
+    if (
+      changedProperties.has("splitRatio") ||
+      changedProperties.has("minRatio") ||
+      changedProperties.has("maxRatio")
+    ) {
+      this.updateAriaValues();
+    }
+  }
+
+  private updateAriaValues() {
+    this.setAttribute("aria-valuenow", String(Math.round(this.splitRatio * 100)));
+    this.setAttribute("aria-valuemin", String(Math.round(this.minRatio * 100)));
+    this.setAttribute("aria-valuemax", String(Math.round(this.maxRatio * 100)));
+  }
+
+  private handleKeyDown = (e: KeyboardEvent) => {
+    let delta = 0;
+    if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      delta = -0.05;
+    } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      delta = 0.05;
+    } else {
+      return;
+    }
+
+    e.preventDefault();
+    const newRatio = Math.max(
+      this.minRatio,
+      Math.min(this.maxRatio, this.splitRatio + delta),
+    );
+
+    this.dispatchEvent(
+      new CustomEvent("resize", {
+        detail: { splitRatio: newRatio },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
 
   private handleMouseDown = (e: MouseEvent) => {
     this.isDragging = true;
