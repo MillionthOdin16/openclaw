@@ -293,7 +293,9 @@ export async function evaluateViaPlaywright(opts: {
         "use strict";
         var fnBody = args.fnBody, timeoutMs = args.timeoutMs;
         try {
-          var candidate = eval("(" + fnBody + ")");
+          // Security isolation via new Function instead of eval() to prevent local scope pollution
+          // eslint-disable-next-line @typescript-eslint/no-implied-eval -- required for browser-context eval
+          var candidate = new Function("return (" + fnBody + ")")();
           var result = typeof candidate === "function" ? candidate(el) : candidate;
           if (result && typeof result.then === "function") {
             return Promise.race([
@@ -333,7 +335,9 @@ export async function evaluateViaPlaywright(opts: {
         "use strict";
         var fnBody = args.fnBody, timeoutMs = args.timeoutMs;
         try {
-          var candidate = eval("(" + fnBody + ")");
+          // Security isolation via new Function instead of eval() to prevent local scope pollution
+          // eslint-disable-next-line @typescript-eslint/no-implied-eval -- required for browser-context eval
+          var candidate = new Function("return (" + fnBody + ")")();
           var result = typeof candidate === "function" ? candidate() : candidate;
           if (result && typeof result.then === "function") {
             return Promise.race([
