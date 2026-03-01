@@ -1,0 +1,3 @@
+## 2024-05-19 - Resizable Divider Accessibility & Keyboard Support
+**Learning:** Custom UI components like `ResizableDivider` often lack basic keyboard accessibility out of the box. While mouse-drag events handle pointer users, keyboard-only users are completely blocked from resizing panels if `role='separator'`, `tabindex='0'`, `aria-orientation`, and keyboard event handlers (Arrow keys) are missing.
+**Action:** When creating or auditing custom interactive components, always verify they can receive focus (`tabindex`) and that all mouse interactions have a keyboard equivalent (e.g., arrow keys for resizing/moving).
