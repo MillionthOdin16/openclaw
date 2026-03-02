@@ -276,7 +276,6 @@ export function resolveOllamaBaseUrlForRun(params: {
   }
   return OLLAMA_NATIVE_BASE_URL;
 }
-
 const COMPACTION_RETRY_WAIT_TIMEOUT_MS = 60_000;
 
 export function injectHistoryImagesIntoMessages(
