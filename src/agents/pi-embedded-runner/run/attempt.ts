@@ -29,6 +29,12 @@ import { isReasoningTagProvider } from "../../../utils/provider-utils.js";
 import { resolveOpenClawAgentDir } from "../../agent-paths.js";
 import { resolveSessionAgentIds } from "../../agent-scope.js";
 import { createAnthropicPayloadLogger } from "../../anthropic-payload-log.js";
+import {
+  analyzeBootstrapBudget,
+  buildBootstrapPromptWarning,
+  buildBootstrapTruncationReportMeta,
+  buildBootstrapInjectionStats,
+} from "../../bootstrap-budget.js";
 import { makeBootstrapWarn, resolveBootstrapContextForRun } from "../../bootstrap-files.js";
 import { createCacheTrace } from "../../cache-trace.js";
 import {
@@ -48,6 +54,7 @@ import {
   downgradeOpenAIFunctionCallReasoningPairs,
   isCloudCodeAssistFormatError,
   resolveBootstrapMaxChars,
+  resolveBootstrapPromptTruncationWarningMode,
   resolveBootstrapTotalMaxChars,
   validateAnthropicTurns,
   validateGeminiTurns,
@@ -383,6 +390,56 @@ export function injectHistoryImagesIntoMessages(
   return didMutate;
 }
 
+const COMPACTION_RETRY_WAIT_TIMEOUT_MS = 60_000;
+
+export function injectHistoryImagesIntoMessages(
+  messages: AgentMessage[],
+  historyImagesByIndex: Map<number, ImageContent[]>,
+): boolean {
+  if (historyImagesByIndex.size === 0) {
+    return false;
+  }
+  let didMutate = false;
+
+  for (const [msgIndex, images] of historyImagesByIndex) {
+    // Bounds check: ensure index is valid before accessing
+    if (msgIndex < 0 || msgIndex >= messages.length) {
+      continue;
+    }
+    const msg = messages[msgIndex];
+    if (msg && msg.role === "user") {
+      // Convert string content to array format if needed
+      if (typeof msg.content === "string") {
+        msg.content = [{ type: "text", text: msg.content }];
+        didMutate = true;
+      }
+      if (Array.isArray(msg.content)) {
+        // Check for existing image content to avoid duplicates across turns
+        const existingImageData = new Set(
+          msg.content
+            .filter(
+              (c): c is ImageContent =>
+                c != null &&
+                typeof c === "object" &&
+                c.type === "image" &&
+                typeof c.data === "string",
+            )
+            .map((c) => c.data),
+        );
+        for (const img of images) {
+          // Only add if this image isn't already in the message
+          if (!existingImageData.has(img.data)) {
+            msg.content.push(img);
+            didMutate = true;
+          }
+        }
+      }
+    }
+  }
+
+  return didMutate;
+}
+
 function trimWhitespaceFromToolCallNamesInMessage(
   message: unknown,
   allowedToolNames?: Set<string>,
@@ -654,6 +711,23 @@ export async function runEmbeddedAttempt(
         contextMode: params.bootstrapContextMode,
         runKind: params.bootstrapContextRunKind,
       });
+    const bootstrapMaxChars = resolveBootstrapMaxChars(params.config);
+    const bootstrapTotalMaxChars = resolveBootstrapTotalMaxChars(params.config);
+    const bootstrapAnalysis = analyzeBootstrapBudget({
+      files: buildBootstrapInjectionStats({
+        bootstrapFiles: hookAdjustedBootstrapFiles,
+        injectedFiles: contextFiles,
+      }),
+      bootstrapMaxChars,
+      bootstrapTotalMaxChars,
+    });
+    const bootstrapPromptWarningMode = resolveBootstrapPromptTruncationWarningMode(params.config);
+    const bootstrapPromptWarning = buildBootstrapPromptWarning({
+      analysis: bootstrapAnalysis,
+      mode: bootstrapPromptWarningMode,
+      seenSignatures: params.bootstrapPromptWarningSignaturesSeen,
+      previousSignature: params.bootstrapPromptWarningSignature,
+    });
     const workspaceNotes = hookAdjustedBootstrapFiles.some(
       (file) => file.name === DEFAULT_BOOTSTRAP_FILENAME && !file.missing,
     )
@@ -849,6 +923,7 @@ export async function runEmbeddedAttempt(
       userTime,
       userTimeFormat,
       contextFiles,
+      bootstrapTruncationWarningLines: bootstrapPromptWarning.lines,
       memoryCitationsMode: params.config?.memory?.citations,
     });
     const systemPromptReport = buildSystemPromptReport({
@@ -859,8 +934,13 @@ export async function runEmbeddedAttempt(
       provider: params.provider,
       model: params.modelId,
       workspaceDir: effectiveWorkspace,
-      bootstrapMaxChars: resolveBootstrapMaxChars(params.config),
-      bootstrapTotalMaxChars: resolveBootstrapTotalMaxChars(params.config),
+      bootstrapMaxChars,
+      bootstrapTotalMaxChars,
+      bootstrapTruncation: buildBootstrapTruncationReportMeta({
+        analysis: bootstrapAnalysis,
+        warningMode: bootstrapPromptWarningMode,
+        warning: bootstrapPromptWarning,
+      }),
       sandbox: (() => {
         const runtime = resolveSandboxRuntimeStatus({
           cfg: params.config,
@@ -1772,6 +1852,8 @@ export async function runEmbeddedAttempt(
         timedOutDuringCompaction,
         promptError,
         sessionIdUsed,
+        bootstrapPromptWarningSignaturesSeen: bootstrapPromptWarning.warningSignaturesSeen,
+        bootstrapPromptWarningSignature: bootstrapPromptWarning.signature,
         systemPromptReport,
         messagesSnapshot,
         assistantTexts,
