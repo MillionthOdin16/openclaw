@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import type { AgentMessage, StreamFn } from "@mariozechner/pi-agent-core";
-import { streamSimple } from "@mariozechner/pi-ai";
+import { streamSimple, type ImageContent } from "@mariozechner/pi-ai";
 import {
   createAgentSession,
   DefaultResourceLoader,
@@ -331,8 +331,6 @@ export function resolveOllamaBaseUrlForRun(params: {
   }
   return OLLAMA_NATIVE_BASE_URL;
 }
-
-const COMPACTION_RETRY_WAIT_TIMEOUT_MS = 60_000;
 
 export function injectHistoryImagesIntoMessages(
   messages: AgentMessage[],
