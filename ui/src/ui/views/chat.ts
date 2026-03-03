@@ -351,6 +351,8 @@ export function renderChat(props: ChatProps) {
             ? html`
               <resizable-divider
                 .splitRatio=${splitRatio}
+                label="Resize sidebar"
+                orientation="vertical"
                 @resize=${(e: CustomEvent) => props.onSplitRatioChange?.(e.detail.splitRatio)}
               ></resizable-divider>
               <div class="chat-sidebar">
