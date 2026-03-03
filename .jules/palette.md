@@ -1,0 +1,3 @@
+## 2025-03-05 - Resizable Split Views (ResizableDivider) Accessibility
+**Learning:** Custom splitter/divider elements natively lack screen reader visibility and keyboard interaction. Users cannot resize views without a mouse. Applying `role="separator"`, `tabindex="0"`, `aria-orientation`, and scale attributes (`aria-valuenow`, `aria-valuemin`, `aria-valuemax`) fixes this.
+**Action:** Always implement Arrow key handlers (`handleKeyDown`) and `focus-visible` styling alongside ARIA attributes when building or improving split view draggers/resizers so keyboard users can control the layout split ratio.
