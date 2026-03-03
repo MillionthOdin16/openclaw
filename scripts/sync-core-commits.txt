@@ -1,0 +1,2 @@
+# Core fork-maintained commits to carry onto origin/main.
+# Keep empty unless a core fork fix is confirmed replay-safe on upstream/main.
