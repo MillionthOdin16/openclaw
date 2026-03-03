@@ -7,6 +7,7 @@ import { castAgentMessage } from "../../test-helpers/agent-message-fixtures.js";
 import {
   selectCompactionTimeoutSnapshot,
   shouldFlagCompactionTimeout,
+  waitForCompactionRetryWithTimeout,
 } from "./compaction-timeout.js";
 
 describe("compaction-timeout helpers", () => {
@@ -62,5 +63,43 @@ describe("compaction-timeout helpers", () => {
     expect(selected.source).toBe("current");
     expect(selected.sessionIdUsed).toBe("session-current");
     expect(selected.messagesSnapshot).toEqual(current);
+  });
+
+  it("returns false when compaction wait exceeds timeout", async () => {
+    vi.useFakeTimers();
+    const waitPromise = waitForCompactionRetryWithTimeout({
+      waitForCompactionRetry: async () => {
+        await new Promise(() => {});
+      },
+      timeoutMs: 50,
+    });
+    await vi.advanceTimersByTimeAsync(55);
+    await expect(waitPromise).resolves.toBe(false);
+    vi.useRealTimers();
+  });
+
+  it("returns true when compaction wait settles before timeout", async () => {
+    vi.useFakeTimers();
+    const waitPromise = waitForCompactionRetryWithTimeout({
+      waitForCompactionRetry: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      },
+      timeoutMs: 50,
+    });
+    await vi.advanceTimersByTimeAsync(15);
+    await expect(waitPromise).resolves.toBe(true);
+    vi.useRealTimers();
+  });
+
+  it("propagates compaction wait rejection", async () => {
+    const expected = new Error("compaction failed");
+    await expect(
+      waitForCompactionRetryWithTimeout({
+        waitForCompactionRetry: async () => {
+          throw expected;
+        },
+        timeoutMs: 50,
+      }),
+    ).rejects.toBe(expected);
   });
 });
