@@ -331,7 +331,17 @@ jobs:
           fi
 
       - name: Detect committed private keys
-        run: pre-commit run --all-files detect-private-key
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if pre-commit run --all-files detect-private-key; then
+              exit 0
+            fi
+            echo "detect-private-key failed (attempt ${attempt}/3); retrying..."
+            sleep 5
+          done
+          echo "::error::detect-private-key failed after retries"
+          exit 1
 
       - name: Audit changed GitHub workflows with zizmor
         run: |
@@ -349,10 +359,28 @@ jobs:
             exit 0
           fi
 
-          pre-commit run zizmor --files "${workflow_files[@]}"
+          for attempt in 1 2 3; do
+            if pre-commit run zizmor --files "${workflow_files[@]}"; then
+              exit 0
+            fi
+            echo "zizmor failed (attempt ${attempt}/3); retrying..."
+            sleep 5
+          done
+          echo "::error::zizmor failed after retries"
+          exit 1
 
       - name: Audit production dependencies
-        run: pre-commit run --all-files pnpm-audit-prod
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if pre-commit run --all-files pnpm-audit-prod; then
+              exit 0
+            fi
+            echo "pnpm-audit-prod failed (attempt ${attempt}/3); retrying..."
+            sleep 5
+          done
+          echo "::error::pnpm-audit-prod failed after retries"
+          exit 1
 
   checks-windows:
     needs: [docs-scope, changed-scope]
