@@ -729,11 +729,14 @@ export async function compactEmbeddedPiSessionDirect(
           },
         };
       } finally {
-        await flushPendingToolResultsAfterIdle({
-          agent: session?.agent,
-          sessionManager,
-        });
-        session.dispose();
+        try {
+          await flushPendingToolResultsAfterIdle({
+            agent: session?.agent,
+            sessionManager,
+          });
+        } finally {
+          session.dispose();
+        }
       }
     } finally {
       await sessionLock.release();

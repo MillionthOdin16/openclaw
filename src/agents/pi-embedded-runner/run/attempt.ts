@@ -1250,11 +1250,14 @@ export async function runEmbeddedAttempt(
           activeSession.agent.replaceMessages(limited);
         }
       } catch (err) {
-        await flushPendingToolResultsAfterIdle({
-          agent: activeSession?.agent,
-          sessionManager,
-        });
-        activeSession.dispose();
+        try {
+          await flushPendingToolResultsAfterIdle({
+            agent: activeSession?.agent,
+            sessionManager,
+          });
+        } finally {
+          activeSession.dispose();
+        }
         throw err;
       }
 
