@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { normalizeResolvedSecretInputString } from "openclaw/plugin-sdk";
 import {
   DEFAULT_ACCOUNT_ID,
   normalizeAccountId,

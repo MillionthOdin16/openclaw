@@ -1,0 +1,4 @@
+# Fork infra/workflow commits to replay after core patches.
+# Use replay-safe SHAs only.
+632a4dc24
+d55fa6f00
