@@ -1,0 +1,3 @@
+## 2025-03-01 - Keyboard accessibility and ARIA for custom sliders
+**Learning:** Custom interactive components like resizable dividers need manual ARIA role (`separator`), `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-orientation`, and `aria-label` mapped to make them understandable to screen readers, along with keyboard interaction (`keydown` listeners) to step the slider values since native sliders handle this out of the box.
+**Action:** Always verify keyboard focus states (`:focus-visible`) and explicitly handle `keydown` events mapped to dynamic ARIA attributes whenever replacing native inputs with custom UI controls.
