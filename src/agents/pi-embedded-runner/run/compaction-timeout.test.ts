@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { describe, expect, it } from "vitest";
-=======
 import { describe, expect, it, vi } from "vitest";
->>>>>>> dd2f46655 (Harden embedded run deadlock and timeout handling)
 import { castAgentMessage } from "../../test-helpers/agent-message-fixtures.js";
 import {
   selectCompactionTimeoutSnapshot,

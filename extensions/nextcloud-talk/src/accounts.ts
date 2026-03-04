@@ -8,6 +8,10 @@ import {
   normalizeAccountId,
   normalizeOptionalAccountId,
 } from "openclaw/plugin-sdk/account-id";
+import {
+  listConfiguredAccountIds as listConfiguredAccountIdsFromSection,
+  resolveAccountWithDefaultFallback,
+} from "openclaw/plugin-sdk/nextcloud-talk";
 import { normalizeResolvedSecretInputString } from "./secret-input.js";
 import type { CoreConfig, NextcloudTalkAccountConfig } from "./types.js";
 

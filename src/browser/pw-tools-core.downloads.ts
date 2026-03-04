@@ -96,7 +96,7 @@ async function saveDownloadPayload(download: DownloadPayload, outPath: string) {
     await download.saveAs?.(resolvedOutPath);
   } else {
     await writeViaSiblingTempPath({
-      rootDir: DEFAULT_DOWNLOAD_DIR,
+      rootDir: path.dirname(resolvedOutPath),
       targetPath: resolvedOutPath,
       writeTemp: async (tempPath) => {
         await download.saveAs?.(tempPath);
