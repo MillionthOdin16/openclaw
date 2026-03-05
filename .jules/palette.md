@@ -1,0 +1,3 @@
+## 2024-05-24 - [Make ResizableDivider screen-reader and keyboard accessible]
+**Learning:** Custom interactive components like drag handles/dividers often miss keyboard and screen-reader accessibility by default. Adding dynamic ARIA properties (like `valuenow` and `role="separator"`) and basic keyboard support (Arrow keys) significantly improves usability for users relying on non-pointer inputs.
+**Action:** When creating or updating custom interactive widgets (sliders, dividers, toggles), always explicitly implement `tabindex="0"`, `keydown` support, dynamic ARIA attributes, and `:focus-visible` styling to maintain a baseline of accessible UX.

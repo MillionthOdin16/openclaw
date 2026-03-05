@@ -10,6 +10,8 @@ export class ResizableDivider extends LitElement {
   @property({ type: Number }) splitRatio = 0.6;
   @property({ type: Number }) minRatio = 0.4;
   @property({ type: Number }) maxRatio = 0.7;
+  @property({ type: String }) label = "Resize split view";
+  @property({ type: String }) orientation: "horizontal" | "vertical" = "vertical";
 
   private isDragging = false;
   private startX = 0;
@@ -38,6 +40,10 @@ export class ResizableDivider extends LitElement {
     :host(.dragging) {
       background: var(--accent, #007bff);
     }
+    :host(:focus-visible) {
+      outline: 2px solid var(--accent, #007bff);
+      outline-offset: 1px;
+    }
   `;
 
   render() {
@@ -46,15 +52,69 @@ export class ResizableDivider extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.setAttribute("role", "separator");
+    this.setAttribute("tabindex", "0");
+    this.updateAriaAttributes();
+
     this.addEventListener("mousedown", this.handleMouseDown);
+    this.addEventListener("keydown", this.handleKeyDown);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener("mousedown", this.handleMouseDown);
+    this.removeEventListener("keydown", this.handleKeyDown);
     document.removeEventListener("mousemove", this.handleMouseMove);
     document.removeEventListener("mouseup", this.handleMouseUp);
   }
+
+  updated(changedProperties: Map<string, unknown>) {
+    super.updated(changedProperties);
+    if (
+      changedProperties.has("splitRatio") ||
+      changedProperties.has("minRatio") ||
+      changedProperties.has("maxRatio") ||
+      changedProperties.has("label") ||
+      changedProperties.has("orientation")
+    ) {
+      this.updateAriaAttributes();
+    }
+  }
+
+  private updateAriaAttributes() {
+    this.setAttribute("aria-label", this.label);
+    this.setAttribute("aria-orientation", this.orientation);
+    this.setAttribute("aria-valuenow", String(Math.round(this.splitRatio * 100)));
+    this.setAttribute("aria-valuemin", String(Math.round(this.minRatio * 100)));
+    this.setAttribute("aria-valuemax", String(Math.round(this.maxRatio * 100)));
+  }
+
+  private handleKeyDown = (e: KeyboardEvent) => {
+    let delta = 0;
+    const step = 0.05; // 5% change per keypress
+
+    if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      delta = -step;
+    } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      delta = step;
+    }
+
+    if (delta !== 0) {
+      e.preventDefault();
+      let newRatio = this.splitRatio + delta;
+      newRatio = Math.max(this.minRatio, Math.min(this.maxRatio, newRatio));
+
+      if (newRatio !== this.splitRatio) {
+        this.dispatchEvent(
+          new CustomEvent("resize", {
+            detail: { splitRatio: newRatio },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      }
+    }
+  };
 
   private handleMouseDown = (e: MouseEvent) => {
     this.isDragging = true;
