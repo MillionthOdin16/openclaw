@@ -12,8 +12,7 @@ import type { SlackMessageEvent } from "../../types.js";
 import type { SlackMonitorContext } from "../context.js";
 import { prepareSlackMessage } from "./prepare.js";
 import {
-  createInboundSlackTestContext as createInboundSlackCtx,
-  createSlackTestAccount as createSlackAccount,
+    createSlackTestAccount as createSlackAccount,
 } from "./prepare.test-helpers.js";
 
 describe("slack prepareSlackMessage inbound contract", () => {
