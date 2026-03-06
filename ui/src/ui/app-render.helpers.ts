@@ -232,6 +232,7 @@ export function renderChatControls(state: AppViewState) {
             });
           }
         }}
+        aria-label=${t("chat.refreshTitle")}
         title=${t("chat.refreshTitle")}
       >
         ${refreshIcon}
@@ -250,6 +251,7 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${showThinking}
+        aria-label=${disableThinkingToggle ? t("chat.onboardingDisabled") : t("chat.thinkingToggle")}
         title=${disableThinkingToggle ? t("chat.onboardingDisabled") : t("chat.thinkingToggle")}
       >
         ${icons.brain}
@@ -267,6 +269,7 @@ export function renderChatControls(state: AppViewState) {
           });
         }}
         aria-pressed=${focusActive}
+        aria-label=${disableFocusToggle ? t("chat.onboardingDisabled") : t("chat.focusToggle")}
         title=${disableFocusToggle ? t("chat.onboardingDisabled") : t("chat.focusToggle")}
       >
         ${focusIcon}
@@ -277,6 +280,13 @@ export function renderChatControls(state: AppViewState) {
           state.sessionsHideCron = !hideCron;
         }}
         aria-pressed=${hideCron}
+        aria-label=${
+          hideCron
+            ? hiddenCronCount > 0
+              ? t("chat.showCronSessionsHidden", { count: String(hiddenCronCount) })
+              : t("chat.showCronSessions")
+            : t("chat.hideCronSessions")
+        }
         title=${
           hideCron
             ? hiddenCronCount > 0
