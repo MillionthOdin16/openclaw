@@ -1,0 +1,4 @@
+## 2025-02-15 - Command Injection via execSync Shell Interpolation
+**Vulnerability:** The codebase was using `execSync` to interact with macOS keychain commands (e.g., `security find-generic-password`). Dynamic inputs (like `account`) were interpolated directly into the string passed to `execSync`, creating a potential command injection vulnerability if an attacker could control the input values.
+**Learning:** `execSync` routes commands through a shell (like `/bin/sh`), meaning special characters (backticks, `$()`, semicolons) are evaluated before execution. This makes it inherently dangerous for dynamic or untrusted inputs.
+**Prevention:** Always use `execFileSync` (or `spawnSync`) instead of `execSync` for external commands, passing arguments as a strictly formatted array rather than a single string. This bypasses the shell entirely, forcing arguments to be treated as literal strings and eliminating the possibility of shell interpolation.
