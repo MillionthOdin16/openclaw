@@ -1,0 +1,3 @@
+## 2025-03-07 - Custom UI Component Accessibility
+**Learning:** When creating custom UI controls like resizable dividers or sliders that replace native HTML inputs, they lack inherent keyboard accessibility, focus management, and screen reader announcements. We must manually implement these features to ensure the control is usable by everyone.
+**Action:** Explicitly implement `:focus-visible` styles, `keydown` event listeners for interaction (like ArrowLeft/ArrowRight), and dynamic ARIA attributes (`role`, `aria-valuenow`, `aria-orientation`) whenever building custom interactive UI elements that lack native counterparts.
