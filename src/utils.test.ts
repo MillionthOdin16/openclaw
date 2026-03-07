@@ -4,19 +4,31 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
+  clampInt,
+  clampNumber,
   CONFIG_DIR,
+  displayPath,
+  displayString,
   ensureDir,
+  escapeRegExp,
+  formatTerminalLink,
+  isRecord,
+  isSelfChatMode,
   jidToE164,
   normalizeE164,
   normalizePath,
+  pathExists,
   resolveConfigDir,
+  safeParseJson,
   resolveHomeDir,
   resolveJidToE164,
   resolveUserPath,
   shortenHomeInString,
   shortenHomePath,
+  sliceUtf16Safe,
   sleep,
   toWhatsappJid,
+  truncateUtf16Safe,
   withWhatsAppPrefix,
 } from "./utils.js";
 
@@ -49,6 +61,128 @@ describe("withWhatsAppPrefix", () => {
   });
 });
 
+describe("clampNumber & clampInt", () => {
+  it("clamps number correctly", () => {
+    expect(clampNumber(5, 0, 10)).toBe(5);
+    expect(clampNumber(-5, 0, 10)).toBe(0);
+    expect(clampNumber(15, 0, 10)).toBe(10);
+  });
+
+  it("clamps integer correctly", () => {
+    expect(clampInt(5.5, 0, 10)).toBe(5);
+    expect(clampInt(-5.5, 0, 10)).toBe(0);
+    expect(clampInt(15.5, 0, 10)).toBe(10);
+  });
+});
+
+describe("pathExists", () => {
+  it("returns true when path exists", async () => {
+    await withTempDirSync("openclaw-test-", async (tmp) => {
+      const target = path.join(tmp, "exists.txt");
+      fs.writeFileSync(target, "content");
+      expect(await pathExists(target)).toBe(true);
+    });
+  });
+
+  it("returns false when path does not exist", async () => {
+    await withTempDirSync("openclaw-test-", async (tmp) => {
+      const target = path.join(tmp, "does-not-exist.txt");
+      expect(await pathExists(target)).toBe(false);
+    });
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid JSON", () => {
+    expect(safeParseJson('{"a": 1}')).toEqual({ a: 1 });
+    expect(safeParseJson('"foo"')).toBe("foo");
+  });
+
+  it("returns null for invalid JSON", () => {
+    expect(safeParseJson('{"a": 1')).toBeNull();
+    expect(safeParseJson("undefined")).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for plain objects", () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ a: 1 })).toBe(true);
+  });
+
+  it("returns false for other types", () => {
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord([])).toBe(false);
+    expect(isRecord("string")).toBe(false);
+    expect(isRecord(123)).toBe(false);
+    expect(isRecord(undefined)).toBe(false);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes regex special characters", () => {
+    expect(escapeRegExp("hello.world")).toBe("hello\\.world");
+    expect(escapeRegExp("foo[bar]")).toBe("foo\\[bar\\]");
+    expect(escapeRegExp("a*b+c?")).toBe("a\\*b\\+c\\?");
+    expect(escapeRegExp("no-special-chars")).toBe("no-special-chars");
+  });
+});
+
+describe("sliceUtf16Safe", () => {
+  it("slices basic strings safely", () => {
+    expect(sliceUtf16Safe("hello", 0, 3)).toBe("hel");
+    expect(sliceUtf16Safe("hello", 2)).toBe("llo");
+    expect(sliceUtf16Safe("hello", -2)).toBe("lo");
+    expect(sliceUtf16Safe("hello", 1, -1)).toBe("ell");
+  });
+
+  it("handles negative indices correctly", () => {
+    expect(sliceUtf16Safe("abcde", -3, -1)).toBe("cd");
+  });
+
+  it("handles reversed from and to limits", () => {
+    expect(sliceUtf16Safe("hello", 4, 2)).toBe("ll");
+  });
+
+  it("does not split surrogate pairs at start limit", () => {
+    const text = "a💩b"; // 💩 is \uD83D\uDCA9
+    expect(text.length).toBe(4); // a, D83D, DCA9, b
+
+    // start boundary falls between D83D and DCA9
+    // It should increase from to skip the broken surrogate
+    expect(sliceUtf16Safe(text, 2, 4)).toBe("b");
+  });
+
+  it("does not split surrogate pairs at end limit", () => {
+    const text = "a💩b";
+
+    // end boundary falls between D83D and DCA9
+    // It should decrease to to exclude the broken surrogate
+    expect(sliceUtf16Safe(text, 0, 2)).toBe("a");
+  });
+
+  it("extracts full surrogate pairs safely", () => {
+    const text = "a💩b";
+    expect(sliceUtf16Safe(text, 1, 3)).toBe("💩");
+  });
+});
+
+describe("truncateUtf16Safe", () => {
+  it("truncates string safely and avoids surrogate splits", () => {
+    const text = "a💩b";
+
+    // truncating at 2 would break the surrogate pair
+    expect(truncateUtf16Safe(text, 2)).toBe("a");
+
+    // truncating at 3 keeps the surrogate pair
+    expect(truncateUtf16Safe(text, 3)).toBe("a💩");
+  });
+
+  it("returns original string if maxLen is greater", () => {
+    expect(truncateUtf16Safe("hello", 10)).toBe("hello");
+  });
+});
+
 describe("ensureDir", () => {
   it("creates nested directory", async () => {
     await withTempDirSync("openclaw-test-", async (tmp) => {
@@ -76,6 +210,42 @@ describe("assertWebChannel", () => {
 
   it("throws for invalid channel", () => {
     expect(() => assertWebChannel("bad" as string)).toThrow();
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns false if selfE164 is falsy", () => {
+    expect(isSelfChatMode(null, ["+15551234567"])).toBe(false);
+    expect(isSelfChatMode(undefined, ["+15551234567"])).toBe(false);
+    expect(isSelfChatMode("", ["+15551234567"])).toBe(false);
+  });
+
+  it("returns false if allowFrom is missing or empty", () => {
+    expect(isSelfChatMode("+15551234567", [])).toBe(false);
+    expect(isSelfChatMode("+15551234567", null)).toBe(false);
+    expect(isSelfChatMode("+15551234567")).toBe(false);
+  });
+
+  it("returns true when selfE164 is in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("+15551234567", ["+19990000000", "+15551234567"])).toBe(true);
+  });
+
+  it("normalizes numbers before comparing", () => {
+    expect(isSelfChatMode("15551234567", ["whatsapp:+15551234567"])).toBe(true);
+    expect(isSelfChatMode("whatsapp:+15551234567", ["15551234567"])).toBe(true);
+  });
+
+  it("returns false when selfE164 is not in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+19990000000"])).toBe(false);
+  });
+
+  it("returns false when allowFrom contains wildcard", () => {
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+  });
+
+  it("handles malformed numbers in allowFrom safely", () => {
+    expect(isSelfChatMode("+15551234567", ["invalid"])).toBe(false);
   });
 });
 
@@ -175,6 +345,55 @@ describe("shortenHomePath", () => {
   });
 });
 
+describe("displayPath & displayString", () => {
+  it("displayPath uses shortenHomePath", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    vi.stubEnv("HOME", "/home/other");
+    expect(displayPath(`${path.resolve("/srv/openclaw-home")}/.openclaw/openclaw.json`)).toBe(
+      "$OPENCLAW_HOME/.openclaw/openclaw.json",
+    );
+    vi.unstubAllEnvs();
+  });
+
+  it("displayString uses shortenHomeInString", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    vi.stubEnv("HOME", "/home/other");
+    expect(
+      displayString(`config: ${path.resolve("/srv/openclaw-home")}/.openclaw/openclaw.json`),
+    ).toBe("config: $OPENCLAW_HOME/.openclaw/openclaw.json");
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats link correctly with force=true", () => {
+    expect(formatTerminalLink("My Label", "https://example.com", { force: true })).toBe(
+      "\u001b]8;;https://example.com\u0007My Label\u001b]8;;\u0007",
+    );
+  });
+
+  it("strips escape characters from label and url", () => {
+    expect(formatTerminalLink("My\u001bLabel", "https://example.com\u001b", { force: true })).toBe(
+      "\u001b]8;;https://example.com\u0007MyLabel\u001b]8;;\u0007",
+    );
+  });
+
+  it("uses fallback if specified and force=false", () => {
+    expect(
+      formatTerminalLink("My Label", "https://example.com", {
+        force: false,
+        fallback: "fallback string",
+      }),
+    ).toBe("fallback string");
+  });
+
+  it("uses default format if force=false and no fallback", () => {
+    expect(formatTerminalLink("My Label", "https://example.com", { force: false })).toBe(
+      "My Label (https://example.com)",
+    );
+  });
+});
+
 describe("shortenHomeInString", () => {
   it("uses $OPENCLAW_HOME replacement when OPENCLAW_HOME is set", () => {
     vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
@@ -211,6 +430,23 @@ describe("resolveJidToE164", () => {
     };
     await expect(resolveJidToE164("777@lid", { lidLookup })).resolves.toBeNull();
     expect(lidLookup.getPNForLID).toHaveBeenCalledWith("777@lid");
+  });
+
+  it("returns null when jid is falsy", async () => {
+    await expect(resolveJidToE164(null)).resolves.toBeNull();
+    await expect(resolveJidToE164(undefined)).resolves.toBeNull();
+    await expect(resolveJidToE164("")).resolves.toBeNull();
+  });
+
+  it("returns null when lidLookup is not provided for @lid", async () => {
+    await expect(resolveJidToE164("777@lid")).resolves.toBeNull();
+  });
+
+  it("returns null when lidLookup returns falsy", async () => {
+    const lidLookup = {
+      getPNForLID: vi.fn().mockResolvedValue(null),
+    };
+    await expect(resolveJidToE164("777@lid", { lidLookup })).resolves.toBeNull();
   });
 });
 
