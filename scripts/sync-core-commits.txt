@@ -4,8 +4,6 @@
 a83a230a51
 # sync tooling + canonical manifests for replay process
 96c02759b8
-# canonical core replay manifest content after replay
-a9b460d4e3
 # fix(compaction): ensure session disposal even if idle flush fails
 7eea5ef4fb
 # fix(kimi): pool key rotation (KIMI_CODE_N) + membership 402 -> auth_permanent failover
