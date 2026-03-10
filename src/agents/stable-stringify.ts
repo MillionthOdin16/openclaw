@@ -1,12 +1,32 @@
 export function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
-    return JSON.stringify(value) ?? "null";
+    const s = JSON.stringify(value);
+    return s === undefined ? "null" : s;
   }
   if (Array.isArray(value)) {
-    return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+    const len = value.length;
+    if (len === 0) {
+      return "[]";
+    }
+    let out = "[" + stableStringify(value[0]);
+    for (let i = 1; i < len; i++) {
+      out += "," + stableStringify(value[i]);
+    }
+    return out + "]";
   }
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).toSorted();
-  const entries = keys.map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`);
-  return `{${entries.join(",")}}`;
+  const keys = Object.keys(value);
+  const len = keys.length;
+  if (len === 0) {
+    return "{}";
+  }
+  keys.sort();
+
+  const firstKey = keys[0];
+  let out =
+    "{" + JSON.stringify(firstKey) + ":" + stableStringify((value as Record<string, unknown>)[firstKey]);
+  for (let i = 1; i < len; i++) {
+    const key = keys[i];
+    out += "," + JSON.stringify(key) + ":" + stableStringify((value as Record<string, unknown>)[key]);
+  }
+  return out + "}";
 }
