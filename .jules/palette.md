@@ -1,0 +1,3 @@
+## 2024-03-10 - Keyboard accessibility for Resizable Dividers
+**Learning:** When replacing native inputs with custom UI controls (e.g., resizable dividers), it's crucial to explicitly implement keyboard focus states (`:focus-visible`), `keydown` event listeners for interaction, and dynamic ARIA attributes (`role="separator"`, `aria-valuenow`, `aria-orientation`) to ensure screen reader compatibility. Without these, the custom elements are entirely invisible and unusable for keyboard-only or screen reader users.
+**Action:** Always verify that custom interactive components can receive focus and be operated entirely with the keyboard, including appropriate ARIA attribute bindings that update as the component's state changes.
