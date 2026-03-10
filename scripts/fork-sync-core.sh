@@ -8,6 +8,7 @@ INFRA_FILE="scripts/sync-infra-commits.txt"
 PUSH=0
 OPEN_PR=0
 DRY_RUN=0
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -21,6 +22,18 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
 done
+
+resolve_path() {
+  local path="$1"
+  if [[ "$path" = /* ]]; then
+    echo "$path"
+  else
+    echo "$REPO_ROOT/$path"
+  fi
+}
+
+CORE_FILE="$(resolve_path "$CORE_FILE")"
+INFRA_FILE="$(resolve_path "$INFRA_FILE")"
 
 git fetch --quiet origin --prune
 git fetch --quiet upstream --prune
