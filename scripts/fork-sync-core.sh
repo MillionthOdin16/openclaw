@@ -28,16 +28,27 @@ git checkout -q -B "$BRANCH" "$BASE_REF"
 
 apply_list() {
   local file="$1"
+  local line clean sha
   [[ -f "$file" ]] || return 0
-  while IFS= read -r sha; do
-    [[ -z "$sha" || "$sha" =~ ^# ]] && continue
+  while IFS= read -r line; do
+    clean="${line%%#*}"
+    sha="$(echo "$clean" | xargs)"
+    [[ -z "$sha" ]] && continue
     if git merge-base --is-ancestor "$sha" HEAD; then
       echo "SKIP (already in base): $sha"
       continue
     fi
     echo "PICK: $sha"
     if [[ "$DRY_RUN" -eq 0 ]]; then
-      git cherry-pick -x "$sha"
+      if ! git cherry-pick -x "$sha"; then
+        if git diff --quiet && git diff --cached --quiet; then
+          echo "SKIP (already applied): $sha"
+          git cherry-pick --skip
+        else
+          echo "ERROR: cherry-pick failed for $sha" >&2
+          exit 1
+        fi
+      fi
     fi
   done < "$file"
 }

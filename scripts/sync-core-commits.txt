@@ -1,5 +1,6 @@
 # Core fork-maintained commits to carry onto origin/main.
 # Keep empty unless a core fork fix is confirmed replay-safe on upstream/main.
-07c8c1cf1
-db1965558
-152d0defa0  # fix(kimi): pool key rotation (KIMI_CODE_N) + membership 402 → auth_permanent failover
+# fix(compaction): ensure session disposal even if idle flush fails
+7eea5ef4fb
+# fix(kimi): pool key rotation (KIMI_CODE_N) + membership 402 -> auth_permanent failover
+152d0defa0
