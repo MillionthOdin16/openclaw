@@ -1452,12 +1452,15 @@ export async function runEmbeddedAttempt(
           }
         }
       } catch (err) {
-        await flushPendingToolResultsAfterIdle({
-          agent: activeSession?.agent,
-          sessionManager,
-          clearPendingOnTimeout: true,
-        });
-        activeSession.dispose();
+        try {
+          await flushPendingToolResultsAfterIdle({
+            agent: activeSession?.agent,
+            sessionManager,
+            clearPendingOnTimeout: true,
+          });
+        } finally {
+          activeSession.dispose();
+        }
         throw err;
       }
 
