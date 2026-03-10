@@ -499,6 +499,14 @@ const SIMPLE_IMPLICIT_PROVIDER_LOADERS: ImplicitProviderLoader[] = [
   withApiKey("minimax", async ({ apiKey }) => ({ ...buildMinimaxProvider(), apiKey })),
   withApiKey("moonshot", async ({ apiKey }) => ({ ...buildMoonshotProvider(), apiKey })),
   withApiKey("kimi-coding", async ({ apiKey }) => ({ ...buildKimiCodingProvider(), apiKey })),
+  // Pool rotation: kimi-coding-2..20 each backed by KIMI_CODE_N env var
+  ...[...Array(19)].map((_, i) => {
+    const n = i + 2;
+    return withApiKey(`kimi-coding-${n}`, async ({ apiKey }) => ({
+      ...buildKimiCodingProvider(),
+      apiKey,
+    }));
+  }),
   withApiKey("synthetic", async ({ apiKey }) => ({ ...buildSyntheticProvider(), apiKey })),
   withApiKey("venice", async ({ apiKey }) => ({ ...(await buildVeniceProvider()), apiKey })),
   withApiKey("xiaomi", async ({ apiKey }) => ({ ...buildXiaomiProvider(), apiKey })),

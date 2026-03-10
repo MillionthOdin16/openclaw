@@ -52,6 +52,11 @@ export function normalizeProviderId(provider: string): string {
   if (normalized === "kimi-code") {
     return "kimi-coding";
   }
+  // kimi-code-N (e.g. kimi-code-2) → kimi-coding-N for pool key rotation
+  const kimiCodeNMatch = /^kimi-code-(\d+)$/.exec(normalized);
+  if (kimiCodeNMatch) {
+    return `kimi-coding-${kimiCodeNMatch[1]}`;
+  }
   if (normalized === "bedrock" || normalized === "aws-bedrock") {
     return "amazon-bedrock";
   }

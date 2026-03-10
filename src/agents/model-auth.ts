@@ -303,6 +303,13 @@ export function resolveEnvApiKey(
     }
     return { apiKey: envKey, source: "gcloud adc" };
   }
+
+  // Dynamic pool rotation: kimi-coding-N → KIMI_CODE_N
+  const kimiPoolMatch = /^kimi-coding-(\d+)$/.exec(normalized);
+  if (kimiPoolMatch) {
+    return pick(`KIMI_CODE_${kimiPoolMatch[1]}`);
+  }
+
   return null;
 }
 
