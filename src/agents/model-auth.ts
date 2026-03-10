@@ -286,6 +286,10 @@ export function resolveEnvApiKey(
     return { apiKey: value, source };
   };
 
+  if (normalized === "kimi-coding") {
+    return pick("KIMI_CODE") ?? pick("KIMI_API_KEY") ?? pick("KIMICODE_API_KEY");
+  }
+
   const candidates = PROVIDER_ENV_API_KEY_CANDIDATES[normalized];
   if (candidates) {
     for (const envVar of candidates) {
@@ -294,6 +298,11 @@ export function resolveEnvApiKey(
         return resolved;
       }
     }
+  }
+
+  const kimiPoolMatch = /^kimi-coding-(\d+)$/.exec(normalized);
+  if (kimiPoolMatch) {
+    return pick(`KIMI_CODE_${kimiPoolMatch[1]}`);
   }
 
   if (normalized === "google-vertex") {
