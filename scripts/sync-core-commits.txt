@@ -2,8 +2,6 @@
 # Keep empty unless a core fork fix is confirmed replay-safe on upstream/main.
 # oauth compatibility for pi-ai 0.57.x export map
 a83a230a51
-# sync tooling + canonical manifests for replay process
-96c02759b8
 # fix(compaction): ensure session disposal even if idle flush fails
 7eea5ef4fb
 # fix(kimi): pool key rotation (KIMI_CODE_N) + membership 402 -> auth_permanent failover
