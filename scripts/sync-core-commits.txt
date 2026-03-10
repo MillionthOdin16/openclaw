@@ -6,3 +6,5 @@ a83a230a51
 7eea5ef4fb
 # fix(kimi): pool key rotation (KIMI_CODE_N) + membership 402 -> auth_permanent failover
 8590e6a8a4
+# fix(kimi): classify membership-benefits 402 copy as auth_permanent fallback failure
+a81f4b67a5
