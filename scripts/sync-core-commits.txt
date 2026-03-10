@@ -1,5 +1,7 @@
 # Core fork-maintained commits to carry onto origin/main.
 # Keep empty unless a core fork fix is confirmed replay-safe on upstream/main.
+# sync tooling + canonical manifests for replay process
+96c02759b8
 # fix(compaction): ensure session disposal even if idle flush fails
 7eea5ef4fb
 # fix(kimi): pool key rotation (KIMI_CODE_N) + membership 402 -> auth_permanent failover
