@@ -958,6 +958,16 @@ export async function resolveImplicitProviders(params: {
     providers["kimi-coding"] = { ...buildKimiCodingProvider(), apiKey: kimiCodingKey };
   }
 
+  // Build pool providers for kimi-coding-N (matching KIMI_CODE_N env vars and kimi-code-N config entries)
+  for (let n = 2; n <= 20; n++) {
+    const poolKey =
+      resolveEnvApiKeyVarName(`kimi-coding-${n}`) ??
+      resolveApiKeyFromProfiles({ provider: `kimi-coding-${n}`, store: authStore });
+    if (poolKey) {
+      providers[`kimi-coding-${n}`] = { ...buildKimiCodingProvider(), apiKey: poolKey };
+    }
+  }
+
   const syntheticKey =
     resolveEnvApiKeyVarName("synthetic") ??
     resolveApiKeyFromProfiles({ provider: "synthetic", store: authStore });

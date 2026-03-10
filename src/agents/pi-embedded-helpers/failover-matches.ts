@@ -54,6 +54,11 @@ const ERROR_PATTERNS = {
     /could not (?:authenticate|validate).*(?:api[_ ]?key|credentials)/i,
     "permission_error",
     "not allowed for this organization",
+    // Kimi membership/subscription verification failures (e.g. 402 "unable to verify membership benefits")
+    /unable to verify your membership benefits/i,
+    /ensure your membership is active/i,
+    /verify.*membership/i,
+    /membership.*(?:benefits|not active|inactive|expired)/i,
   ],
   auth: [
     /invalid[_ ]?api[_ ]?key/,

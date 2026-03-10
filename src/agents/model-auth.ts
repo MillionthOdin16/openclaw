@@ -291,7 +291,12 @@ export function resolveEnvApiKey(provider: string): EnvApiKeyResult | null {
   }
 
   if (normalized === "kimi-coding") {
-    return pick("KIMI_API_KEY") ?? pick("KIMICODE_API_KEY");
+    return pick("KIMI_CODE") ?? pick("KIMI_API_KEY") ?? pick("KIMICODE_API_KEY");
+  }
+  // kimi-coding-N → KIMI_CODE_N (pool rotation keys)
+  const kimiCodingNMatch = /^kimi-coding-(\d+)$/.exec(normalized);
+  if (kimiCodingNMatch) {
+    return pick(`KIMI_CODE_${kimiCodingNMatch[1]}`);
   }
 
   if (normalized === "huggingface") {

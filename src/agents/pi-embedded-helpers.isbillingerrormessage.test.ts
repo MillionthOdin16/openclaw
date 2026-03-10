@@ -35,6 +35,20 @@ describe("isAuthPermanentErrorMessage", () => {
       expect(isAuthPermanentErrorMessage(sample)).toBe(true);
     }
   });
+  it("matches Kimi membership verification failures", () => {
+    const samples = [
+      "We're unable to verify your membership benefits at this time. Please ensure your membership is active.",
+      "402 We're unable to verify your membership benefits at this time. Please ensure your membership is active.",
+      "unable to verify your membership benefits",
+      "ensure your membership is active",
+      "verify your membership status",
+      "membership benefits expired",
+      "membership not active",
+    ];
+    for (const sample of samples) {
+      expect(isAuthPermanentErrorMessage(sample)).toBe(true);
+    }
+  });
   it("does not match transient auth errors", () => {
     const samples = [
       "unauthorized",
