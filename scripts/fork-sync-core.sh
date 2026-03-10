@@ -34,6 +34,12 @@ resolve_path() {
 
 CORE_FILE="$(resolve_path "$CORE_FILE")"
 INFRA_FILE="$(resolve_path "$INFRA_FILE")"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+CORE_FILE_SNAPSHOT="$TMP_DIR/core-commits.txt"
+INFRA_FILE_SNAPSHOT="$TMP_DIR/infra-commits.txt"
+[[ -f "$CORE_FILE" ]] && cp "$CORE_FILE" "$CORE_FILE_SNAPSHOT"
+[[ -f "$INFRA_FILE" ]] && cp "$INFRA_FILE" "$INFRA_FILE_SNAPSHOT"
 
 git fetch --quiet origin --prune
 git fetch --quiet upstream --prune
@@ -67,9 +73,9 @@ apply_list() {
 }
 
 echo "Applying core commits from $CORE_FILE..."
-apply_list "$CORE_FILE"
+apply_list "$CORE_FILE_SNAPSHOT"
 echo "Applying infra commits from $INFRA_FILE..."
-apply_list "$INFRA_FILE"
+apply_list "$INFRA_FILE_SNAPSHOT"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "Dry run complete."
