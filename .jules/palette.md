@@ -1,0 +1,3 @@
+## 2025-02-27 - Keyboard Accessibility for Custom UI Controls
+**Learning:** Custom interactive controls like resizable dividers or sliders require explicit dynamic ARIA attributes (`role`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-orientation`) and keyboard event handlers (`keydown` for arrow keys) to maintain accessibility parity with native elements. Furthermore, visual `focus-visible` states are critical for keyboard-only navigation.
+**Action:** Always implement explicit keyboard interactions, focus indicators, and comprehensive ARIA state properties when replacing native inputs with custom Web Components or UI controls.

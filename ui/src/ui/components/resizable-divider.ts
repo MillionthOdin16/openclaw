@@ -23,6 +23,12 @@ export class ResizableDivider extends LitElement {
       transition: background 150ms ease-out;
       flex-shrink: 0;
       position: relative;
+      outline: none;
+    }
+    :host(:focus-visible) {
+      background: var(--accent, #007bff);
+      outline: 2px solid var(--accent, #007bff);
+      outline-offset: 1px;
     }
     :host::before {
       content: "";
@@ -47,14 +53,55 @@ export class ResizableDivider extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener("mousedown", this.handleMouseDown);
+    this.addEventListener("keydown", this.handleKeyDown);
+
+    this.setAttribute("role", "separator");
+    this.setAttribute("tabindex", "0");
+    this.setAttribute("aria-orientation", "vertical");
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener("mousedown", this.handleMouseDown);
+    this.removeEventListener("keydown", this.handleKeyDown);
     document.removeEventListener("mousemove", this.handleMouseMove);
     document.removeEventListener("mouseup", this.handleMouseUp);
   }
+
+  updated(changedProperties: Map<string | number | symbol, unknown>) {
+    super.updated(changedProperties);
+    if (changedProperties.has('splitRatio')) {
+      this.setAttribute("aria-valuenow", String(Math.round(this.splitRatio * 100)));
+    }
+    if (changedProperties.has('minRatio')) {
+      this.setAttribute("aria-valuemin", String(Math.round(this.minRatio * 100)));
+    }
+    if (changedProperties.has('maxRatio')) {
+      this.setAttribute("aria-valuemax", String(Math.round(this.maxRatio * 100)));
+    }
+  }
+
+  private handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+
+      const step = 0.05; // 5% step size
+      const direction = e.key === "ArrowRight" ? 1 : -1;
+
+      let newRatio = this.splitRatio + (step * direction);
+      newRatio = Math.max(this.minRatio, Math.min(this.maxRatio, newRatio));
+
+      if (newRatio !== this.splitRatio) {
+        this.dispatchEvent(
+          new CustomEvent("resize", {
+            detail: { splitRatio: newRatio },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      }
+    }
+  };
 
   private handleMouseDown = (e: MouseEvent) => {
     this.isDragging = true;
