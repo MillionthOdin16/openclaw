@@ -449,7 +449,7 @@ async function executeSystemRunPhase(
     }
   }
 
-  if (phase.policy.approvalDecision === "allow-always" && phase.security === "allowlist") {
+  if (phase.policy.approvalDecision === "allow-always") {
     if (phase.policy.analysisOk) {
       const patterns = resolveAllowAlwaysPatterns({
         segments: phase.segments,
