@@ -122,3 +122,6 @@ dist/protocol.schema.json
 # Synthing
 **/.stfolder/
 .dev-state
+.jules/scout.md
+gh_2.40.1_linux_amd64/
+issues.txt
