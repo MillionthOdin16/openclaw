@@ -112,11 +112,31 @@ function stableStringify(value: unknown): string {
     return JSON.stringify(value);
   }
   if (Array.isArray(value)) {
-    return `[${value.map(stableStringify).join(",")}]`;
+    if (value.length === 0) {
+      return "[]";
+    }
+    let result = "[" + stableStringify(value[0]);
+    for (let i = 1; i < value.length; i++) {
+      result += "," + stableStringify(value[i]);
+    }
+    result += "]";
+    return result;
   }
   const obj = value as Record<string, unknown>;
   const keys = Object.keys(obj).toSorted();
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(",")}}`;
+  if (keys.length === 0) {
+    return "{}";
+  }
+  let result = "{";
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (i > 0) {
+      result += ",";
+    }
+    result += JSON.stringify(key) + ":" + stableStringify(obj[key]);
+  }
+  result += "}";
+  return result;
 }
 
 function digestStable(value: unknown): string {
