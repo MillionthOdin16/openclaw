@@ -141,18 +141,31 @@ function stableStringify(value: unknown, seen: WeakSet<object> = new WeakSet()):
     );
   }
   if (Array.isArray(value)) {
-    const serializedEntries: string[] = [];
-    for (const entry of value) {
-      serializedEntries.push(stableStringify(entry, seen));
+    if (value.length === 0) {
+      return "[]";
     }
-    return `[${serializedEntries.join(",")}]`;
+    let result = "[" + stableStringify(value[0], seen);
+    for (let i = 1; i < value.length; i++) {
+      result += "," + stableStringify(value[i], seen);
+    }
+    result += "]";
+    return result;
   }
   const record = value as Record<string, unknown>;
-  const serializedFields: string[] = [];
-  for (const key of Object.keys(record).toSorted()) {
-    serializedFields.push(`${JSON.stringify(key)}:${stableStringify(record[key], seen)}`);
+  const keys = Object.keys(record).toSorted();
+  if (keys.length === 0) {
+    return "{}";
   }
-  return `{${serializedFields.join(",")}}`;
+  let result = "{";
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (i > 0) {
+      result += ",";
+    }
+    result += JSON.stringify(key) + ":" + stableStringify(record[key], seen);
+  }
+  result += "}";
+  return result;
 }
 
 function digest(value: unknown): string {
