@@ -1,9 +1,62 @@
 import { describe, expect, it } from "vitest";
-import { getDefaultRedactPatterns, redactSensitiveText } from "./redact.js";
+import { getDefaultRedactPatterns, redactSensitiveText, redactToolDetail } from "./redact.js";
+import { vi } from "vitest";
 
 const defaults = getDefaultRedactPatterns();
 
+describe("redactToolDetail", () => {
+  it("skips redaction when mode is off via config", async () => {
+    vi.doMock("./node-require.js", () => {
+      return {
+        resolveNodeRequireFromMeta: () => () => ({
+          loadConfig: () => ({ logging: { redactSensitive: "off" } }),
+        }),
+      };
+    });
+
+    const { redactToolDetail: mockRedactToolDetail } = await import("./redact.js?mocked-off");
+
+    const input = "Command run with token: OPENAI_API_KEY=sk-1234567890abcdef";
+    const output = mockRedactToolDetail(input);
+    expect(output).toBe(input);
+
+    vi.doUnmock("./node-require.js");
+  });
+
+  it("redacts tool details using default configuration", () => {
+    // RedactToolDetail resolves config on its own but falls back to tools if missing
+    const input = "Command run with token: OPENAI_API_KEY=sk-1234567890abcdef";
+    const output = redactToolDetail(input);
+    expect(output).toContain("Command run with token: OPENAI");
+    expect(output).toContain("…cdef");
+  });
+});
+
 describe("redactSensitiveText", () => {
+  it("ignores empty patterns", () => {
+    const input = "OPENAI_API_KEY=sk-1234567890abcdef";
+    const output = redactSensitiveText(input, {
+      mode: "tools",
+      patterns: ["   ", ""],
+    });
+    expect(output).toBe(input);
+  });
+
+  it("returns short or single-line private keys as fully redacted", () => {
+    const input = "-----BEGIN PRIVATE KEY-----";
+    // We must pass a custom pattern since the default PEM pattern requires -----END PRIVATE KEY-----
+    const output = redactSensitiveText(input, {
+      mode: "tools",
+      patterns: ["-----BEGIN PRIVATE KEY-----"],
+    });
+    expect(output).toBe("***");
+  });
+
+  it("returns falsy text as is", () => {
+    const output = redactSensitiveText("", { mode: "tools", patterns: defaults });
+    expect(output).toBe("");
+  });
+
   it("masks env assignments while keeping the key", () => {
     const input = "OPENAI_API_KEY=sk-1234567890abcdef";
     const output = redactSensitiveText(input, {
