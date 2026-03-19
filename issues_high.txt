@@ -1,0 +1,50 @@
+41778	OPEN	openclaw-message OOM on 4GB servers since v2026.3.7		2026-03-17T02:25:25Z
+24995	OPEN	memory_search causes Node.js heap OOM crash (SIGABRT) via sqlite StatementSync::All	stale	2026-03-03T05:36:41Z
+41193	OPEN	v2026.3.8: Crash loop on startup — plugin errors, SyntaxErrors, V8 JIT crashes		2026-03-11T17:40:27Z
+45037	OPEN	v2026.3.12: Gateway fails to start — ANTHROPIC_MODEL_ALIASES referenced before initialization		2026-03-13T12:15:47Z
+30212	OPEN	Bug: Gateway OOM crash from Discord EventQueue backlog (RSS grows to 4GB)		2026-03-15T15:50:54Z
+44791	OPEN	[Bug]: Dashboard UI crashes (grey warning triangle) when viewing v3.11 Telegram sessions containing failed media	bug, regression	2026-03-13T07:35:40Z
+44787	OPEN	[Bug]: Pre-compaction memory flush. Store durable memories now (use memory/2026-03-13.md; creatememory/ if needed). IMPORTANT: If the file already exists, APPEND new content only and do notoverwrite existing entries	bug, regression	2026-03-13T07:11:34Z
+47050	OPEN	Fix: Add TTL/Timeout garbage collection to ChatRunRegistry to prevent Gateway OOM		2026-03-17T03:48:09Z
+45064	OPEN	[Bug]: 2026.3.12 Memory Leak - OOM on basic commands (gateway status, doctor)	bug, bug:crash	2026-03-17T02:25:56Z
+47884	OPEN	[Bug]: memory_search tool fails with "fetch failed" despite embedding provider configured	bug, bug:behavior	2026-03-16T05:13:00Z
+47650	OPEN	[2026.3.13 Regression] Multiple critical bugs: CLI scope validation broken, BlueBubbles webhook route not registered		2026-03-16T06:03:45Z
+44778	OPEN	[Bug] Feishu image causes gateway crash - image path not passed to image tool	bug, regression	2026-03-13T08:35:07Z
+44093	OPEN	[Bug]: Gateway Crash And Removed After Restart Command	bug, regression	2026-03-18T02:16:54Z
+41289	OPEN	openclaw-mem0: OSS mode fails in gateway runtime (native bindings, SQLite paths, credentials, non-graceful failure)		2026-03-09T17:35:14Z
+45076	OPEN	Bug: ANTHROPIC_MODEL_ALIASES TDZ crash when contextPruning is configured (3.12)		2026-03-13T12:56:10Z
+34678	OPEN	SQLITE_CANTOPEN should be classified as transient, not fatal (kills LaunchAgent)		2026-03-10T21:47:39Z
+45962	OPEN	[Bug]: gateway start crash due to OOM since with 2026.3.12 and 2026.3.13	bug, regression	2026-03-18T10:19:46Z
+49163	OPEN	[Bug]: Crash accessing remote browser	bug, bug:crash	2026-03-19T05:18:08Z
+15036	OPEN	[Bug]: OpenClaw Gateway Crashes on Message Processing	bug	2026-03-13T04:08:31Z
+36511	OPEN	V8 crash in openclaw-models: `models auth login --provider openai-codex` fatal error		2026-03-05T21:51:19Z
+48644	OPEN	Gateway startup takes 4-10 minutes (603 JS chunks, 2.2GB memory peak)		2026-03-17T05:39:12Z
+50328	OPEN	Bug: Plugin tools registered via api.registerTool() not available in agent runtime		2026-03-19T08:47:09Z
+33048	OPEN	mem0 sqlite bindings still broken in 2026.3.2 (regression from 2026.2.26)		2026-03-03T13:26:19Z
+21099	OPEN	Discord gateway 4014 causes uncaught exception loop and repeated gateway crashes	stale	2026-03-18T04:21:55Z
+34592	OPEN	[Bug]: Discord channel connection failure causes gateway infinite restart loop		2026-03-04T17:43:56Z
+44529	OPEN	[Bug]: Gateway crashes with unhandled promise rejection when Discord API returns 503 during health-monitor bot reconnect	bug, regression	2026-03-19T12:16:46Z
+44781	OPEN	[Bug]: 2026.3.12 crashes on startup with Cannot access 'ANTHROPIC_MODEL_ALIASES' before initialization	bug, regression	2026-03-14T02:23:13Z
+48546	OPEN	Test failure: test run failed		2026-03-16T23:04:59Z
+41377	OPEN	memory-lancedb: cached rejected promise causes permanent failure until gateway restart		2026-03-09T20:31:58Z
+47326	OPEN	[Bug]: BOOTSTRAP persistence -> Hard AGENT reset -> MEMORY triage	bug, bug:behavior	2026-03-16T08:58:46Z
+21082	OPEN	Slack SocketModeClient DNS error causes unhandled rejection → process crash		2026-03-18T04:21:49Z
+45357	OPEN	Request: Add Chinese-friendly tokenizer support for qmd memory backend		2026-03-13T20:02:03Z
+48244	OPEN	memory-lancedb: @lancedb/lancedb missing after npm global install/update		2026-03-16T14:00:01Z
+26069	OPEN	Bug: memory index fails with Gemini provider on v2026.2.23 (fetch failed)		2026-02-27T07:21:02Z
+49495	OPEN	[Bug] memory-lancedb-pro and memory-openviking plugin config rejected by gateway validator		2026-03-18T05:42:31Z
+45085	OPEN	2026.3.12: ReferenceError ANTHROPIC_MODEL_ALIASES before initialization on openclaw status (eager context window warmup TDZ)		2026-03-13T18:31:24Z
+16810	OPEN	Feature: Gateway crash loop protection (restart rate limiting)		2026-03-13T04:14:09Z
+44932	OPEN	[Bug]: openclaw doctor reports false memory probe timeout warning when memory is fully operational		2026-03-17T02:23:38Z
+47957	OPEN	[Bug]: CI check/startup-memory/windows-tests globally broken after plugins refactor (2026-03-16)		2026-03-16T07:15:30Z
+44202	OPEN	[Bug]: local memory embeddings on Apple Silicon can crash gateway in ggml-metal / node-llama-cpp; need official Metal/GPU guidance		2026-03-12T20:43:42Z
+46934	OPEN	memory_search with Gemini embeddings fails behind proxy because memory remote fetch ignores env proxy (fetchWithSsrFGuard strict mode)		2026-03-15T08:08:45Z
+33256	OPEN	[Bug]: googlechat broken in 2026.3.3	bug, regression	2026-03-17T20:51:34Z
+44172	OPEN	[Help]: Gateway reliability — recurring process death requiring manual restart (@mtiplea)		2026-03-12T22:09:16Z
+50439	OPEN	[Bug]: QMD binary missing — "spawn qmd ENOENT" on macOS ARM	bug, bug:behavior	2026-03-19T14:24:31Z
+19312	OPEN	[Bug] v2026.2.15 Bundled Plugin Ecosystem Failure - 81% Plugins Affected by workspace:* Dependencies	stale	2026-03-16T04:28:33Z
+45178	OPEN	macOS: config-triggered gateway restart can leave LaunchAgent 'not loaded / not installed'; doctor --repair recovers		2026-03-17T06:17:42Z
+50173	OPEN	[Bug]: memory_search tool not injected in new sessions despite plugin loaded	bug, bug:behavior	2026-03-19T03:27:20Z
+37550	OPEN	macOS: OpenClaw.app v2026.3.2 crashes on launch (Fatal access conflict in TalkOverlayView)		2026-03-06T09:23:56Z
+48938	OPEN	[Bug]: Proactive `message send` fails with "No active WhatsApp Web listener" while auto-reply works	bug, regression	2026-03-17T11:03:21Z
+49933	OPEN	[Bug]: Builtin memory indexing ignores configured remote embedding batch timeout	bug, bug:behavior	2026-03-19T04:08:59Z
