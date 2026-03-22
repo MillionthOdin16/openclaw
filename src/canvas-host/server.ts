@@ -110,11 +110,19 @@ function defaultIndexHTML() {
         typeof window.openclawCanvasA2UIAction.postMessage === "function")
     );
   const hasHelper = () => typeof window.openclawSendUserAction === "function";
-  statusEl.innerHTML =
-    "Bridge: " +
-    (hasHelper() ? "<span class='ok'>ready</span>" : "<span class='bad'>missing</span>") +
-    " · iOS=" + (hasIOS() ? "yes" : "no") +
-    " · Android=" + (hasAndroid() ? "yes" : "no");
+
+  const bridgeSpan = document.createElement("span");
+  if (hasHelper()) {
+    bridgeSpan.className = "ok";
+    bridgeSpan.textContent = "ready";
+  } else {
+    bridgeSpan.className = "bad";
+    bridgeSpan.textContent = "missing";
+  }
+
+  statusEl.textContent = "Bridge: ";
+  statusEl.appendChild(bridgeSpan);
+  statusEl.appendChild(document.createTextNode(" · iOS=" + (hasIOS() ? "yes" : "no") + " · Android=" + (hasAndroid() ? "yes" : "no")));
 
   const onStatus = (ev) => {
     const d = ev && ev.detail || {};
