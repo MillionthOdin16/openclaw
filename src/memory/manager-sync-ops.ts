@@ -82,9 +82,21 @@ const IGNORED_MEMORY_WATCH_DIR_NAMES = new Set([
 const log = createSubsystemLogger("memory");
 
 function shouldIgnoreMemoryWatchPath(watchPath: string): boolean {
-  const normalized = path.normalize(watchPath);
-  const parts = normalized.split(path.sep).map((segment) => segment.trim().toLowerCase());
-  return parts.some((segment) => IGNORED_MEMORY_WATCH_DIR_NAMES.has(segment));
+  // OPTIMIZATION: Use allocation-free lazy evaluation instead of split(path.sep).map()
+  // for high-frequency watcher paths to prevent FD exhaustion and GC pressure.
+  let current = watchPath;
+  while (true) {
+    const segment = path.basename(current).trim().toLowerCase();
+    if (IGNORED_MEMORY_WATCH_DIR_NAMES.has(segment)) {
+      return true;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return false;
 }
 
 export abstract class MemoryManagerSyncOps {
