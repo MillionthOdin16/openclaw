@@ -82,9 +82,21 @@ const IGNORED_MEMORY_WATCH_DIR_NAMES = new Set([
 const log = createSubsystemLogger("memory");
 
 function shouldIgnoreMemoryWatchPath(watchPath: string): boolean {
-  const normalized = path.normalize(watchPath);
-  const parts = normalized.split(path.sep).map((segment) => segment.trim().toLowerCase());
-  return parts.some((segment) => IGNORED_MEMORY_WATCH_DIR_NAMES.has(segment));
+  let p = path.normalize(watchPath);
+  // ⚡ Bolt: optimized loop instead of .split().map() to avoid array allocations
+  // on every file watcher event, while also allowing an early exit.
+  while (true) {
+    const base = path.basename(p).trim().toLowerCase();
+    if (IGNORED_MEMORY_WATCH_DIR_NAMES.has(base)) {
+      return true;
+    }
+    const next = path.dirname(p);
+    if (next === p) {
+      break;
+    }
+    p = next;
+  }
+  return false;
 }
 
 export abstract class MemoryManagerSyncOps {
