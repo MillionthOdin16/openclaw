@@ -1,0 +1,4 @@
+## 2025-03-08 - Unhandled Promise Rejection on Non-JSON Response in Discord Gateway
+**Vulnerability:** The Discord Gateway plugin performed an un-awaited `.json()` call on a `fetch` response without checking `response.ok`. This allowed non-JSON HTTP errors (like 503 Service Unavailable or HTML error pages from proxies) to bypass `try/catch` blocks, causing unhandled promise rejections that crash the gateway process.
+**Learning:** External API dependencies and their proxies can return arbitrary data formats (often HTML) during outages or misconfigurations. Relying on `.json()` without verifying HTTP success status exposes the application to deserialization failures that can crash the entire process.
+**Prevention:** Always check `!response.ok` (or equivalent status code validation) before attempting to parse response bodies using `.json()`. Fail securely by explicitly throwing and catching a descriptive HTTP error.
