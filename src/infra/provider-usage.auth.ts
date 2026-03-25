@@ -97,9 +97,11 @@ function resolveProviderApiKeyFromConfigAndStore(params: {
   providerId: UsageProviderId;
   envDirect: Array<string | undefined>;
 }): string | undefined {
-  const envDirect = params.envDirect.map(normalizeSecretInput).find(Boolean);
-  if (envDirect) {
-    return envDirect;
+  for (const direct of params.envDirect) {
+    const normalized = normalizeSecretInput(direct);
+    if (normalized) {
+      return normalized;
+    }
   }
 
   const cfg = loadConfig();
@@ -109,16 +111,19 @@ function resolveProviderApiKeyFromConfigAndStore(params: {
   }
 
   const store = ensureAuthProfileStore();
-  const cred = listProfilesForProvider(store, params.providerId)
-    .map((id) => store.profiles[id])
-    .find(
-      (
-        profile,
-      ): profile is
-        | { type: "api_key"; provider: string; key: string }
-        | { type: "token"; provider: string; token: string } =>
-        profile?.type === "api_key" || profile?.type === "token",
-    );
+  let cred:
+    | { type: "api_key"; provider: string; key: string }
+    | { type: "token"; provider: string; token: string }
+    | undefined;
+
+  for (const id of listProfilesForProvider(store, params.providerId)) {
+    const profile = store.profiles[id];
+    if (profile?.type === "api_key" || profile?.type === "token") {
+      cred = profile as typeof cred;
+      break;
+    }
+  }
+
   if (!cred) {
     return undefined;
   }
