@@ -1,0 +1,13 @@
+🦅 Scout: Critical Inherited Defect Report - 2026-03-24
+
+**Upstream Issue #54931: BUG: Discord health-monitor triggers uncaught exception crash loop**
+* **Location in our code:** `src/discord/monitor/provider.lifecycle.ts` lines 86-89
+* **Observed Behavior:** The Discord health-monitor handles aborts by setting `gateway.options.reconnect = { maxAttempts: 0 }` and calling `gateway.disconnect()`. When the WebSocket close handler immediately fires, it checks `reconnectAttempts(0) >= maxAttempts(0)`, evaluating to `true`, which emits a new `Error` that goes uncaught, crashing the entire Node.js process and disrupting all subagent sessions.
+* **Expected Behavior:** Health-monitor should gracefully restart the Discord channel without crashing the gateway process. The forced disconnection path shouldn't invoke the unexpected connection-retry limits error logic, or if it does, the error should be correctly caught instead of bringing down the gateway process.
+* **Impact Severity:** High — Gateway crashes periodically (every ~35 mins) if Discord goes stale. All running subagent sessions are disrupted or killed.
+
+**Upstream Issue #54936: BUG: Subagent runTimeoutSeconds default fallback resolves to infinite timeout instead of configured default**
+* **Location in our code:** `src/agents/subagent-registry.ts` line 144
+* **Observed Behavior:** When a subagent is spawned via `sessions_spawn` without explicitly passing a `runTimeoutSeconds` parameter, the parameter initializer mistakenly falls back to `0`. The downstream timeout resolver interprets `0` as an explicit "disable timeout" instruction, causing the subagent to run indefinitely rather than falling back to the configured default (`agents.defaults.subagents.runTimeoutSeconds`).
+* **Expected Behavior:** Subagents should be killed after the configured default runtime timeout when no explicit timeout is passed during the spawn call.
+* **Impact Severity:** Medium — Subagents spawned without explicit timeouts will run indefinitely, potentially creating zombie processes that stall and exhaust system resources.
