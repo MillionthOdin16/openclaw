@@ -381,7 +381,16 @@ export const sessionsHandlers: GatewayRequestHandlers = {
           key,
           store,
         });
-        const entry = target.storeKeys.map((candidate) => store[candidate]).find(Boolean);
+        // ⚡ Bolt: Use a lazy for...of loop instead of .map().find(Boolean) to avoid intermediate array allocation
+        // and early-exit as soon as the first truthy entry is found.
+        let entry: SessionEntry | undefined;
+        for (const candidate of target.storeKeys) {
+          const val = store[candidate];
+          if (val) {
+            entry = val;
+            break;
+          }
+        }
         if (!entry?.sessionId) {
           previews.push({ key, status: "missing", items: [] });
           continue;
@@ -640,7 +649,16 @@ export const sessionsHandlers: GatewayRequestHandlers = {
 
     const { target, storePath } = resolveGatewaySessionTargetFromKey(key);
     const store = loadSessionStore(storePath);
-    const entry = target.storeKeys.map((k) => store[k]).find(Boolean);
+    // ⚡ Bolt: Use a lazy for...of loop instead of .map().find(Boolean) to avoid intermediate array allocation
+    // and early-exit as soon as the first truthy entry is found.
+    let entry: SessionEntry | undefined;
+    for (const k of target.storeKeys) {
+      const val = store[k];
+      if (val) {
+        entry = val;
+        break;
+      }
+    }
     if (!entry?.sessionId) {
       respond(true, { messages: [] }, undefined);
       return;
