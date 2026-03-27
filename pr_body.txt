@@ -1,0 +1,10 @@
+🎯 What:
+The utility functions `redactIdentifier` and `sha256HexPrefix` within `src/logging/redact-identifier.ts` lacked test coverage. This change introduces comprehensive unit tests for these utilities to ensure reliability.
+
+📊 Coverage:
+The newly added `redact-identifier.test.ts` file thoroughly tests:
+- `redactIdentifier`: Default lengths, custom lengths, edge cases including `undefined`, empty string `""`, whitespace `"  "`, and trailing/leading space trimming.
+- `sha256HexPrefix`: Default/custom lengths, invalid input lengths like `NaN`, `Infinity`, negative, zero, and float values.
+
+✨ Result:
+Test coverage for `src/logging/redact-identifier.ts` has increased to 100%. The test suite execution completes safely without regressions.
