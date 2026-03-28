@@ -1,0 +1,3 @@
+## 2024-10-24 - Array mapping and early returns for finding truthy values
+**Learning:** The `array.map(transformFn).find(Boolean)` pattern is a performance anti-pattern. It eagerly evaluates the transformation function on every element of the array and allocates an intermediate array, even if a truthy value is found early on. This is less efficient, especially for longer arrays or complex transformations.
+**Action:** Use a `for...of` loop with an early return (`break` or `return`) when searching an array for the first truthy transformed value. This avoids intermediate array allocations and prevents unnecessary evaluation of subsequent elements once a match is found.
