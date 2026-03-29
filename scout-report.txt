@@ -1,0 +1,19 @@
+🦅 Scout: Critical Inherited Defect Report - $(date +"%Y-%m-%d")
+
+1. **Upstream Issue #56854: Gateway crashes with uncaught exception when Discord health monitor triggers stale-socket restart**
+* **Location in our code:** `src/discord/monitor/provider.lifecycle.ts` line 101
+* **Observed Behavior:** When the health monitor detects a stale socket, it triggers an abort to restart the connection. The `onAbort` handler sets `gateway.options.reconnect = { maxAttempts: 0 }`. When the WebSocket then closes, `handleReconnectionAttempt` is called. Finding `maxAttempts` at 0, it throws an unhandled exception (`Error: Max reconnect attempts (0) reached after code 1005`), which crashes the entire gateway process.
+* **Expected Behavior:** The abort handler should cleanly disconnect the socket without causing an unhandled exception in the reconnect logic. It should perhaps use a different shutdown flag to prevent reconnection during an intentional stop, rather than changing the reconnect configuration to 0 attempts, or the unhandled exception should be caught.
+* **Impact Severity:** CRITICAL - Causes the entire gateway process to die completely when a single channel's health monitor triggers a restart.
+
+2. **Upstream Issue #56832: Intermittent deactivated_workspace after /new (session reset race with previous embedded run)**
+* **Location in our code:** Likely related to `src/routing/session-key.continuity.ts` or session management logic where `/new` races with completing embedded runs.
+* **Observed Behavior:** After triggering `/new`, the user intermittently sees a raw internal error payload (`{"detail":{"code":"deactivated_workspace"}}`) in chat. This occurs if a previous embedded run finishes executing while the session is being reset.
+* **Expected Behavior:** The `/new` command should fully reset the session without leaking backend errors like `deactivated_workspace`. Pending runs should be drained or safely aborted before session rotation to avoid exposing raw JSON to the user.
+* **Impact Severity:** MODERATE to HIGH - Internal error leaks expose backend specifics and disrupt the user experience, even though the gateway itself remains healthy.
+
+3. **Upstream Issue #56892: Error: ENOENT: no such file or directory, open '.../openclaw/dist/package.json'**
+* **Location in our code:** Potentially in the plugin loading or memory systems like `src/plugins/loader.ts` or `memory-lancedb` loading logic that expects `dist/package.json` to exist.
+* **Observed Behavior:** When launching the gateway (or executing certain commands), the application fails because it explicitly looks for `dist/package.json`, which is missing in the new build or packaging structure.
+* **Expected Behavior:** Code expecting to resolve the package version or metadata should fallback gracefully or resolve the correct package boundary.
+* **Impact Severity:** HIGH - Causes gateway crash or prevents core functionalities (like `memory search`) from loading correctly.

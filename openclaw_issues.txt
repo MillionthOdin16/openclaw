@@ -1,0 +1,100 @@
+57103	OPEN	[bug]: Under the Ollama native provider, the arguments of the tool call are incorrectly stringified when returned, leading to a gradual failure or confusion of parameters in multi-turn tool calling.	bug, regression	2026-03-29T14:48:50Z
+57093	OPEN	[Bug]: Feishu/Lark DM /new does not fully reset session: fresh reset session key can be forced, but old context still leaks via history replay	bug, bug:behavior	2026-03-29T14:38:07Z
+56388	OPEN	[Bug]:Isolated cron sessions lose Telegram outbound config after gateway restart/update	bug, regression	2026-03-29T14:30:32Z
+57009	OPEN	[Bug]: Streaming tool-call argument deltas coerced to {} in toClientToolDefinitions — client tools receive empty params	bug, bug:behavior	2026-03-29T14:20:03Z
+12590	OPEN	[Bug]: `memoryFlush` does not fire reliably	bug, stale	2026-03-29T14:19:49Z
+57084	OPEN	[Bug]: Browser CLI fails with `unknown method: browser.request` even though browser service logs as ready	bug, bug:behavior	2026-03-29T14:16:55Z
+56470	OPEN	[Bug]: weixin	bug	2026-03-29T14:10:00Z
+57072	OPEN	[Bug]: Chat UI State Desync: Rendered messages do not match active session after route navigation	bug, regression	2026-03-29T13:56:28Z
+57066	OPEN	[Bug]: OpenRouter compatibility aliases: `openrouter:free` resolves to `anthropic/openrouter:free`; `openrouter:auto` should also be handled explicitly	bug, regression	2026-03-29T13:40:23Z
+57062	OPEN	[Bug]: /model reports configured model, not actual runtime model after fallback	bug, regression	2026-03-29T13:35:35Z
+28222	OPEN	[Bug]: Built-in diagnostics-otel plugin doesn't work	bug, stale	2026-03-29T13:19:53Z
+57055	OPEN	[Bug]: Sandbox browser ignores global browser.ssrfPolicy configuration, causing navigation to be blocked	bug, bug:behavior	2026-03-29T13:12:15Z
+57052	OPEN	[Bug]: Gateway shutdown timeout leaves lock file, preventing restart (macOS + Linux)	bug	2026-03-29T13:09:18Z
+56916	OPEN	[Bug]: Title: [Bug] Exec tool fails validation despite correct config — "command: must have required property 'command'"	bug, regression	2026-03-29T12:47:55Z
+57033	OPEN	[Bug]: Native Google provider sends OpenAI-specific `store` field, causing 400 from Gemini API	bug, bug:behavior	2026-03-29T12:43:43Z
+57030	OPEN	[Bug]: Matrix plugin does not set m.direct on incoming DM invites — DMs treated as groups with requireMention gating	bug	2026-03-29T12:42:23Z
+57020	OPEN	[Bug]: Daily session reset creates new sessionId but preserves stale sessionFile — transcript never resets	bug	2026-03-29T12:32:30Z
+56738	OPEN	[Bug]: Session terminated(Force time out) on first bootstrap	bug	2026-03-29T12:14:01Z
+56980	OPEN	[Bug]: xai failed to load from openclaw\extensions\xai\index.ts: RangeError: Maximum call stack size exceeded	bug, regression	2026-03-29T11:58:43Z
+55243	OPEN	[Bug]: Agent won't do assigned task (says it will but does nothing)	bug	2026-03-29T11:54:25Z
+49933	OPEN	[Bug]: Builtin memory indexing ignores configured remote embedding batch timeout	bug, bug:behavior	2026-03-29T11:49:33Z
+56982	OPEN	[Bug]: openclaw doctor reporting gateway error when trusted proxy auth mode is enabled	bug	2026-03-29T11:46:39Z
+11202	OPEN	[Security] Model catalog with resolved apiKey values injected into LLM prompt context on every turn	bug, security	2026-03-29T11:42:23Z
+56971	OPEN	[Bug]: Kimi $web_search returns 401 on step 2 (tool result submission) because kimi-k2.5 requires thinking: disabled but OpenClaw doesn't send it. Error: "thinking is enabled but reasoning_content is missing in assistant tool call message"	bug, bug:behavior	2026-03-29T11:40:18Z
+56970	OPEN	[Bug]: When sending URLs and images via Feishu, the messages will be filtered, resulting in failure to receive them.	bug, regression	2026-03-29T11:38:36Z
+56966	OPEN	[Bug]: /activation command rejects paired Telegram users in groups — credentials vs config allowFrom mismatch	bug, bug:behavior	2026-03-29T11:31:57Z
+56958	OPEN	[Bug]: Model fallback does not actually execute after rate_limit when session is pinned to primary model	bug, bug:behavior	2026-03-29T11:11:09Z
+56957	OPEN	[Bug]: v2026.3.28 regression — groupPolicy "allowlist" with no groups defined now allows ALL WhatsApp groups instead of blocking them	bug, regression	2026-03-29T11:10:26Z
+56942	OPEN	[Bug]:	bug, regression	2026-03-29T11:06:06Z
+56949	OPEN	[Bug]: 飞书插件 footer 配置项（elapsed/status）在新版本中丢失	bug, regression	2026-03-29T10:55:53Z
+56943	OPEN	[Bug]:	bug, bug:behavior	2026-03-29T10:38:27Z
+54777	OPEN	[Bug]: Slack channel silently fails to initialize on macOS — no log entries, no error, gateway ignores Slack config entirely	bug, bug:behavior	2026-03-29T10:30:40Z
+56921	OPEN	[Bug]: Control UI Overview page access section elements overlap when browser window is resized	bug, bug:behavior	2026-03-29T09:47:36Z
+47445	OPEN	[Bug]: gateway restart command fails when executed via exec tool on Windows	bug, regression	2026-03-29T09:32:14Z
+56915	OPEN	[Bug]: [Bug] Skills scanner ignores subdirectories under ~/.openclaw/skills/	bug, regression	2026-03-29T09:24:54Z
+56913	OPEN	[Bug]: SKILL.md Contains Potentially Harmful Instructions Lacking Authorization Boundaries	bug, regression	2026-03-29T09:19:28Z
+53448	OPEN	[Bug]: llama-cpp and Ollama providers return incorrect context usage due to field name mismatch	bug, bug:behavior	2026-03-29T08:55:48Z
+56892	OPEN	[Bug]: Error: ENOENT: no such file or directory, open '.../openclaw/dist/package.json'	bug	2026-03-29T08:49:26Z
+56854	OPEN	[Bug]: Gateway crashes with uncaught exception when Discord health monitor triggers stale-socket restart	bug, regression	2026-03-29T08:31:15Z
+31583	OPEN	[Bug]: `exec` tool does not inherit `skills.entries.*.env` environment variables	bug, regression	2026-03-29T07:54:19Z
+56868	OPEN	[Bug]: [Bug] acpx plugin verification fails on Windows with spaces in user profile path	bug, bug:behavior	2026-03-29T07:50:28Z
+56846	OPEN	[Bug]: `nodes` tool unavailable in Telegram group session despite being in sandbox allow list	bug, regression	2026-03-29T07:13:19Z
+56845	OPEN	Agent stuck in loop / wrong routing — `/new` fixes session (Telegram)	bug, bug:behavior	2026-03-29T06:47:50Z
+56841	OPEN	[Bug]: Custom OpenAI-compatible provider works via direct /v1/chat/completions, but OpenClaw 2026.3.28 always fails with "Connection error"	bug, bug:behavior	2026-03-29T06:38:07Z
+56838	OPEN	[Bug]:auth_permanent cache never expires — gateway restart required to recover from transient Google API failures	bug	2026-03-29T06:30:53Z
+56832	OPEN	[Bug]: Intermittent deactivated_workspace after /new (session reset race with previous embedded run) !!!	bug, regression	2026-03-29T06:17:54Z
+45753	OPEN	[Bug]: Control UI Pairing Flow Fails with Gateway Timeout	bug, regression	2026-03-29T05:07:12Z
+56559	OPEN	[Bug]: default_api.read(path) returns internal state JSON unless limit is provided (inconsistent filesystem read behavior)	bug, regression	2026-03-29T04:57:58Z
+30052	OPEN	[Bug]: Cron agentTurn with tool-calling prompt does not execute tool, delivery: announce fails for Telegram (overlaps #29660)	bug, stale	2026-03-29T04:27:05Z
+30049	OPEN	[Bug]: context-1m OAuth skip is now overly broad Anthropic accepts it for Extra Usage enabled accounts	bug, stale	2026-03-29T04:27:03Z
+30025	OPEN	[Bug]: [agent/embedded] embedded run agent end: runId=7cbbb196-a682-4aad-89fb-39ea01e72afb isError=true error=Connection error.	bug, stale	2026-03-29T04:26:46Z
+30001	OPEN	[Bug]: [UI] Agent > Files: Content textarea is too small and resize handle does not expand parent panel	bug, stale	2026-03-29T04:26:37Z
+29983	OPEN	[Regression Bug]: Apple Notes write permission blocked despite Automation toggle enabled (macOS)	bug, stale, regression	2026-03-29T04:26:32Z
+29981	OPEN	[Bug]: Skill SKILL.md with colon in description causes YAML parsing failure, skill not shown in openclaw skills CLI	bug, stale	2026-03-29T04:26:29Z
+29955	OPEN	[Bug]: Express-session secret regenerated on every container restart, causing infinite login loop	bug, stale	2026-03-29T04:26:19Z
+29886	OPEN	[Bug]: Isolated sessions (cron/subagents) cannot access built-in provider env vars from openclaw.json	bug, stale	2026-03-29T04:25:54Z
+29883	OPEN	[Bug]: macOS LaunchAgent state flaps (service not found + WS 1006) causing gateway unreachable despite intermittent 18789 listener	bug, stale	2026-03-29T04:25:51Z
+29855	OPEN	[Bug]: googlechat requireMention not functioning	bug, stale	2026-03-29T04:25:36Z
+29826	OPEN	[Bug]: When starting, a warning message will be displayed.	bug, stale	2026-03-29T04:25:25Z
+29772	OPEN	[Bug]: Hardcoded system prompt conflicts with AGENTS.md	bug, stale	2026-03-29T04:24:59Z
+29754	OPEN	[Bug]: OpenAI-compatible endpoint verification times out after ~9.98s even though identical curl request succeeds	bug, stale	2026-03-29T04:24:45Z
+29727	OPEN	[Bug]: All Sub-Agents Return "allowed: none" Despite Valid Configuration	bug, stale	2026-03-29T04:24:37Z
+29726	OPEN	[Bug]: WebChat 技能列表在 Edge 浏览器中点击后消失	bug, stale	2026-03-29T04:24:35Z
+29723	OPEN	[edge case]: Exec provider "vault_local" exits with code 2 when using Vault CLI in batch mode (stdin + systemd)	bug, stale	2026-03-29T04:24:33Z
+29702	OPEN	[Bug]: OpenClaw URL Path Concatenation Bug Causes 404 Error with n1n Models	bug, stale	2026-03-29T04:24:24Z
+28077	OPEN	[Bug]: Installation Error	bug	2026-03-29T04:21:25Z
+27988	OPEN	[Bug]: Setting multiple model definitions with different cacheRetention Periods	bug	2026-03-29T04:21:23Z
+25173	OPEN	[Bug]: Web UI chat unresponsive after successful pairing (WebSocket closes with code 1008)	bug, stale	2026-03-29T04:19:47Z
+24839	OPEN	[Bug]: after updating to 2026.2.22-2 all models break	bug, stale	2026-03-29T04:19:25Z
+24793	OPEN	[Bug]: /usage cost silently underreports when sessions are deleted	bug, stale	2026-03-29T04:19:22Z
+24565	OPEN	[Bug]: WhatsApp channel "Unsupported channel: whatsapp" on Ubuntu WSL2	bug, stale	2026-03-29T04:19:11Z
+23856	OPEN	[Bug]: Telegram approval buttons not appearing for elevated commands despite `inlineButtons: "all"` config	bug, stale	2026-03-29T04:18:40Z
+23846	OPEN	[Bug]: False Positive "Other gateway-like services detected"	bug, stale	2026-03-29T04:18:38Z
+23508	OPEN	[Bug]: LINE group `session.resetByChannel.idleMinutes` fails to trigger automatic reset (session continuously reused)	bug, stale	2026-03-29T04:18:22Z
+22871	OPEN	messages.tts.auto: "off" not respected - MP3s still generated	bug, stale	2026-03-29T04:18:08Z
+27127	OPEN	[Bug]: [agent/embedded] error=400 status code (no body)	bug	2026-03-29T04:06:55Z
+10004	OPEN	Platform prerequisites for multi-agent per-org isolation	bug	2026-03-29T04:06:55Z
+32473	OPEN	[Bug]: control ui requires device identity (use HTTPS or localhost secure context)	bug, regression	2026-03-29T04:06:55Z
+44755	OPEN	[Bug]:After 2026.03.12 update selecting /compact option from the top center UI, crashes the main webchat with a white triangulat logo which i cannot restore	bug, bug:behavior	2026-03-29T04:06:21Z
+51056	OPEN	OpenRouter provider fails with "401 Missing Authentication header" despite valid API key	bug, bug:behavior	2026-03-29T04:02:54Z
+45108	OPEN	[Bug]: Sandbox write/edit fails on openclaw-sandbox:bookworm-slim with "moltbot-sandbox-fs: 2: python3: not found"	bug, regression	2026-03-29T03:58:31Z
+53096	OPEN	[Bug]: Control UI assets not found. Build them with `pnpm ui:build` (auto-installs UI deps), or run `pnpm ui:dev` during development.	bug, regression	2026-03-29T03:58:31Z
+10386	OPEN	[Bug]: Workspace/extraDirs skills not discovered in version 2026.2.3-1	bug	2026-03-29T03:58:31Z
+45513	OPEN	[Bug]: Control UI - Chat input hidden behind warning overlay when context exceeds limit; token count mismatch in sessions view	bug, bug:behavior	2026-03-29T03:58:21Z
+44964	OPEN	[Bug]: Sandbox Write Tool Reports Success but Writes 0-Byte Files	bug, bug:behavior	2026-03-29T03:58:21Z
+44906	OPEN	[Bug]: UI Bug: Context limit warning icon scales abnormally and blocks chat view in v2026.3.12	bug, regression	2026-03-29T03:58:20Z
+56771	OPEN	[Bug]: Add automatic parameter validation before tool calls	bug, regression	2026-03-29T03:43:08Z
+45471	OPEN	[Bug]: UI chat not opening	bug, regression	2026-03-29T03:40:21Z
+44070	OPEN	[Bug]: openclaw gateway install failure	bug, regression	2026-03-29T03:12:56Z
+45560	OPEN	[Bug]: local gateway CLI handshake fails (probe timeout / gateway call closed 1000) even though gateway is running and WS challenge is reachable	bug, regression	2026-03-29T01:24:14Z
+56680	OPEN	[Bug]: TTS directive parser treats inline literal [[tts:...]] / [[tts:text]]...[[/tts:text]] examples as active directives	bug	2026-03-29T00:52:34Z
+56422	OPEN	[Bug]: Response paired with tool exec call is not propagated to discord/slack	bug, bug:behavior	2026-03-29T00:52:25Z
+56676	OPEN	[Bug]: read tool allowed in config but not executed; agent narrates/fakes read output in Telegram and direct CLI	bug, bug:behavior	2026-03-29T00:13:21Z
+39497	OPEN	[Bug]: read tool path guard rejects valid /agent/ mount paths in workspaceAccess: "ro" sandboxed sessions	bug, bug:crash	2026-03-28T23:44:28Z
+56653	OPEN	[Bug]: Slack reaction_added/reaction_removed events never delivered via Socket Mode (multi-account, v2026.3.24)	bug, bug:behavior	2026-03-28T23:06:21Z
+56649	OPEN	[Bug]: openclaw 2026.3.24: compaction.model override ignored in overflow recovery path — causes cascade of HTTP 400 failures	bug, bug:behavior	2026-03-28T22:55:32Z
+53870	OPEN	[Bug]: clawhub:@openclaw/matrix… This package release is pending a security scan by VirusTotal. Please try again in a few minutes.	bug, security, regression	2026-03-28T22:41:05Z
+56632	OPEN	[Bug]: Queue collect dispatches fallback model that hallucinates user messages and executes tools autonomously	bug, bug:behavior	2026-03-28T21:51:31Z
+47079	OPEN	[Bug]: Mistral API returns 422 - openai-completions adapter sends max_completion_tokens which Mistral rejects	bug, bug:behavior	2026-03-28T21:24:43Z
+55455	OPEN	[Bug]: Non-compliant	bug, regression	2026-03-28T20:46:41Z
