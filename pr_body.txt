@@ -1,0 +1,4 @@
+💡 What: Added dynamic \`aria-label\` attributes to four icon-only buttons in the chat controls header (Refresh, Thinking Toggle, Focus Toggle, and Cron Sessions).
+🎯 Why: Icon-only buttons with empty inner text or SVG content are invisible to screen readers without an explicit label, making the chat interface inaccessible to users relying on assistive technologies.
+📸 Before/After: Visuals remain unchanged, but the accessibility tree now correctly exposes the button names to screen readers (e.g. "Refresh chat data", "Toggle focus mode"). This was visually verified using Playwright to extract DOM attributes.
+♿ Accessibility: Ensures WCAG compliance for interactive elements by providing an accessible name matching the existing visual \`title\` tooltip, utilizing existing translated i18n keys for localization consistency. Also documented this critical UX learning in \`.Jules/palette.md\`.
