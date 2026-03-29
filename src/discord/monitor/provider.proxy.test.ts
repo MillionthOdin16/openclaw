@@ -194,4 +194,71 @@ describe("createDiscordGatewayPlugin", () => {
     );
     expect(baseRegisterClientSpy).toHaveBeenCalledTimes(1);
   });
+
+  it("handles fetch rejection during gateway metadata lookup", async () => {
+    const runtime = createRuntime();
+    undiciFetchMock.mockRejectedValue(new Error("Network error"));
+    const plugin = createDiscordGatewayPlugin({
+      discordConfig: { proxy: "http://proxy.test:8080" },
+      runtime,
+    });
+
+    await expect(
+      (
+        plugin as unknown as {
+          registerClient: (client: { options: { token: string } }) => Promise<void>;
+        }
+      ).registerClient({
+        options: { token: "token-123" },
+      })
+    ).rejects.toThrow(/Failed to get gateway information from Discord: Network error/);
+
+    expect(baseRegisterClientSpy).not.toHaveBeenCalled();
+  });
+
+  it("handles JSON parsing error during gateway metadata lookup", async () => {
+    const runtime = createRuntime();
+    undiciFetchMock.mockResolvedValue({
+      json: async () => {
+        throw new Error("Invalid JSON");
+      },
+    } as Response);
+    const plugin = createDiscordGatewayPlugin({
+      discordConfig: { proxy: "http://proxy.test:8080" },
+      runtime,
+    });
+
+    await expect(
+      (
+        plugin as unknown as {
+          registerClient: (client: { options: { token: string } }) => Promise<void>;
+        }
+      ).registerClient({
+        options: { token: "token-123" },
+      })
+    ).rejects.toThrow(/Failed to get gateway information from Discord: Invalid JSON/);
+
+    expect(baseRegisterClientSpy).not.toHaveBeenCalled();
+  });
+
+  it("handles fetch rejection with non-Error object during gateway metadata lookup", async () => {
+    const runtime = createRuntime();
+    undiciFetchMock.mockRejectedValue("String error");
+    const plugin = createDiscordGatewayPlugin({
+      discordConfig: { proxy: "http://proxy.test:8080" },
+      runtime,
+    });
+
+    await expect(
+      (
+        plugin as unknown as {
+          registerClient: (client: { options: { token: string } }) => Promise<void>;
+        }
+      ).registerClient({
+        options: { token: "token-123" },
+      })
+    ).rejects.toThrow(/Failed to get gateway information from Discord: String error/);
+
+    expect(baseRegisterClientSpy).not.toHaveBeenCalled();
+  });
 });
