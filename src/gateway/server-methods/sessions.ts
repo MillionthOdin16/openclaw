@@ -381,7 +381,15 @@ export const sessionsHandlers: GatewayRequestHandlers = {
           key,
           store,
         });
-        const entry = target.storeKeys.map((candidate) => store[candidate]).find(Boolean);
+        // Performance optimization: Avoid array.map().find(Boolean) to prevent eager
+        // evaluation and intermediate array allocation.
+        let entry: SessionEntry | undefined;
+        for (const candidate of target.storeKeys) {
+          if (store[candidate]) {
+            entry = store[candidate];
+            break;
+          }
+        }
         if (!entry?.sessionId) {
           previews.push({ key, status: "missing", items: [] });
           continue;
@@ -640,7 +648,15 @@ export const sessionsHandlers: GatewayRequestHandlers = {
 
     const { target, storePath } = resolveGatewaySessionTargetFromKey(key);
     const store = loadSessionStore(storePath);
-    const entry = target.storeKeys.map((k) => store[k]).find(Boolean);
+    // Performance optimization: Avoid array.map().find(Boolean) to prevent eager
+    // evaluation and intermediate array allocation.
+    let entry: SessionEntry | undefined;
+    for (const k of target.storeKeys) {
+      if (store[k]) {
+        entry = store[k];
+        break;
+      }
+    }
     if (!entry?.sessionId) {
       respond(true, { messages: [] }, undefined);
       return;
