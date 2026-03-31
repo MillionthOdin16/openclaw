@@ -1,0 +1,7 @@
+🦅 Scout: Critical Inherited Defect Report - 2024-05-20
+
+**Upstream Issue #21985: Cross-provider failover creates phantom toolResult with empty toolCallId, permanently corrupting session**
+* **Location in our code:** `src/agents/session-transcript-repair.ts` (specifically `repairToolUseResultPairing`)
+* **Observed Behavior:** When an upstream model signals `stopReason: "toolUse"` but returns no actual `toolCall` blocks, the system fails to correct the `stopReason` and proceeds to generate a synthetic `toolResult` with an empty string as `toolCallId`. This phantom entry permanently corrupts the Discord session context, breaking subsequent failover attempts.
+* **Expected Behavior:** The function should detect if `stopReason === 'toolUse'` but `toolCalls.length === 0`, and mutate the message's `stopReason` to `"endTurn"` (or `"stop"`). Additionally, synthetic tool result generation and sanitization should strictly ignore or discard entries where `toolCallId` is empty.
+* **Impact Severity:** Critical. Destroys the agent's context in active sessions permanently, resulting in workflow blocks that require manual database or file surgical recovery.
