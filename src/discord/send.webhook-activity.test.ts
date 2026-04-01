@@ -66,4 +66,22 @@ describe("sendWebhookMessageDiscord activity", () => {
     });
     expect(loadConfigMock).not.toHaveBeenCalled();
   });
+
+  it("handles webhook response safely without json throwing on 503", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return {
+          ok: false,
+          status: 503,
+          text: async () => "Service Unavailable",
+          json: async () => { throw new Error("Unexpected token S in JSON"); },
+        };
+      })
+    );
+
+    await expect(
+      sendWebhookMessageDiscord("hello", { webhookId: "123", webhookToken: "abc" })
+    ).rejects.toThrow("Discord webhook send failed (503: Service Unavailable)");
+  });
 });
