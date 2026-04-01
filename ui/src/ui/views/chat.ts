@@ -414,6 +414,8 @@ export function renderChat(props: ChatProps) {
               class="btn chat-new-messages"
               type="button"
               @click=${props.onScrollToBottom}
+              title="Scroll to new messages"
+              aria-label="Scroll to new messages"
             >
               New messages ${icons.arrowDown}
             </button>
@@ -470,6 +472,8 @@ export function renderChat(props: ChatProps) {
               class="btn primary"
               ?disabled=${!props.connected}
               @click=${props.onSend}
+              title=${isBusy ? "Queue message (Enter)" : "Send message (Enter)"}
+              aria-keyshortcuts="Enter"
             >
               ${isBusy ? "Queue" : "Send"}<kbd class="btn-kbd">↵</kbd>
             </button>
