@@ -63,6 +63,12 @@ export function createDiscordGatewayPlugin(params: {
               },
               dispatcher: fetchAgent,
             } as Record<string, unknown>);
+            if (!response.ok) {
+              const text = await response.text().catch(() => "");
+              throw new Error(
+                `Gateway bot request failed (${response.status}${text ? `: ${text.slice(0, 200)}` : ""})`,
+              );
+            }
             this.gatewayInfo = (await response.json()) as APIGatewayBotInfo;
           } catch (error) {
             throw new Error(
