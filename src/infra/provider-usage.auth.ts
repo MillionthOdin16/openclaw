@@ -97,9 +97,12 @@ function resolveProviderApiKeyFromConfigAndStore(params: {
   providerId: UsageProviderId;
   envDirect: Array<string | undefined>;
 }): string | undefined {
-  const envDirect = params.envDirect.map(normalizeSecretInput).find(Boolean);
-  if (envDirect) {
-    return envDirect;
+  // Optimize: Avoid allocating intermediate array and eagerly running normalizeSecretInput on all elements
+  for (const direct of params.envDirect) {
+    const normalized = normalizeSecretInput(direct);
+    if (normalized) {
+      return normalized;
+    }
   }
 
   const cfg = loadConfig();
