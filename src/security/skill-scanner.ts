@@ -180,7 +180,7 @@ const SOURCE_RULES: SourceRule[] = [
     severity: "warn",
     message: "File read combined with network send — possible data exfiltration",
     pattern: /readFileSync|readFile/,
-    requiresContext: /\bfetch\b|\bpost\b|http\.request/i,
+    requiresContext: /\bfetch\b|\bpost\b|\.request\b|\.get\b|\baxios\b|XMLHttpRequest/i,
   },
   {
     ruleId: "obfuscated-code",
@@ -200,7 +200,7 @@ const SOURCE_RULES: SourceRule[] = [
     message:
       "Environment variable access combined with network send — possible credential harvesting",
     pattern: /process\.env/,
-    requiresContext: /\bfetch\b|\bpost\b|http\.request/i,
+    requiresContext: /\bfetch\b|\bpost\b|\.request\b|\.get\b|\baxios\b|XMLHttpRequest/i,
   },
 ];
 
