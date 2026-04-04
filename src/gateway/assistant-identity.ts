@@ -102,9 +102,14 @@ export function resolveAssistantIdentity(params: {
     coerceIdentityValue(fileIdentity?.avatar, MAX_ASSISTANT_AVATAR),
     coerceIdentityValue(fileIdentity?.emoji, MAX_ASSISTANT_AVATAR),
   ];
-  const avatar =
-    avatarCandidates.map((candidate) => normalizeAvatarValue(candidate)).find(Boolean) ??
-    DEFAULT_ASSISTANT_IDENTITY.avatar;
+  let avatar = DEFAULT_ASSISTANT_IDENTITY.avatar;
+  for (const candidate of avatarCandidates) {
+    const val = normalizeAvatarValue(candidate);
+    if (val) {
+      avatar = val;
+      break;
+    }
+  }
 
   const emojiCandidates = [
     coerceIdentityValue(agentIdentity?.emoji, MAX_ASSISTANT_EMOJI),
@@ -112,7 +117,14 @@ export function resolveAssistantIdentity(params: {
     coerceIdentityValue(agentIdentity?.avatar, MAX_ASSISTANT_EMOJI),
     coerceIdentityValue(fileIdentity?.avatar, MAX_ASSISTANT_EMOJI),
   ];
-  const emoji = emojiCandidates.map((candidate) => normalizeEmojiValue(candidate)).find(Boolean);
+  let emoji: string | undefined;
+  for (const candidate of emojiCandidates) {
+    const val = normalizeEmojiValue(candidate);
+    if (val) {
+      emoji = val;
+      break;
+    }
+  }
 
   return { agentId, name, avatar, emoji };
 }

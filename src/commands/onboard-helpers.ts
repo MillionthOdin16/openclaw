@@ -446,11 +446,14 @@ function summarizeError(err: unknown): string {
   } else if (err !== undefined) {
     raw = inspect(err, { depth: 2 });
   }
-  const line =
-    raw
-      .split("\n")
-      .map((s) => s.trim())
-      .find(Boolean) ?? raw;
+  let line = raw;
+  for (const s of raw.split("\n")) {
+    const trimmed = s.trim();
+    if (trimmed) {
+      line = trimmed;
+      break;
+    }
+  }
   return line.length > 120 ? `${line.slice(0, 119)}…` : line;
 }
 

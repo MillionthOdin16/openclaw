@@ -57,11 +57,14 @@ export function inferLegacyName(job: {
       : job?.payload?.kind === "agentTurn" && typeof job.payload.message === "string"
         ? job.payload.message
         : "";
-  const firstLine =
-    text
-      .split("\n")
-      .map((l) => l.trim())
-      .find(Boolean) ?? "";
+  let firstLine = "";
+  for (const l of text.split("\n")) {
+    const trimmed = l.trim();
+    if (trimmed) {
+      firstLine = trimmed;
+      break;
+    }
+  }
   if (firstLine) {
     return truncateText(firstLine, 60);
   }
