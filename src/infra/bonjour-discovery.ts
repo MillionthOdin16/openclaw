@@ -98,10 +98,14 @@ function parseDigTxt(stdout: string): string[] {
 
 function parseDigSrv(stdout: string): { host: string; port: number } | null {
   // dig +short SRV: "0 0 18790 host.domain."
-  const line = stdout
-    .split("\n")
-    .map((l) => l.trim())
-    .find(Boolean);
+  let line: string | undefined;
+  for (const l of stdout.split("\n")) {
+    const trimmed = l.trim();
+    if (trimmed) {
+      line = trimmed;
+      break;
+    }
+  }
   if (!line) {
     return null;
   }

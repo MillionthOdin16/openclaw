@@ -367,9 +367,18 @@ const formatMediaUnderstandingLine = (decisions?: ReadonlyArray<MediaUnderstandi
         return `${decision.capability} denied`;
       }
       if (decision.outcome === "skipped") {
-        const reason = decision.attachments
-          .flatMap((entry) => entry.attempts.map((attempt) => attempt.reason).filter(Boolean))
-          .find(Boolean);
+        let reason: string | undefined;
+        for (const entry of decision.attachments) {
+          for (const attempt of entry.attempts) {
+            if (attempt.reason) {
+              reason = attempt.reason;
+              break;
+            }
+          }
+          if (reason) {
+            break;
+          }
+        }
         const shortReason = reason ? reason.split(":")[0]?.trim() : undefined;
         return `${decision.capability} skipped${shortReason ? ` (${shortReason})` : ""}`;
       }
