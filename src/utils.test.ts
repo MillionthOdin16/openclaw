@@ -4,19 +4,30 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
+  clamp,
+  clampInt,
+  clampNumber,
   CONFIG_DIR,
   ensureDir,
+  escapeRegExp,
+  formatTerminalLink,
+  isRecord,
+  isSelfChatMode,
   jidToE164,
   normalizeE164,
   normalizePath,
+  pathExists,
   resolveConfigDir,
   resolveHomeDir,
   resolveJidToE164,
   resolveUserPath,
+  safeParseJson,
   shortenHomeInString,
   shortenHomePath,
+  sliceUtf16Safe,
   sleep,
   toWhatsappJid,
+  truncateUtf16Safe,
   withWhatsAppPrefix,
 } from "./utils.js";
 
@@ -26,6 +37,15 @@ function withTempDirSync<T>(prefix: string, run: (dir: string) => T): T {
     return run(dir);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function withTempDirAsync<T>(prefix: string, run: (dir: string) => Promise<T>): Promise<T> {
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), prefix));
+  try {
+    return await run(dir);
+  } finally {
+    await fs.promises.rm(dir, { recursive: true, force: true });
   }
 }
 
@@ -51,11 +71,147 @@ describe("withWhatsAppPrefix", () => {
 
 describe("ensureDir", () => {
   it("creates nested directory", async () => {
-    await withTempDirSync("openclaw-test-", async (tmp) => {
+    await withTempDirAsync("openclaw-test-", async (tmp) => {
       const target = path.join(tmp, "nested", "dir");
       await ensureDir(target);
       expect(fs.existsSync(target)).toBe(true);
     });
+  });
+});
+
+describe("pathExists", () => {
+  it("returns true if path exists", async () => {
+    await withTempDirAsync("openclaw-test-", async (tmp) => {
+      const target = path.join(tmp, "exists.txt");
+      fs.writeFileSync(target, "hello");
+      expect(await pathExists(target)).toBe(true);
+    });
+  });
+
+  it("returns false if path does not exist", async () => {
+    await withTempDirAsync("openclaw-test-", async (tmp) => {
+      const target = path.join(tmp, "not-exists.txt");
+      expect(await pathExists(target)).toBe(false);
+    });
+  });
+});
+
+describe("clampNumber, clampInt, clamp", () => {
+  it("clampNumber clamps to min", () => {
+    expect(clampNumber(5, 10, 20)).toBe(10);
+  });
+  it("clampNumber clamps to max", () => {
+    expect(clampNumber(25, 10, 20)).toBe(20);
+  });
+  it("clampNumber leaves within bounds", () => {
+    expect(clampNumber(15, 10, 20)).toBe(15);
+  });
+  it("clampInt floors and clamps", () => {
+    expect(clampInt(5.9, 10, 20)).toBe(10);
+    expect(clampInt(25.9, 10, 20)).toBe(20);
+    expect(clampInt(15.9, 10, 20)).toBe(15);
+  });
+  it("clamp works same as clampNumber", () => {
+    expect(clamp(5, 10, 20)).toBe(10);
+    expect(clamp(25, 10, 20)).toBe(20);
+    expect(clamp(15, 10, 20)).toBe(15);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes special regex characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid JSON", () => {
+    expect(safeParseJson('{"a": 1}')).toEqual({ a: 1 });
+  });
+  it("returns null on invalid JSON", () => {
+    expect(safeParseJson("{a: 1}")).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for plain object", () => {
+    expect(isRecord({ a: 1 })).toBe(true);
+  });
+  it("returns false for array", () => {
+    expect(isRecord([1, 2, 3])).toBe(false);
+  });
+  it("returns false for null", () => {
+    expect(isRecord(null)).toBe(false);
+  });
+  it("returns false for primitive", () => {
+    expect(isRecord("abc")).toBe(false);
+    expect(isRecord(123)).toBe(false);
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns false if selfE164 is null", () => {
+    expect(isSelfChatMode(null, ["+123"])).toBe(false);
+  });
+  it("returns false if allowFrom is missing/empty", () => {
+    expect(isSelfChatMode("+123", [])).toBe(false);
+    expect(isSelfChatMode("+123", null)).toBe(false);
+  });
+  it("returns true if self is in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+  });
+  it("returns false if * in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+  });
+  it("normalizes self and allowFrom", () => {
+    expect(isSelfChatMode("whatsapp:+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("+15551234567", ["whatsapp:+1 555 123 4567"])).toBe(true);
+  });
+  it("returns false on parse error in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["badnumber"])).toBe(false);
+  });
+});
+
+describe("sliceUtf16Safe", () => {
+  it("slices basic string", () => {
+    expect(sliceUtf16Safe("hello", 1, 4)).toBe("ell");
+  });
+  it("handles negative indices", () => {
+    expect(sliceUtf16Safe("hello", -3, -1)).toBe("ll");
+  });
+  it("swaps indices if out of order", () => {
+    expect(sliceUtf16Safe("hello", 4, 1)).toBe("ell");
+  });
+  it("safely slices surrogate pairs (avoids cutting in half)", () => {
+    // 𝌆 is a surrogate pair (U+1D306)
+    const str = "a𝌆b";
+
+    // If slice ends inside the pair, it truncates safely
+    // str is 4 characters long. Indices are: 0: 'a', 1: High Surrogate, 2: Low Surrogate, 3: 'b'
+    expect(sliceUtf16Safe(str, 0, 2)).toBe("a"); // Ends at High surrogate, drops it
+    expect(sliceUtf16Safe(str, 0, 3)).toBe("a𝌆"); // Includes the whole pair
+    expect(sliceUtf16Safe(str, 1, 4)).toBe("𝌆b"); // Starts at High surrogate, includes both
+    expect(sliceUtf16Safe(str, 1, 3)).toBe("𝌆"); // Starts at High surrogate and ends at Low surrogate, includes both
+  });
+});
+
+describe("truncateUtf16Safe", () => {
+  it("truncates safe", () => {
+    expect(truncateUtf16Safe("hello", 10)).toBe("hello");
+    expect(truncateUtf16Safe("hello", 3)).toBe("hel");
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("returns fallback if not TTY", () => {
+    expect(formatTerminalLink("label", "url", { force: false })).toBe("label (url)");
+    expect(formatTerminalLink("label", "url", { force: false, fallback: "custom fallback" })).toBe("custom fallback");
+  });
+  it("formats link if TTY/forced", () => {
+    expect(formatTerminalLink("label", "url", { force: true })).toBe("\u001b]8;;url\u0007label\u001b]8;;\u0007");
+  });
+  it("strips esc characters from input", () => {
+    expect(formatTerminalLink("\u001blabel", "\u001burl", { force: true })).toBe("\u001b]8;;url\u0007label\u001b]8;;\u0007");
   });
 });
 
