@@ -169,4 +169,18 @@ describe("resolveTranscriptPolicy", () => {
       includeCamelCase: true,
     });
   });
+
+  it.each([
+    { provider: "openrouter", modelId: "mistralai/mistral-large-latest" },
+    { provider: "opencode", modelId: "mistralai/mixtral-8x7b-instruct-v0.1" },
+    { provider: "kilocode", modelId: "mistralai/ministral-8b" },
+  ])("enables strict9 tool call id sanitization for Mistral models on $provider routes", ({ provider, modelId }) => {
+    const policy = resolveTranscriptPolicy({
+      provider,
+      modelId,
+      modelApi: "openai-completions",
+    });
+    expect(policy.sanitizeToolCallIds).toBe(true);
+    expect(policy.toolCallIdMode).toBe("strict9");
+  });
 });
