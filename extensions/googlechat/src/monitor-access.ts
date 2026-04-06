@@ -83,7 +83,13 @@ function resolveGroupConfig(params: {
   }
   const normalizedName = groupName?.trim().toLowerCase();
   const candidates = [groupId, groupName ?? "", normalizedName ?? ""].filter(Boolean);
-  let entry = candidates.map((candidate) => entries[candidate]).find(Boolean);
+  let entry: GoogleChatGroupEntry | undefined;
+  for (const candidate of candidates) {
+    if (entries[candidate]) {
+      entry = entries[candidate];
+      break;
+    }
+  }
   if (!entry && normalizedName) {
     entry = entries[normalizedName];
   }
