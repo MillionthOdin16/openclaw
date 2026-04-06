@@ -733,7 +733,14 @@ export class AcpxRuntime implements AcpRuntime {
     }
 
     const events = parseJsonLines(result.stdout);
-    const errorEvent = events.map((event) => toAcpxErrorEvent(event)).find(Boolean) ?? null;
+    let errorEvent: ReturnType<typeof toAcpxErrorEvent> | null = null;
+    for (const event of events) {
+      const parsed = toAcpxErrorEvent(event);
+      if (parsed) {
+        errorEvent = parsed;
+        break;
+      }
+    }
     if (errorEvent) {
       if (params.ignoreNoSession && errorEvent.code === "NO_SESSION") {
         return events;
