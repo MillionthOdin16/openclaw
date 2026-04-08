@@ -879,6 +879,7 @@ function renderArray(params: {
                 <button
                   type="button"
                   class="cfg-array__item-remove"
+                  aria-label="Remove item"
                   title="Remove item"
                   ?disabled=${disabled}
                   @click=${() => {
@@ -1013,6 +1014,7 @@ function renderMapField(params: {
                   <button
                     type="button"
                     class="cfg-map__item-remove"
+                    aria-label="Remove entry"
                     title="Remove entry"
                     ?disabled=${disabled}
                     @click=${() => {
