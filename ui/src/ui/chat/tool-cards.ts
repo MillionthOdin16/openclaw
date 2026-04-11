@@ -7,6 +7,8 @@ import { extractTextCached } from "./message-extract.ts";
 import { isToolResultMessage } from "./message-normalizer.ts";
 import { formatToolOutputForSidebar, getTruncatedPreview } from "./tool-helpers.ts";
 
+const toolCardCache = new WeakMap<object, ToolCard[]>();
+
 export function extractToolCards(message: unknown): ToolCard[] {
   const m = message as Record<string, unknown>;
   const content = normalizeContent(m.content);
@@ -46,6 +48,19 @@ export function extractToolCards(message: unknown): ToolCard[] {
   }
 
   return cards;
+}
+
+export function extractToolCardsCached(message: unknown): ToolCard[] {
+  if (!message || typeof message !== "object") {
+    return extractToolCards(message);
+  }
+  const obj = message;
+  if (toolCardCache.has(obj)) {
+    return toolCardCache.get(obj) ?? [];
+  }
+  const value = extractToolCards(message);
+  toolCardCache.set(obj, value);
+  return value;
 }
 
 export function renderToolCardSidebar(card: ToolCard, onOpenSidebar?: (content: string) => void) {
