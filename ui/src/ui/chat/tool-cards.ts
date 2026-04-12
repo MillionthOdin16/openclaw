@@ -7,7 +7,17 @@ import { extractTextCached } from "./message-extract.ts";
 import { isToolResultMessage } from "./message-normalizer.ts";
 import { formatToolOutputForSidebar, getTruncatedPreview } from "./tool-helpers.ts";
 
+// Cache tool card parsing results to prevent redundant processing and preserve
+// referential equality during frequent UI re-renders of the same message object.
+const toolCardsCache = new WeakMap<object, ToolCard[]>();
+
 export function extractToolCards(message: unknown): ToolCard[] {
+  if (message && typeof message === "object") {
+    if (toolCardsCache.has(message)) {
+      return toolCardsCache.get(message)!;
+    }
+  }
+
   const m = message as Record<string, unknown>;
   const content = normalizeContent(m.content);
   const cards: ToolCard[] = [];
@@ -43,6 +53,10 @@ export function extractToolCards(message: unknown): ToolCard[] {
       "tool";
     const text = extractTextCached(message) ?? undefined;
     cards.push({ kind: "result", name, text });
+  }
+
+  if (message && typeof message === "object") {
+    toolCardsCache.set(message, cards);
   }
 
   return cards;
