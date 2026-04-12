@@ -19,7 +19,17 @@ type ImageBlock = {
   alt?: string;
 };
 
+// Cache image extraction results to prevent redundant processing and preserve
+// referential equality during frequent UI re-renders of the same message object.
+const imagesCache = new WeakMap<object, ImageBlock[]>();
+
 function extractImages(message: unknown): ImageBlock[] {
+  if (message && typeof message === "object") {
+    if (imagesCache.has(message)) {
+      return imagesCache.get(message)!;
+    }
+  }
+
   const m = message as Record<string, unknown>;
   const content = m.content;
   const images: ImageBlock[] = [];
@@ -51,6 +61,10 @@ function extractImages(message: unknown): ImageBlock[] {
         }
       }
     }
+  }
+
+  if (message && typeof message === "object") {
+    imagesCache.set(message, images);
   }
 
   return images;
