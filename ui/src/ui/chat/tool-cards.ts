@@ -7,7 +7,17 @@ import { extractTextCached } from "./message-extract.ts";
 import { isToolResultMessage } from "./message-normalizer.ts";
 import { formatToolOutputForSidebar, getTruncatedPreview } from "./tool-helpers.ts";
 
+// ⚡ Bolt: Cache derived tool cards keyed by raw message reference to prevent unnecessary Lit re-renders
+const toolCardsCache = new WeakMap<object, ToolCard[]>();
+
 export function extractToolCards(message: unknown): ToolCard[] {
+  if (message && typeof message === "object") {
+    const cached = toolCardsCache.get(message);
+    if (cached) {
+      return cached;
+    }
+  }
+
   const m = message as Record<string, unknown>;
   const content = normalizeContent(m.content);
   const cards: ToolCard[] = [];
@@ -43,6 +53,10 @@ export function extractToolCards(message: unknown): ToolCard[] {
       "tool";
     const text = extractTextCached(message) ?? undefined;
     cards.push({ kind: "result", name, text });
+  }
+
+  if (message && typeof message === "object") {
+    toolCardsCache.set(message, cards);
   }
 
   return cards;

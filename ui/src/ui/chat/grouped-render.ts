@@ -19,7 +19,17 @@ type ImageBlock = {
   alt?: string;
 };
 
-function extractImages(message: unknown): ImageBlock[] {
+// ⚡ Bolt: Cache derived image lists keyed by raw message reference to prevent unnecessary Lit re-renders
+const imagesCache = new WeakMap<object, ImageBlock[]>();
+
+export function extractImages(message: unknown): ImageBlock[] {
+  if (message && typeof message === "object") {
+    const cached = imagesCache.get(message);
+    if (cached) {
+      return cached;
+    }
+  }
+
   const m = message as Record<string, unknown>;
   const content = m.content;
   const images: ImageBlock[] = [];
@@ -51,6 +61,10 @@ function extractImages(message: unknown): ImageBlock[] {
         }
       }
     }
+  }
+
+  if (message && typeof message === "object") {
+    imagesCache.set(message, images);
   }
 
   return images;
