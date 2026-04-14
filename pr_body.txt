@@ -1,0 +1,4 @@
+💡 What: Added `aria-label` attributes to icon-only buttons (like `×` for closing/removing filters and a copy button) across the usage dashboard components.
+🎯 Why: Text characters like `×` are often read aloud poorly by screen readers (e.g., as "times" or ignored completely), so explicitly providing an `aria-label` is a definitive accessibility win.
+📸 Before/After: Before, buttons like `<button class="filter-chip-remove" title="Remove filter">×</button>` only relied on `title`. After, they include `aria-label="Remove filter"`.
+♿ Accessibility: Improved screen reader accessibility for filter removal, session closing, and session copying actions within the usage views.
