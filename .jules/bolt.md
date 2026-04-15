@@ -1,0 +1,3 @@
+## 2026-03-09 - Memoize Chat Message Parsing
+**Learning:** Parsing and extracting elements like tool cards and images from raw chat messages is an expensive operation that runs frequently during UI re-renders. While `WeakMap` is already used to memoize text and thinking extraction (`extractTextCached`, `extractThinkingCached`), this pattern is missing for tool cards and images.
+**Action:** Implemented `extractToolCardsCached` and `extractImagesCached` using `WeakMap` to key off the raw message objects. This preserves referential equality and prevents redundant array allocations and string manipulations during render loops, improving frontend rendering performance.
