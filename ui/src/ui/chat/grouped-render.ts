@@ -12,12 +12,14 @@ import {
   formatReasoningMarkdown,
 } from "./message-extract.ts";
 import { isToolResultMessage, normalizeRoleForGrouping } from "./message-normalizer.ts";
-import { extractToolCards, renderToolCardSidebar } from "./tool-cards.ts";
+import { extractToolCardsCached, renderToolCardSidebar } from "./tool-cards.ts";
 
 type ImageBlock = {
   url: string;
   alt?: string;
 };
+
+const imagesCache = new WeakMap<object, ImageBlock[]>();
 
 function extractImages(message: unknown): ImageBlock[] {
   const m = message as Record<string, unknown>;
@@ -54,6 +56,19 @@ function extractImages(message: unknown): ImageBlock[] {
   }
 
   return images;
+}
+
+export function extractImagesCached(message: unknown): ImageBlock[] {
+  if (!message || typeof message !== "object") {
+    return extractImages(message);
+  }
+  const obj = message;
+  if (imagesCache.has(obj)) {
+    return imagesCache.get(obj)!;
+  }
+  const value = extractImages(message);
+  imagesCache.set(obj, value);
+  return value;
 }
 
 export function renderReadingIndicatorGroup(assistant?: AssistantIdentity) {
@@ -236,9 +251,9 @@ function renderGroupedMessage(
     typeof m.toolCallId === "string" ||
     typeof m.tool_call_id === "string";
 
-  const toolCards = extractToolCards(message);
+  const toolCards = extractToolCardsCached(message);
   const hasToolCards = toolCards.length > 0;
-  const images = extractImages(message);
+  const images = extractImagesCached(message);
   const hasImages = images.length > 0;
 
   const extractedText = extractTextCached(message);
