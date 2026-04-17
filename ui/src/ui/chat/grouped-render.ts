@@ -19,7 +19,17 @@ type ImageBlock = {
   alt?: string;
 };
 
+const imagesCache = new WeakMap<object, ImageBlock[]>();
+
 function extractImages(message: unknown): ImageBlock[] {
+  if (typeof message !== "object" || message === null) {
+    return [];
+  }
+
+  if (imagesCache.has(message)) {
+    return imagesCache.get(message)!;
+  }
+
   const m = message as Record<string, unknown>;
   const content = m.content;
   const images: ImageBlock[] = [];
@@ -53,6 +63,7 @@ function extractImages(message: unknown): ImageBlock[] {
     }
   }
 
+  imagesCache.set(message, images);
   return images;
 }
 

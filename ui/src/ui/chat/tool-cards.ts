@@ -7,7 +7,17 @@ import { extractTextCached } from "./message-extract.ts";
 import { isToolResultMessage } from "./message-normalizer.ts";
 import { formatToolOutputForSidebar, getTruncatedPreview } from "./tool-helpers.ts";
 
+const toolCardsCache = new WeakMap<object, ToolCard[]>();
+
 export function extractToolCards(message: unknown): ToolCard[] {
+  if (typeof message !== "object" || message === null) {
+    return [];
+  }
+
+  if (toolCardsCache.has(message)) {
+    return toolCardsCache.get(message)!;
+  }
+
   const m = message as Record<string, unknown>;
   const content = normalizeContent(m.content);
   const cards: ToolCard[] = [];
@@ -45,6 +55,7 @@ export function extractToolCards(message: unknown): ToolCard[] {
     cards.push({ kind: "result", name, text });
   }
 
+  toolCardsCache.set(message, cards);
   return cards;
 }
 
