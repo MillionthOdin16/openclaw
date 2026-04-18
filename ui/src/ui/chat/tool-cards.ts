@@ -7,7 +7,19 @@ import { extractTextCached } from "./message-extract.ts";
 import { isToolResultMessage } from "./message-normalizer.ts";
 import { formatToolOutputForSidebar, getTruncatedPreview } from "./tool-helpers.ts";
 
+// Cache parsed tool cards keyed by message reference.
+// This optimization prevents redundant regex parsing and array allocation
+// during frequent chat UI updates, reducing CPU cost and preserving referential equality.
+const toolCardsCache = new WeakMap<object, ToolCard[]>();
+
 export function extractToolCards(message: unknown): ToolCard[] {
+  if (message && typeof message === "object") {
+    const cached = toolCardsCache.get(message);
+    if (cached) {
+      return cached;
+    }
+  }
+
   const m = message as Record<string, unknown>;
   const content = normalizeContent(m.content);
   const cards: ToolCard[] = [];
@@ -43,6 +55,10 @@ export function extractToolCards(message: unknown): ToolCard[] {
       "tool";
     const text = extractTextCached(message) ?? undefined;
     cards.push({ kind: "result", name, text });
+  }
+
+  if (message && typeof message === "object") {
+    toolCardsCache.set(message, cards);
   }
 
   return cards;
