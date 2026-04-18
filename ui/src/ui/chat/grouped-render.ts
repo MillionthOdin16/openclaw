@@ -19,7 +19,19 @@ type ImageBlock = {
   alt?: string;
 };
 
+// Cache extracted images keyed by message reference.
+// This optimization prevents redundant object traversal and array allocation
+// during frequent chat UI updates, reducing CPU cost and preserving referential equality.
+const imagesCache = new WeakMap<object, ImageBlock[]>();
+
 function extractImages(message: unknown): ImageBlock[] {
+  if (message && typeof message === "object") {
+    const cached = imagesCache.get(message);
+    if (cached) {
+      return cached;
+    }
+  }
+
   const m = message as Record<string, unknown>;
   const content = m.content;
   const images: ImageBlock[] = [];
@@ -51,6 +63,10 @@ function extractImages(message: unknown): ImageBlock[] {
         }
       }
     }
+  }
+
+  if (message && typeof message === "object") {
+    imagesCache.set(message, images);
   }
 
   return images;
