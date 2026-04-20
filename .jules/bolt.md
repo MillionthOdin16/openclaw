@@ -1,0 +1,3 @@
+## 2024-04-20 - WeakMap Memoization in Lit Frontends
+**Learning:** In the frontend chat interface, `WeakMap` is an effective pattern for memoizing expensive parsing operations (e.g., extracting images or tool cards) by keying off raw message objects. This prevents redundant calculations during frequent UI re-renders and preserves referential equality without mutating the underlying data objects. This is especially relevant in Lit where reactivity triggers frequent calls to these extraction methods.
+**Action:** Use WeakMap to memoize expensive derived state when the source data consists of referentially stable objects, particularly within frontend rendering functions like Lit's `html` tags.
