@@ -1,0 +1,3 @@
+## 2025-04-21 - Resizable Divider Keyboard Accessibility
+**Learning:** Purely mouse-driven custom resizable divider components in the UI (like `resizable-divider.ts`) exclude keyboard and screen reader users from accessing split views effectively. Making custom components focusable via `tabIndex` and adding specific keydown logic for adjustments is required.
+**Action:** Always ensure custom layout adjustment components like dividers have ARIA roles (e.g., `separator`), keyboard interaction handlers (`ArrowLeft`/`ArrowRight`), and `focus-visible` styles so keyboard users can interact with them properly.
