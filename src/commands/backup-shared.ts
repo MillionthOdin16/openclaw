@@ -198,19 +198,21 @@ export async function resolveBackupPlanFromDisk(
     }),
   );
 
-  const uniqueCandidates: BackupAssetCandidate[] = [];
+  // Performance optimization: Sort in-place instead of using `.toSorted()`
+  // to avoid allocating unnecessary arrays, and combine the deduplication
+  // and map-filtering loops into a single O(n) pass.
+  candidates.sort(compareCandidates);
+
   const seenCanonicalPaths = new Set<string>();
-  for (const candidate of [...candidates].toSorted(compareCandidates)) {
+  const included: BackupAsset[] = [];
+  const skipped: SkippedBackupAsset[] = [];
+
+  for (const candidate of candidates) {
     if (seenCanonicalPaths.has(candidate.canonicalPath)) {
       continue;
     }
     seenCanonicalPaths.add(candidate.canonicalPath);
-    uniqueCandidates.push(candidate);
-  }
-  const included: BackupAsset[] = [];
-  const skipped: SkippedBackupAsset[] = [];
 
-  for (const candidate of uniqueCandidates) {
     if (!candidate.exists) {
       skipped.push({
         kind: candidate.kind,
