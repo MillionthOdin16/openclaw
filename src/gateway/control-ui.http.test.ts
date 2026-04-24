@@ -486,6 +486,26 @@ describe("handleControlUiHttpRequest", () => {
     });
   });
 
+  it("rejects URL encoded path traversal escape attempts", async () => {
+    await withBasePathRootFixture({
+      siblingDir: "ui-secrets",
+      fn: async ({ root, sibling }) => {
+        const secretPath = path.join(sibling, "secret.txt");
+        await fs.writeFile(secretPath, "sensitive-data");
+
+        // double encoded (Node's URL handles single encoded /%2e%2e/ by normalizing it out before routing,
+        // but double encoded bypasses URL normalization and hits our routing)
+        const { res, end, handled } = runControlUiRequest({
+          url: `/openclaw/%252e%252e/ui-secrets/secret.txt`,
+          method: "GET",
+          rootPath: root,
+          basePath: "/openclaw",
+        });
+        expectNotFoundResponse({ handled, res, end });
+      },
+    });
+  });
+
   it("rejects absolute-path escape attempts under basePath routes", async () => {
     await withBasePathRootFixture({
       siblingDir: "ui-secrets",
