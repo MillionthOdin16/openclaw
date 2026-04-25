@@ -198,19 +198,18 @@ export async function resolveBackupPlanFromDisk(
     }),
   );
 
-  const uniqueCandidates: BackupAssetCandidate[] = [];
+  candidates.sort(compareCandidates);
+
+  const included: BackupAsset[] = [];
+  const skipped: SkippedBackupAsset[] = [];
   const seenCanonicalPaths = new Set<string>();
-  for (const candidate of [...candidates].toSorted(compareCandidates)) {
+
+  for (const candidate of candidates) {
     if (seenCanonicalPaths.has(candidate.canonicalPath)) {
       continue;
     }
     seenCanonicalPaths.add(candidate.canonicalPath);
-    uniqueCandidates.push(candidate);
-  }
-  const included: BackupAsset[] = [];
-  const skipped: SkippedBackupAsset[] = [];
 
-  for (const candidate of uniqueCandidates) {
     if (!candidate.exists) {
       skipped.push({
         kind: candidate.kind,
