@@ -534,4 +534,30 @@ describe("handleControlUiHttpRequest", () => {
       },
     });
   });
+
+  it("rejects URL encoded path traversal attempts", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-ui-encoded-"));
+    try {
+      const rootPath = path.join(dir, "root");
+      await fs.mkdir(rootPath);
+      const secretPath = path.join(dir, "secret.txt");
+      await fs.writeFile(secretPath, "SUPER_SECRET");
+
+      const req1 = runControlUiRequest({
+        url: "/%2e%2e%2fsecret.txt",
+        method: "GET",
+        rootPath,
+      });
+      expectNotFoundResponse(req1);
+
+      const req2 = runControlUiRequest({
+        url: "/%252e%252e%252fsecret.txt",
+        method: "GET",
+        rootPath,
+      });
+      expectNotFoundResponse(req2);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
 });
