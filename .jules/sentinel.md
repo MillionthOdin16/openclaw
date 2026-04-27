@@ -1,0 +1,4 @@
+## 2025-03-09 - URL Encoding Path Traversal in Control UI Assets
+**Vulnerability:** The `isSafeRelativePath` validation allowed directory traversal (e.g. `../../etc/passwd`) if the input path strings were double-URL encoded or manually URL encoded (e.g., `%2e%2e%2f` for `../`).
+**Learning:** Checking for literal characters like `../` is insufficient for HTTP/web based applications. URL paths often carry hidden traversal payloads encoded in percent-encoding, requiring iterative decoding until the path sequence is entirely unencoded and stable before any validation checks or normalization can safely occur.
+**Prevention:** Iteratively invoke `decodeURIComponent` inside a loop until the return value equals the input. Ensure `URIError` is caught to gracefully break the loop for files that use the literal percent sign (`%`) without actually encoding anything (e.g., `100%.pdf`), thus retaining the last valid decoded value, before checking against path traversal markers.
