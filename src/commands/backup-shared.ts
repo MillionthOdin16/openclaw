@@ -198,19 +198,20 @@ export async function resolveBackupPlanFromDisk(
     }),
   );
 
-  const uniqueCandidates: BackupAssetCandidate[] = [];
+  // ⚡ Bolt Optimization: Use in-place `.sort()` instead of `[...candidates].toSorted()`
+  // to avoid redundant memory allocations. Deduplication has also been combined
+  // into the main loop below, eliminating the intermediate `uniqueCandidates` array overhead.
+  candidates.sort(compareCandidates);
   const seenCanonicalPaths = new Set<string>();
-  for (const candidate of [...candidates].toSorted(compareCandidates)) {
+  const included: BackupAsset[] = [];
+  const skipped: SkippedBackupAsset[] = [];
+
+  for (const candidate of candidates) {
     if (seenCanonicalPaths.has(candidate.canonicalPath)) {
       continue;
     }
     seenCanonicalPaths.add(candidate.canonicalPath);
-    uniqueCandidates.push(candidate);
-  }
-  const included: BackupAsset[] = [];
-  const skipped: SkippedBackupAsset[] = [];
 
-  for (const candidate of uniqueCandidates) {
     if (!candidate.exists) {
       skipped.push({
         kind: candidate.kind,
