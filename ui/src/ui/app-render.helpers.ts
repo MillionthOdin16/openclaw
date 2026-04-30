@@ -251,6 +251,7 @@ export function renderChatControls(state: AppViewState) {
         }}
         aria-pressed=${showThinking}
         title=${disableThinkingToggle ? t("chat.onboardingDisabled") : t("chat.thinkingToggle")}
+        aria-label=${disableThinkingToggle ? t("chat.onboardingDisabled") : t("chat.thinkingToggle")}
       >
         ${icons.brain}
       </button>
@@ -268,6 +269,7 @@ export function renderChatControls(state: AppViewState) {
         }}
         aria-pressed=${focusActive}
         title=${disableFocusToggle ? t("chat.onboardingDisabled") : t("chat.focusToggle")}
+        aria-label=${disableFocusToggle ? t("chat.onboardingDisabled") : t("chat.focusToggle")}
       >
         ${focusIcon}
       </button>
@@ -278,6 +280,13 @@ export function renderChatControls(state: AppViewState) {
         }}
         aria-pressed=${hideCron}
         title=${
+          hideCron
+            ? hiddenCronCount > 0
+              ? t("chat.showCronSessionsHidden", { count: String(hiddenCronCount) })
+              : t("chat.showCronSessions")
+            : t("chat.hideCronSessions")
+        }
+        aria-label=${
           hideCron
             ? hiddenCronCount > 0
               ? t("chat.showCronSessionsHidden", { count: String(hiddenCronCount) })
