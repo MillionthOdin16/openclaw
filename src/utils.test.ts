@@ -4,19 +4,29 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
+  clampInt,
+  clampNumber,
   CONFIG_DIR,
   ensureDir,
+  escapeRegExp,
+  formatTerminalLink,
+  isRecord,
+  isSelfChatMode,
   jidToE164,
   normalizeE164,
   normalizePath,
+  pathExists,
   resolveConfigDir,
   resolveHomeDir,
   resolveJidToE164,
   resolveUserPath,
+  safeParseJson,
   shortenHomeInString,
   shortenHomePath,
+  sliceUtf16Safe,
   sleep,
   toWhatsappJid,
+  truncateUtf16Safe,
   withWhatsAppPrefix,
 } from "./utils.js";
 
@@ -28,6 +38,155 @@ function withTempDirSync<T>(prefix: string, run: (dir: string) => T): T {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
+
+describe("sliceUtf16Safe", () => {
+  it("slices strings containing surrogate pairs safely", () => {
+    const text = "a😃b";
+    expect(text.length).toBe(4);
+    expect(sliceUtf16Safe(text, 0, 1)).toBe("a");
+    // "😃" takes up indices 1 and 2 but sliceUtf16Safe shrinks inward for safety, so slicing exactly half a surrogate returns empty
+    expect(sliceUtf16Safe(text, 1, 2)).toBe("");
+    // To get the full emoji, you need to include its full length
+    expect(sliceUtf16Safe(text, 1, 3)).toBe("😃");
+    expect(sliceUtf16Safe(text, 0, 2)).toBe("a");
+    expect(sliceUtf16Safe(text, 0, 3)).toBe("a😃");
+    expect(sliceUtf16Safe(text, 2, 4)).toBe("b");
+    expect(sliceUtf16Safe(text, 1, 4)).toBe("😃b");
+    expect(sliceUtf16Safe(text, -3, -1)).toBe("😃");
+  });
+
+  it("handles out-of-bounds correctly", () => {
+    expect(sliceUtf16Safe("abc", 0, 5)).toBe("abc");
+    expect(sliceUtf16Safe("abc", -10)).toBe("abc");
+  });
+
+  it("swaps from and to if needed", () => {
+    expect(sliceUtf16Safe("abc", 2, 1)).toBe("b");
+  });
+});
+
+describe("truncateUtf16Safe", () => {
+  it("truncates strings safely without breaking surrogate pairs", () => {
+    const text = "a😃b";
+    expect(truncateUtf16Safe(text, 5)).toBe("a😃b");
+    expect(truncateUtf16Safe(text, 1)).toBe("a");
+    // Breaking halfway through 😃 excludes it completely due to sliceUtf16Safe shrinking inward
+    expect(truncateUtf16Safe(text, 2)).toBe("a");
+    expect(truncateUtf16Safe(text, 3)).toBe("a😃");
+    expect(truncateUtf16Safe(text, 4)).toBe("a😃b");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid JSON", () => {
+    expect(safeParseJson('{"a": 1}')).toEqual({ a: 1 });
+    expect(safeParseJson('"string"')).toBe("string");
+  });
+
+  it("returns null for invalid JSON", () => {
+    expect(safeParseJson("{a: 1}")).toBeNull();
+    expect(safeParseJson("undefined")).toBeNull();
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes special regex characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+    expect(escapeRegExp("abc.def")).toBe("abc\\.def");
+  });
+});
+
+describe("clampNumber", () => {
+  it("clamps values", () => {
+    expect(clampNumber(5, 0, 10)).toBe(5);
+    expect(clampNumber(-5, 0, 10)).toBe(0);
+    expect(clampNumber(15, 0, 10)).toBe(10);
+  });
+});
+
+describe("clampInt", () => {
+  it("clamps and floors values", () => {
+    expect(clampInt(5.5, 0, 10)).toBe(5);
+    expect(clampInt(-5.5, 0, 10)).toBe(0);
+    expect(clampInt(15.5, 0, 10)).toBe(10);
+  });
+});
+
+describe("pathExists", () => {
+  it("returns true if path exists", async () => {
+    const tmp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "openclaw-test-"));
+    try {
+      const target = path.join(tmp, "file.txt");
+      await fs.promises.writeFile(target, "hello");
+      expect(await pathExists(target)).toBe(true);
+    } finally {
+      await fs.promises.rm(tmp, { recursive: true, force: true });
+    }
+    // tmp directory should be deleted, so it no longer exists
+    expect(await pathExists(tmp)).toBe(false);
+  });
+
+  it("returns false if path does not exist", async () => {
+    const tmp = await fs.promises.mkdtemp(path.join(os.tmpdir(), "openclaw-test-"));
+    try {
+      expect(await pathExists(path.join(tmp, "nonexistent"))).toBe(false);
+    } finally {
+      await fs.promises.rm(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns true when selfE164 is in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("+15551234567", ["+15559999999", "whatsapp:+15551234567"])).toBe(true);
+  });
+
+  it("returns false when selfE164 is not in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15559999999"])).toBe(false);
+    expect(isSelfChatMode("+15551234567", [])).toBe(false);
+  });
+
+  it("returns false when allowFrom is wildcard", () => {
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+  });
+
+  it("returns false for invalid inputs", () => {
+    expect(isSelfChatMode(null, ["+15551234567"])).toBe(false);
+    expect(isSelfChatMode("+15551234567", null)).toBe(false);
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats link when forced", () => {
+    expect(formatTerminalLink("Label", "https://example.com", { force: true })).toBe(
+      "\u001b]8;;https://example.com\u0007Label\u001b]8;;\u0007",
+    );
+  });
+
+  it("uses fallback when force is false", () => {
+    expect(formatTerminalLink("Label", "https://example.com", { force: false })).toBe(
+      "Label (https://example.com)",
+    );
+    expect(
+      formatTerminalLink("Label", "https://example.com", { force: false, fallback: "Fallback" }),
+    ).toBe("Fallback");
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for records", () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ a: 1 })).toBe(true);
+  });
+
+  it("returns false for non-records", () => {
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord([])).toBe(false);
+    expect(isRecord("string")).toBe(false);
+    expect(isRecord(123)).toBe(false);
+  });
+});
 
 describe("normalizePath", () => {
   it("adds leading slash when missing", () => {
