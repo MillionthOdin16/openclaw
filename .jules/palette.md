@@ -1,0 +1,3 @@
+## 2026-05-01 - Icon-Only Buttons Missing Accessible Names
+**Learning:** Icon-only buttons (like `×` or trash icons) relying solely on the `title` attribute are not fully accessible to screen readers, which may ignore the `title` if `aria-label` is missing. This is a recurring pattern in the configuration and usage views.
+**Action:** Always pair `title` with a descriptive `aria-label` on icon-only buttons to ensure proper accessibility.
