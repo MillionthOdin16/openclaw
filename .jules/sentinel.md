@@ -1,0 +1,4 @@
+## 2025-03-08 - URL Encoding Path Traversal
+**Vulnerability:** A path traversal vulnerability where custom path validators (like `isSafeRelativePath`) fail to detect URL-encoded path segments (e.g., `%2e%2e%2f` instead of `../`), allowing attackers to potentially access sensitive files outside the intended directory.
+**Learning:** Custom sanitisation that checks for literal string occurrences of `../` or relies on `path.normalize()` without first decoding URL-encoded characters allows attackers to bypass security boundaries, as Node.js treats `%2e` literally.
+**Prevention:** Always decode user-supplied paths using `decodeURIComponent` wrapped in a `try/catch` block (to handle invalid URI errors) before applying validation checks against directory traversal markers. Ensure both the original and decoded paths are checked, and avoid passing decoded paths to `path.resolve()` or the `fs` modules if legitimate paths could contain literal `%` characters.
