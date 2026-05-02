@@ -283,17 +283,29 @@ function isSafeRelativePath(relPath: string) {
   if (!relPath) {
     return false;
   }
-  const normalized = path.posix.normalize(relPath);
-  if (path.posix.isAbsolute(normalized) || path.win32.isAbsolute(normalized)) {
-    return false;
+
+  let decoded = relPath;
+  try {
+    decoded = decodeURIComponent(relPath);
+  } catch {
+    // Ignore invalid URI components
   }
-  if (normalized.startsWith("../") || normalized === "..") {
-    return false;
-  }
-  if (normalized.includes("\0")) {
-    return false;
-  }
-  return true;
+
+  const check = (p: string) => {
+    const normalized = path.posix.normalize(p);
+    if (path.posix.isAbsolute(normalized) || path.win32.isAbsolute(normalized)) {
+      return false;
+    }
+    if (normalized.startsWith("../") || normalized === "..") {
+      return false;
+    }
+    if (normalized.includes("\0")) {
+      return false;
+    }
+    return true;
+  };
+
+  return check(relPath) && check(decoded);
 }
 
 export function handleControlUiHttpRequest(
