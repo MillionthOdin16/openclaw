@@ -1,0 +1,3 @@
+## 2024-05-02 - Backup candidate generation array optimizations
+**Learning:** In backup generation, allocating intermediate arrays like `uniqueCandidates` and using `toSorted()` on an array of paths causes unnecessary memory overhead and intermediate GC pressure when deduplicating.
+**Action:** When filtering or deduplicating lists into final subsets for backup candidate generation, combine logic into a single-pass iteration and mutate the source array with `sort()` in-place to save allocations.
