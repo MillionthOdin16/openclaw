@@ -1,35 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { normalizeOptionalSecretInput, normalizeSecretInput } from "./normalize-secret-input.js";
+import { normalizeSecretInput, normalizeOptionalSecretInput } from "./normalize-secret-input.js";
 
 describe("normalizeSecretInput", () => {
-  it("returns empty string for non-string values", () => {
-    expect(normalizeSecretInput(undefined)).toBe("");
+  it("should remove newlines and return trimmed strings", () => {
+    expect(normalizeSecretInput("  abc \n def\r\n ghi  ")).toBe("abc  def ghi");
+  });
+
+  it("should drop non-Latin1 characters", () => {
+    expect(normalizeSecretInput("abc“def”")).toBe("abcdef");
+    expect(normalizeSecretInput("key😊")).toBe("key");
+  });
+
+  it("should preserve spaces within the string", () => {
+    expect(normalizeSecretInput("Bearer token")).toBe("Bearer token");
+  });
+
+  it("should return empty string for non-string inputs", () => {
     expect(normalizeSecretInput(null)).toBe("");
+    expect(normalizeSecretInput(undefined)).toBe("");
     expect(normalizeSecretInput(123)).toBe("");
-    expect(normalizeSecretInput({})).toBe("");
-  });
-
-  it("strips embedded line breaks and surrounding whitespace", () => {
-    expect(normalizeSecretInput("  sk-\r\nabc\n123  ")).toBe("sk-abc123");
-  });
-
-  it("drops non-Latin1 code points that can break HTTP ByteString headers", () => {
-    // U+0417 (Cyrillic З) and U+2502 (box drawing │) are > 255.
-    expect(normalizeSecretInput("key-\u0417\u2502-token")).toBe("key--token");
-  });
-
-  it("preserves Latin-1 characters and internal spaces", () => {
-    expect(normalizeSecretInput("  café token  ")).toBe("café token");
   });
 });
 
 describe("normalizeOptionalSecretInput", () => {
-  it("returns undefined when normalized value is empty", () => {
-    expect(normalizeOptionalSecretInput(" \r\n ")).toBeUndefined();
-    expect(normalizeOptionalSecretInput("\u0417\u2502")).toBeUndefined();
+  it("should return undefined if normalized string is empty", () => {
+    expect(normalizeOptionalSecretInput("   ")).toBeUndefined();
+    expect(normalizeOptionalSecretInput(null)).toBeUndefined();
   });
 
-  it("returns normalized value when non-empty", () => {
-    expect(normalizeOptionalSecretInput("  key-\u0417  ")).toBe("key-");
+  it("should return the normalized string if not empty", () => {
+    expect(normalizeOptionalSecretInput(" Bearer token\n ")).toBe("Bearer token");
   });
 });
