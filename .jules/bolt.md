@@ -1,0 +1,4 @@
+## 2025-05-03 - Avoid Multiple Array Iterations/Allocations in Hot Paths
+
+**Learning:** In performance-critical backup functions (like `resolveBackupPlanFromDisk`), performing distinct iterations and array allocations (via `toSorted()`, filtering, and a separate `for` loop to build `uniqueCandidates`) adds unnecessary memory overhead. Combining deduplication, canonical path checking, and sorting (using in-place `sort()` instead of `toSorted()`) into a single-pass loop over the original array eliminates intermediate array allocation and measurable overhead.
+**Action:** Always look for opportunities to fuse array operations (sorting, mapping, filtering) into a single pass with in-place mutations in hot backend procedures where temporary array allocations cause GC pressure or execution delays.
