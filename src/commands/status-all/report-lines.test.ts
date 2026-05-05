@@ -20,10 +20,42 @@ describe("buildStatusAllReportLines", () => {
       progress,
       overviewRows: [{ Item: "Gateway", Value: "ok" }],
       channels: {
-        rows: [],
-        details: [],
+        rows: [
+          {
+            id: "mock-channel-warn",
+            label: "Mock Warn",
+            enabled: true,
+            state: "warn",
+            detail: "mock warn detail",
+          },
+          {
+            id: "mock-channel-setup",
+            label: "Mock Setup",
+            enabled: false,
+            state: "setup",
+            detail: "mock setup detail",
+          },
+          {
+            id: "mock-channel-off",
+            label: "Mock Off",
+            enabled: false,
+            state: "off",
+            detail: "mock off detail",
+          },
+        ],
+        details: [
+          {
+            title: "Mock Details",
+            columns: ["Name", "Status", "Notes"],
+            rows: [
+              { Name: "Row 1", Status: "OK", Notes: "Notes 1" },
+              { Name: "Row 2", Status: "WARN", Notes: "Notes 2" },
+              { Name: "Row 3", Status: "OTHER", Notes: "Notes 3" },
+            ],
+          },
+        ],
       },
-      channelIssues: [],
+      channelIssues: [{ channel: "mock-channel-warn", message: "mock channel issue" }],
       agentStatus: {
         agents: [
           {
@@ -70,5 +102,13 @@ describe("buildStatusAllReportLines", () => {
     expect(output).toContain("Bootstrap file");
     expect(output).toContain("PRESENT");
     expect(output).toContain("ABSENT");
+
+    // Assert coverage for newly added mocked data
+    expect(output).toContain("Mock Warn");
+    expect(output).toContain("mock channel issue");
+    expect(output).toContain("Mock Details");
+    expect(output).toContain("Notes 1");
+    expect(output).toContain("Notes 2");
+    expect(output).toContain("Notes 3");
   });
 });
