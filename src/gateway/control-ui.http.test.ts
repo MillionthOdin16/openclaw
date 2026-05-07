@@ -534,4 +534,22 @@ describe("handleControlUiHttpRequest", () => {
       },
     });
   });
+
+  it("rejects url-encoded path traversal attempts", async () => {
+    await withBasePathRootFixture({
+      siblingDir: "outside",
+      fn: async ({ root, sibling }) => {
+        const secretPath = path.join(sibling, "secret.txt");
+        await fs.writeFile(secretPath, "sensitive-data");
+
+        const { res, end, handled } = runControlUiRequest({
+          url: "/openclaw/%2e%2e%2foutside%2fsecret.txt",
+          method: "GET",
+          rootPath: root,
+          basePath: "/openclaw",
+        });
+        expectNotFoundResponse({ handled, res, end });
+      },
+    });
+  });
 });
