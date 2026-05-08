@@ -283,14 +283,23 @@ function isSafeRelativePath(relPath: string) {
   if (!relPath) {
     return false;
   }
-  const normalized = path.posix.normalize(relPath);
+
+  let decodedPath = relPath;
+  try {
+    decodedPath = decodeURIComponent(relPath);
+  } catch {
+    // Ignore URIError, proceed with un-decoded string
+  }
+
+  if (decodedPath.includes("\0")) {
+    return false;
+  }
+
+  const normalized = path.posix.normalize(decodedPath);
   if (path.posix.isAbsolute(normalized) || path.win32.isAbsolute(normalized)) {
     return false;
   }
   if (normalized.startsWith("../") || normalized === "..") {
-    return false;
-  }
-  if (normalized.includes("\0")) {
     return false;
   }
   return true;
