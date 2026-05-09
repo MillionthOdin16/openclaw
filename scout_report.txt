@@ -1,0 +1,19 @@
+🦅 Scout: Critical Inherited Defect Report - 2024-05-09
+
+1. Upstream Issue #71127: Stuck processing sessions are detected but never aborted
+   * Local File Path: src/logging/diagnostic.ts (around lines 52-60, inside `logSessionStuck`)
+   * Expected Behavior: The diagnostic system should include a `stuckSessionAbortMs` threshold to automatically cancel/abort sessions that remain stuck in `state=processing` indefinitely.
+   * Observed Behavior: The heartbeat only warns via `logSessionStuck` and does not implement a recovery or abort mechanism, allowing `ingestBatch` to infinitely loop until a process restart.
+   * Impact Severity: HIGH (Gateway freezes entirely on blocked sessions, requires hard restart).
+
+2. Upstream Issue #73691: MEMORY.md grows unbounded → bootstrap overflow
+   * Local File Path: src/memory/internal.ts (lines where `MEMORY.md` is processed or managed, bounded checks are missing)
+   * Expected Behavior: Writing to `MEMORY.md` during memory promotion/compaction should enforce size limits or archive historical memory.
+   * Observed Behavior: `MEMORY.md` appends indefinitely without a size check, exceeding gateway limits and causing session write-lock timeouts or OOM.
+   * Impact Severity: HIGH (Gateway unresponsiveness/freeze).
+
+3. Upstream Issue #79428: Infinite compacting loop for Custom Providers due to undersized contextWindow
+   * Local File Path: src/commands/onboard-custom.ts line 20
+   * Expected Behavior: The onboarding custom model should set a default `contextWindow` that exceeds `compaction.reserveTokensFloor` (20,000).
+   * Observed Behavior: `DEFAULT_CONTEXT_WINDOW` is set to `CONTEXT_WINDOW_HARD_MIN_TOKENS` (16,000), which is below the default `reserveTokensFloor` (20,000), immediately causing an infinite loop.
+   * Impact Severity: CRITICAL (Immediate infinite loop on first use).
