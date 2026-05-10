@@ -249,10 +249,11 @@ const parseDateRange = (params: {
 type DiscoveredSessionWithAgent = DiscoveredSession & { agentId: string };
 
 function buildStoreBySessionId(
-  store: Record<string, SessionEntry>,
+  store: Record<string, SessionEntry> | Iterable<[string, SessionEntry]>,
 ): Map<string, { key: string; entry: SessionEntry }> {
   const storeBySessionId = new Map<string, { key: string; entry: SessionEntry }>();
-  for (const [key, entry] of Object.entries(store)) {
+  const storeEntries = Symbol.iterator in store ? store : Object.entries(store);
+  for (const [key, entry] of storeEntries) {
     if (entry?.sessionId) {
       storeBySessionId.set(entry.sessionId, { key, entry });
     }

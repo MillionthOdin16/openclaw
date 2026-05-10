@@ -97,16 +97,21 @@ function resolveSessionKeyFromSessionId(params: {
     return null;
   }
   const { store } = loadCombinedSessionStoreForGateway(params.cfg);
-  const match = Object.entries(store).find(([key, entry]) => {
-    if (entry?.sessionId !== trimmed) {
-      return false;
+  let match: string | null = null;
+  const storeEntries = Symbol.iterator in store ? store : Object.entries(store);
+  for (const [key, entry] of storeEntries) {
+    if (entry?.sessionId === trimmed) {
+      if (!params.agentId) {
+        match = key;
+        break;
+      }
+      if (resolveAgentIdFromSessionKey(key) === params.agentId) {
+        match = key;
+        break;
+      }
     }
-    if (!params.agentId) {
-      return true;
-    }
-    return resolveAgentIdFromSessionKey(key) === params.agentId;
-  });
-  return match?.[0] ?? null;
+  }
+  return match;
 }
 
 async function resolveModelOverride(params: {
