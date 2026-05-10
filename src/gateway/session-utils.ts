@@ -562,10 +562,9 @@ function mergeSessionEntryIntoCombined(params: {
   }
 }
 
-export function loadCombinedSessionStoreForGateway(cfg: OpenClawConfig): {
-  storePath: string;
-  store: Record<string, SessionEntry>;
-} {
+function* iterateCombinedSessionStoreForGateway(
+  cfg: OpenClawConfig,
+): IterableIterator<[string, SessionEntry]> {
   const storeConfig = cfg.session?.store;
   if (storeConfig && !isStorePathTemplate(storeConfig)) {
     const storePath = resolveStorePath(storeConfig);
@@ -582,14 +581,15 @@ export function loadCombinedSessionStoreForGateway(cfg: OpenClawConfig): {
         canonicalKey,
       });
     }
-    return { storePath, store: combined };
+    yield* Object.entries(combined);
+    return;
   }
 
   const agentIds = listConfiguredAgentIds(cfg);
-  const combined: Record<string, SessionEntry> = {};
   for (const agentId of agentIds) {
     const storePath = resolveStorePath(storeConfig, { agentId });
     const store = loadSessionStore(storePath);
+    const combined: Record<string, SessionEntry> = {};
     for (const [key, entry] of Object.entries(store)) {
       const canonicalKey = canonicalizeSessionKeyForAgent(agentId, key);
       mergeSessionEntryIntoCombined({
@@ -600,11 +600,22 @@ export function loadCombinedSessionStoreForGateway(cfg: OpenClawConfig): {
         canonicalKey,
       });
     }
+    yield* Object.entries(combined);
   }
+}
 
+export function loadCombinedSessionStoreForGateway(cfg: OpenClawConfig): {
+  storePath: string;
+  store: Iterable<[string, SessionEntry]>;
+} {
+  const storeConfig = cfg.session?.store;
   const storePath =
-    typeof storeConfig === "string" && storeConfig.trim() ? storeConfig.trim() : "(multiple)";
-  return { storePath, store: combined };
+    storeConfig && !isStorePathTemplate(storeConfig)
+      ? resolveStorePath(storeConfig)
+      : typeof storeConfig === "string" && storeConfig.trim()
+        ? storeConfig.trim()
+        : "(multiple)";
+  return { storePath, store: iterateCombinedSessionStoreForGateway(cfg) };
 }
 
 export function getSessionDefaults(cfg: OpenClawConfig): GatewaySessionsDefaults {
@@ -718,7 +729,7 @@ export function resolveSessionModelIdentityRef(
 export function listSessionsFromStore(params: {
   cfg: OpenClawConfig;
   storePath: string;
-  store: Record<string, SessionEntry>;
+  store: Record<string, SessionEntry> | Iterable<[string, SessionEntry]>;
   opts: import("./protocol/index.js").SessionsListParams;
 }): SessionsListResult {
   const { cfg, storePath, store, opts } = params;
@@ -737,125 +748,128 @@ export function listSessionsFromStore(params: {
       ? Math.max(1, Math.floor(opts.activeMinutes))
       : undefined;
 
-  let sessions = Object.entries(store)
-    .filter(([key]) => {
-      if (isCronRunSessionKey(key)) {
-        return false;
+  let sessions: (GatewaySessionRow & { entry: SessionEntry })[] = [];
+  const storeEntries = Symbol.iterator in store ? store : Object.entries(store);
+  for (const [key, entry] of storeEntries) {
+    if (isCronRunSessionKey(key)) {
+      continue;
+    }
+    if (!includeGlobal && key === "global") {
+      continue;
+    }
+    if (!includeUnknown && key === "unknown") {
+      continue;
+    }
+    if (agentId) {
+      if (key === "global" || key === "unknown") {
+        continue;
       }
-      if (!includeGlobal && key === "global") {
-        return false;
+      const parsed = parseAgentSessionKey(key);
+      if (!parsed) {
+        continue;
       }
-      if (!includeUnknown && key === "unknown") {
-        return false;
+      if (normalizeAgentId(parsed.agentId) !== agentId) {
+        continue;
       }
-      if (agentId) {
-        if (key === "global" || key === "unknown") {
-          return false;
-        }
-        const parsed = parseAgentSessionKey(key);
-        if (!parsed) {
-          return false;
-        }
-        return normalizeAgentId(parsed.agentId) === agentId;
-      }
-      return true;
-    })
-    .filter(([key, entry]) => {
-      if (!spawnedBy) {
-        return true;
-      }
+    }
+    if (spawnedBy) {
       if (key === "unknown" || key === "global") {
-        return false;
+        continue;
       }
-      return entry?.spawnedBy === spawnedBy;
-    })
-    .filter(([, entry]) => {
-      if (!label) {
-        return true;
+      if (entry?.spawnedBy !== spawnedBy) {
+        continue;
       }
-      return entry?.label === label;
-    })
-    .map(([key, entry]) => {
-      const updatedAt = entry?.updatedAt ?? null;
-      const total = resolveFreshSessionTotalTokens(entry);
-      const totalTokensFresh =
-        typeof entry?.totalTokens === "number" ? entry?.totalTokensFresh !== false : false;
-      const parsed = parseGroupKey(key);
-      const channel = entry?.channel ?? parsed?.channel;
-      const subject = entry?.subject;
-      const groupChannel = entry?.groupChannel;
-      const space = entry?.space;
-      const id = parsed?.id;
-      const origin = entry?.origin;
-      const originLabel = origin?.label;
-      const displayName =
-        entry?.displayName ??
-        (channel
-          ? buildGroupDisplayName({
-              provider: channel,
-              subject,
-              groupChannel,
-              space,
-              id,
-              key,
-            })
-          : undefined) ??
-        entry?.label ??
-        originLabel;
-      const deliveryFields = normalizeSessionDeliveryFields(entry);
-      const parsedAgent = parseAgentSessionKey(key);
-      const sessionAgentId = normalizeAgentId(parsedAgent?.agentId ?? resolveDefaultAgentId(cfg));
-      const resolvedModel = resolveSessionModelIdentityRef(cfg, entry, sessionAgentId);
-      const modelProvider = resolvedModel.provider;
-      const model = resolvedModel.model ?? DEFAULT_MODEL;
-      return {
-        key,
-        entry,
-        kind: classifySessionKey(key, entry),
-        label: entry?.label,
-        displayName,
-        channel,
-        subject,
-        groupChannel,
-        space,
-        chatType: entry?.chatType,
-        origin,
-        updatedAt,
-        sessionId: entry?.sessionId,
-        systemSent: entry?.systemSent,
-        abortedLastRun: entry?.abortedLastRun,
-        thinkingLevel: entry?.thinkingLevel,
-        verboseLevel: entry?.verboseLevel,
-        reasoningLevel: entry?.reasoningLevel,
-        elevatedLevel: entry?.elevatedLevel,
-        sendPolicy: entry?.sendPolicy,
-        inputTokens: entry?.inputTokens,
-        outputTokens: entry?.outputTokens,
-        totalTokens: total,
-        totalTokensFresh,
-        responseUsage: entry?.responseUsage,
-        modelProvider,
-        model,
-        contextTokens: entry?.contextTokens,
-        deliveryContext: deliveryFields.deliveryContext,
-        lastChannel: deliveryFields.lastChannel ?? entry?.lastChannel,
-        lastTo: deliveryFields.lastTo ?? entry?.lastTo,
-        lastAccountId: deliveryFields.lastAccountId ?? entry?.lastAccountId,
-      };
-    })
-    .toSorted((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+    }
+    if (label && entry?.label !== label) {
+      continue;
+    }
 
-  if (search) {
-    sessions = sessions.filter((s) => {
-      const fields = [s.displayName, s.label, s.subject, s.sessionId, s.key];
-      return fields.some((f) => typeof f === "string" && f.toLowerCase().includes(search));
+    if (activeMinutes !== undefined) {
+      const cutoff = now - activeMinutes * 60_000;
+      if ((entry?.updatedAt ?? 0) < cutoff) {
+        continue;
+      }
+    }
+
+    const updatedAt = entry?.updatedAt ?? null;
+    const total = resolveFreshSessionTotalTokens(entry);
+    const totalTokensFresh =
+      typeof entry?.totalTokens === "number" ? entry?.totalTokensFresh !== false : false;
+    const parsed = parseGroupKey(key);
+    const channel = entry?.channel ?? parsed?.channel;
+    const subject = entry?.subject;
+    const groupChannel = entry?.groupChannel;
+    const space = entry?.space;
+    const id = parsed?.id;
+    const origin = entry?.origin;
+    const originLabel = origin?.label;
+    const displayName =
+      entry?.displayName ??
+      (channel
+        ? buildGroupDisplayName({
+            provider: channel,
+            subject,
+            groupChannel,
+            space,
+            id,
+            key,
+          })
+        : undefined) ??
+      entry?.label ??
+      originLabel;
+
+    if (search) {
+      const fields = [displayName, entry?.label, subject, entry?.sessionId, key];
+      const matches = fields.some((f) => typeof f === "string" && f.toLowerCase().includes(search));
+      if (!matches) {
+        continue;
+      }
+    }
+
+    const deliveryFields = normalizeSessionDeliveryFields(entry);
+    const parsedAgent = parseAgentSessionKey(key);
+    const sessionAgentId = normalizeAgentId(parsedAgent?.agentId ?? resolveDefaultAgentId(cfg));
+    const resolvedModel = resolveSessionModelIdentityRef(cfg, entry, sessionAgentId);
+    const modelProvider = resolvedModel.provider;
+    const model = resolvedModel.model ?? DEFAULT_MODEL;
+
+    sessions.push({
+      key,
+      entry,
+      kind: classifySessionKey(key, entry),
+      label: entry?.label,
+      displayName,
+      channel,
+      subject,
+      groupChannel,
+      space,
+      chatType: entry?.chatType,
+      origin,
+      updatedAt,
+      sessionId: entry?.sessionId,
+      systemSent: entry?.systemSent,
+      abortedLastRun: entry?.abortedLastRun,
+      thinkingLevel: entry?.thinkingLevel,
+      verboseLevel: entry?.verboseLevel,
+      reasoningLevel: entry?.reasoningLevel,
+      elevatedLevel: entry?.elevatedLevel,
+      sendPolicy: entry?.sendPolicy,
+      inputTokens: entry?.inputTokens,
+      outputTokens: entry?.outputTokens,
+      totalTokens: total,
+      totalTokensFresh,
+      responseUsage: entry?.responseUsage,
+      modelProvider,
+      model,
+      contextTokens: entry?.contextTokens,
+      deliveryContext: deliveryFields.deliveryContext,
+      lastChannel: deliveryFields.lastChannel ?? entry?.lastChannel,
+      lastTo: deliveryFields.lastTo ?? entry?.lastTo,
+      lastAccountId: deliveryFields.lastAccountId ?? entry?.lastAccountId,
     });
   }
 
-  if (activeMinutes !== undefined) {
-    const cutoff = now - activeMinutes * 60_000;
-    sessions = sessions.filter((s) => (s.updatedAt ?? 0) >= cutoff);
-  }
+  sessions.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
 
   if (typeof opts.limit === "number" && Number.isFinite(opts.limit)) {
     const limit = Math.max(1, Math.floor(opts.limit));
