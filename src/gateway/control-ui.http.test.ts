@@ -506,6 +506,20 @@ describe("handleControlUiHttpRequest", () => {
     });
   });
 
+  it("rejects path traversal in URL-encoded form", async () => {
+    await withBasePathRootFixture({
+      siblingDir: "ui-secrets",
+      fn: async ({ root }) => {
+        const { res, end, handled } = runControlUiRequest({
+          url: `/%2e%2e%2f%2e%2e%2f%2e%2e%2fetc/passwd`,
+          method: "GET",
+          rootPath: root,
+        });
+        expectNotFoundResponse({ handled, res, end });
+      },
+    });
+  });
+
   it("rejects symlink escape attempts under basePath routes", async () => {
     await withBasePathRootFixture({
       siblingDir: "outside",
