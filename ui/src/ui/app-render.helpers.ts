@@ -214,6 +214,7 @@ export function renderChatControls(state: AppViewState) {
       <button
         class="btn btn--sm btn--icon"
         ?disabled=${state.chatLoading || !state.connected}
+        aria-label=${t("chat.refreshTitle")}
         @click=${async () => {
           const app = state as unknown as OpenClawApp;
           app.chatManualRefreshInFlight = true;
@@ -240,6 +241,7 @@ export function renderChatControls(state: AppViewState) {
       <button
         class="btn btn--sm btn--icon ${showThinking ? "active" : ""}"
         ?disabled=${disableThinkingToggle}
+        aria-label=${disableThinkingToggle ? t("chat.onboardingDisabled") : t("chat.thinkingToggle")}
         @click=${() => {
           if (disableThinkingToggle) {
             return;
@@ -257,6 +259,7 @@ export function renderChatControls(state: AppViewState) {
       <button
         class="btn btn--sm btn--icon ${focusActive ? "active" : ""}"
         ?disabled=${disableFocusToggle}
+        aria-label=${disableFocusToggle ? t("chat.onboardingDisabled") : t("chat.focusToggle")}
         @click=${() => {
           if (disableFocusToggle) {
             return;
@@ -273,6 +276,13 @@ export function renderChatControls(state: AppViewState) {
       </button>
       <button
         class="btn btn--sm btn--icon ${hideCron ? "active" : ""}"
+        aria-label=${
+          hideCron
+            ? hiddenCronCount > 0
+              ? t("chat.showCronSessionsHidden", { count: String(hiddenCronCount) })
+              : t("chat.showCronSessions")
+            : t("chat.hideCronSessions")
+        }
         @click=${() => {
           state.sessionsHideCron = !hideCron;
         }}
