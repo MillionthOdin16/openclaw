@@ -502,7 +502,10 @@ export function renderConfig(props: ConfigProps) {
               props.searchQuery
                 ? html`
                   <button
+                    type="button"
                     class="config-search__clear"
+                    aria-label="Clear search"
+                    title="Clear search"
                     @click=${() => props.onSearchChange("")}
                   >
                     ×
