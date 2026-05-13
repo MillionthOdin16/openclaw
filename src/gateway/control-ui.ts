@@ -283,7 +283,13 @@ function isSafeRelativePath(relPath: string) {
   if (!relPath) {
     return false;
   }
-  const normalized = path.posix.normalize(relPath);
+  let checkPath = relPath;
+  try {
+    checkPath = decodeURIComponent(relPath);
+  } catch {
+    // Ignore malformed URI, fallback to original
+  }
+  const normalized = path.posix.normalize(checkPath);
   if (path.posix.isAbsolute(normalized) || path.win32.isAbsolute(normalized)) {
     return false;
   }
