@@ -800,8 +800,9 @@ describe("loadCombinedSessionStoreForGateway includes disk-only agents (#32804)"
       } as OpenClawConfig;
 
       const { store } = loadCombinedSessionStoreForGateway(cfg);
-      expect(store["agent:main:main"]).toBeDefined();
-      expect(store["agent:codex:acp-task"]).toBeDefined();
+      const storeArray = Array.from(store);
+      expect(storeArray.find((s) => s.key === "agent:main:main")).toBeDefined();
+      expect(storeArray.find((s) => s.key === "agent:codex:acp-task")).toBeDefined();
     });
   });
 });

@@ -533,78 +533,50 @@ export function resolveGatewaySessionStoreTarget(params: {
 }
 
 // Merge with existing entry based on latest timestamp to ensure data consistency and avoid overwriting with less complete data.
-function mergeSessionEntryIntoCombined(params: {
-  cfg: OpenClawConfig;
-  combined: Record<string, SessionEntry>;
+export function* generateCombinedSessionStoreForGateway(cfg: OpenClawConfig): IterableIterator<{
+  key: string;
   entry: SessionEntry;
-  agentId: string;
-  canonicalKey: string;
-}) {
-  const { cfg, combined, entry, agentId, canonicalKey } = params;
-  const existing = combined[canonicalKey];
-
-  if (existing && (existing.updatedAt ?? 0) > (entry.updatedAt ?? 0)) {
-    combined[canonicalKey] = {
-      ...entry,
-      ...existing,
-      spawnedBy: canonicalizeSpawnedByForAgent(cfg, agentId, existing.spawnedBy ?? entry.spawnedBy),
-    };
-  } else {
-    combined[canonicalKey] = {
-      ...existing,
-      ...entry,
-      spawnedBy: canonicalizeSpawnedByForAgent(
-        cfg,
-        agentId,
-        entry.spawnedBy ?? existing?.spawnedBy,
-      ),
-    };
-  }
-}
-
-export function loadCombinedSessionStoreForGateway(cfg: OpenClawConfig): {
-  storePath: string;
-  store: Record<string, SessionEntry>;
-} {
+}> {
   const storeConfig = cfg.session?.store;
   if (storeConfig && !isStorePathTemplate(storeConfig)) {
     const storePath = resolveStorePath(storeConfig);
     const defaultAgentId = normalizeAgentId(resolveDefaultAgentId(cfg));
     const store = loadSessionStore(storePath);
-    const combined: Record<string, SessionEntry> = {};
     for (const [key, entry] of Object.entries(store)) {
       const canonicalKey = canonicalizeSessionKeyForAgent(defaultAgentId, key);
-      mergeSessionEntryIntoCombined({
-        cfg,
-        combined,
-        entry,
-        agentId: defaultAgentId,
-        canonicalKey,
-      });
+      const spawnedBy = canonicalizeSpawnedByForAgent(cfg, defaultAgentId, entry.spawnedBy);
+      const modifiedEntry = spawnedBy !== entry.spawnedBy ? { ...entry, spawnedBy } : entry;
+      yield { key: canonicalKey, entry: modifiedEntry };
     }
-    return { storePath, store: combined };
+    return;
   }
 
   const agentIds = listConfiguredAgentIds(cfg);
-  const combined: Record<string, SessionEntry> = {};
+  const seenKeys = new Set<string>();
+
   for (const agentId of agentIds) {
     const storePath = resolveStorePath(storeConfig, { agentId });
     const store = loadSessionStore(storePath);
     for (const [key, entry] of Object.entries(store)) {
       const canonicalKey = canonicalizeSessionKeyForAgent(agentId, key);
-      mergeSessionEntryIntoCombined({
-        cfg,
-        combined,
-        entry,
-        agentId,
-        canonicalKey,
-      });
+      if (!seenKeys.has(canonicalKey)) {
+        seenKeys.add(canonicalKey);
+        const spawnedBy = canonicalizeSpawnedByForAgent(cfg, agentId, entry.spawnedBy);
+        const modifiedEntry = spawnedBy !== entry.spawnedBy ? { ...entry, spawnedBy } : entry;
+        yield { key: canonicalKey, entry: modifiedEntry };
+      }
     }
   }
+}
 
+export function loadCombinedSessionStoreForGateway(cfg: OpenClawConfig): {
+  storePath: string;
+  store: IterableIterator<{ key: string; entry: SessionEntry }>;
+} {
+  const storeConfig = cfg.session?.store;
   const storePath =
     typeof storeConfig === "string" && storeConfig.trim() ? storeConfig.trim() : "(multiple)";
-  return { storePath, store: combined };
+  return { storePath, store: generateCombinedSessionStoreForGateway(cfg) };
 }
 
 export function getSessionDefaults(cfg: OpenClawConfig): GatewaySessionsDefaults {

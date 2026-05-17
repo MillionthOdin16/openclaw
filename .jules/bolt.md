@@ -1,0 +1,4 @@
+## 2025-03-09 - IterableIterator for Gateway Session Store Deduplication
+
+**Learning:** The OpenClaw project exhibited a Gateway Session Store defect where eagerly loading unbounded JSON session stores caused OOM exhaustion. Instead of buffering massive `Record` maps or arrays for deduplication (like `mergeSessionEntryIntoCombined` did), memory usage can be dramatically reduced by yielding entries individually from generators (`IterableIterator`) and deduplicating cross-store session keys lazily using a simple `Set<string>` within the generator itself.
+**Action:** Always favor yielding iterators (`IterableIterator`) to process large collections sequentially instead of materializing them entirely into Memory (like via `Object.entries(store)` or huge `Record<string, ...>`), and do deduplication within the generator using minimal structures like `Set`.
