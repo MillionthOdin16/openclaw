@@ -13,7 +13,7 @@ function safeTrim(value: unknown): string {
 }
 
 function macosVersion(): string {
-  const res = spawnSync("sw_vers", ["-productVersion"], { encoding: "utf-8" });
+  const res = spawnSync("sw_vers", ["-productVersion"], { encoding: "utf-8", timeout: 5000 });
   const out = safeTrim(res.stdout);
   return out || os.release();
 }
