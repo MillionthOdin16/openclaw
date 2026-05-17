@@ -57,6 +57,7 @@ function initSelfPresence() {
     if (p === "darwin") {
       const res = spawnSync("sysctl", ["-n", "hw.model"], {
         encoding: "utf-8",
+        timeout: 5000,
       });
       const out = typeof res.stdout === "string" ? res.stdout.trim() : "";
       return out.length > 0 ? out : undefined;
@@ -66,6 +67,7 @@ function initSelfPresence() {
   const macOSVersion = () => {
     const res = spawnSync("sw_vers", ["-productVersion"], {
       encoding: "utf-8",
+      timeout: 5000,
     });
     const out = typeof res.stdout === "string" ? res.stdout.trim() : "";
     return out.length > 0 ? out : os.release();
