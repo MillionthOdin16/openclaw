@@ -4,19 +4,32 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
+  clamp,
+  clampInt,
+  clampNumber,
   CONFIG_DIR,
+  displayPath,
+  displayString,
   ensureDir,
+  escapeRegExp,
+  formatTerminalLink,
+  isRecord,
+  isSelfChatMode,
   jidToE164,
   normalizeE164,
   normalizePath,
+  pathExists,
   resolveConfigDir,
   resolveHomeDir,
   resolveJidToE164,
   resolveUserPath,
+  safeParseJson,
   shortenHomeInString,
   shortenHomePath,
+  sliceUtf16Safe,
   sleep,
   toWhatsappJid,
+  truncateUtf16Safe,
   withWhatsAppPrefix,
 } from "./utils.js";
 
@@ -244,5 +257,132 @@ describe("resolveUserPath", () => {
   it("returns empty string for undefined/null input", () => {
     expect(resolveUserPath(undefined as unknown as string)).toBe("");
     expect(resolveUserPath(null as unknown as string)).toBe("");
+  });
+});
+
+describe("pathExists", () => {
+  it("returns true for existing path", async () => {
+    await withTempDirSync("openclaw-pathexists-", async (tmp) => {
+      const file = path.join(tmp, "file.txt");
+      fs.writeFileSync(file, "test");
+      await expect(pathExists(file)).resolves.toBe(true);
+    });
+  });
+
+  it("returns false for non-existing path", async () => {
+    await withTempDirSync("openclaw-pathexists-", async (tmp) => {
+      const file = path.join(tmp, "does_not_exist.txt");
+      await expect(pathExists(file)).resolves.toBe(false);
+    });
+  });
+});
+
+describe("clamp functions", () => {
+  it("clampNumber", () => {
+    expect(clampNumber(5, 0, 10)).toBe(5);
+    expect(clampNumber(-5, 0, 10)).toBe(0);
+    expect(clampNumber(15, 0, 10)).toBe(10);
+  });
+
+  it("clampInt", () => {
+    expect(clampInt(5.5, 0, 10)).toBe(5);
+    expect(clampInt(-5.5, 0, 10)).toBe(0);
+    expect(clampInt(15.5, 0, 10)).toBe(10);
+  });
+
+  it("clamp alias", () => {
+    expect(clamp(5.5, 0, 10)).toBe(5.5);
+    expect(clamp(-5, 0, 10)).toBe(0);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes regex specials", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("returns parsed json", () => {
+    expect(safeParseJson('{"a":1}')).toEqual({ a: 1 });
+  });
+
+  it("returns null on error", () => {
+    expect(safeParseJson('{"a":1')).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("identifies records correctly", () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ a: 1 })).toBe(true);
+    expect(isRecord([])).toBe(false);
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord("")).toBe(false);
+    expect(isRecord(1)).toBe(false);
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("handles valid self chat modes", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("+15551234567", ["+15550000000", "+15551234567"])).toBe(true);
+  });
+
+  it("handles invalid or non-matching modes", () => {
+    expect(isSelfChatMode("+15551234567", ["+15550000000"])).toBe(false);
+    expect(isSelfChatMode(null, ["+15551234567"])).toBe(false);
+    expect(isSelfChatMode("+15551234567", null)).toBe(false);
+    expect(isSelfChatMode("+15551234567", [])).toBe(false);
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+    expect(isSelfChatMode("+15551234567", ["invalid"])).toBe(false);
+  });
+});
+
+describe("sliceUtf16Safe & truncateUtf16Safe", () => {
+  const emojiStr = "a😀b😀c"; // length is 1 + 2 + 1 + 2 + 1 = 7
+
+  it("sliceUtf16Safe", () => {
+    expect(sliceUtf16Safe(emojiStr, 0, 3)).toBe("a😀");
+    expect(sliceUtf16Safe(emojiStr, 0, 4)).toBe("a😀b");
+    expect(sliceUtf16Safe(emojiStr, 1, 2)).toBe(""); // middle of emoji
+    expect(sliceUtf16Safe(emojiStr, 0, -1)).toBe("a😀b😀"); // negative end
+    expect(sliceUtf16Safe(emojiStr, -3)).toBe("😀c"); // negative start
+    expect(sliceUtf16Safe(emojiStr, 4, 2)).toBe("b"); // from > to
+  });
+
+  it("truncateUtf16Safe", () => {
+    expect(truncateUtf16Safe(emojiStr, 10)).toBe(emojiStr);
+    expect(truncateUtf16Safe(emojiStr, 3)).toBe("a😀");
+  });
+});
+
+describe("displayPath & displayString", () => {
+  it("displayPath", () => {
+    expect(displayPath("foo/bar")).toBe("foo/bar");
+    expect(displayPath("")).toBe("");
+  });
+
+  it("displayString", () => {
+    expect(displayString("foo bar")).toBe("foo bar");
+    expect(displayString("")).toBe("");
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats terminal link when supported", () => {
+    const original = process.stdout.isTTY;
+    process.stdout.isTTY = true;
+    expect(formatTerminalLink("label", "http://url", { force: true })).toBe(
+      "\u001b]8;;http://url\u0007label\u001b]8;;\u0007",
+    );
+    process.stdout.isTTY = original;
+  });
+
+  it("returns fallback or plain text when unsupported", () => {
+    expect(formatTerminalLink("label", "http://url", { force: false })).toBe("label (http://url)");
+    expect(formatTerminalLink("label", "http://url", { force: false, fallback: "custom" })).toBe(
+      "custom",
+    );
   });
 });
