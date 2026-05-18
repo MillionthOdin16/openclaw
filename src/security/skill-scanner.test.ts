@@ -59,6 +59,18 @@ cp.spawn("node", ["server.js"]);
     );
   });
 
+  it("detects node:child_process exec usage", () => {
+    const source = `
+import { exec } from "node:child_process";
+const cmd = "ls -la";
+exec(cmd);
+`;
+    const findings = scanSource(source, "plugin.ts");
+    expect(findings.some((f) => f.ruleId === "dangerous-exec" && f.severity === "critical")).toBe(
+      true,
+    );
+  });
+
   it("does not flag child_process import without exec/spawn call", () => {
     const source = `
 // This module wraps child_process for safety
