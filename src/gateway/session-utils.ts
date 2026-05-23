@@ -737,45 +737,40 @@ export function listSessionsFromStore(params: {
       ? Math.max(1, Math.floor(opts.activeMinutes))
       : undefined;
 
-  let sessions = Object.entries(store)
-    .filter(([key]) => {
+  // Optimization: Lazy iteration instead of building massive arrays
+  function* generateSessions(): IterableIterator<GatewaySessionRow> {
+    for (const key of Object.keys(store)) {
       if (isCronRunSessionKey(key)) {
-        return false;
+        continue;
       }
       if (!includeGlobal && key === "global") {
-        return false;
+        continue;
       }
       if (!includeUnknown && key === "unknown") {
-        return false;
+        continue;
       }
       if (agentId) {
         if (key === "global" || key === "unknown") {
-          return false;
+          continue;
         }
         const parsed = parseAgentSessionKey(key);
-        if (!parsed) {
-          return false;
+        if (!parsed || normalizeAgentId(parsed.agentId) !== agentId) {
+          continue;
         }
-        return normalizeAgentId(parsed.agentId) === agentId;
       }
-      return true;
-    })
-    .filter(([key, entry]) => {
-      if (!spawnedBy) {
-        return true;
+
+      const entry = store[key];
+
+      if (spawnedBy) {
+        if (key === "unknown" || key === "global" || entry?.spawnedBy !== spawnedBy) {
+          continue;
+        }
       }
-      if (key === "unknown" || key === "global") {
-        return false;
+
+      if (label && entry?.label !== label) {
+        continue;
       }
-      return entry?.spawnedBy === spawnedBy;
-    })
-    .filter(([, entry]) => {
-      if (!label) {
-        return true;
-      }
-      return entry?.label === label;
-    })
-    .map(([key, entry]) => {
+
       const updatedAt = entry?.updatedAt ?? null;
       const total = resolveFreshSessionTotalTokens(entry);
       const totalTokensFresh =
@@ -808,7 +803,7 @@ export function listSessionsFromStore(params: {
       const resolvedModel = resolveSessionModelIdentityRef(cfg, entry, sessionAgentId);
       const modelProvider = resolvedModel.provider;
       const model = resolvedModel.model ?? DEFAULT_MODEL;
-      return {
+      yield {
         key,
         entry,
         kind: classifySessionKey(key, entry),
@@ -842,20 +837,26 @@ export function listSessionsFromStore(params: {
         lastTo: deliveryFields.lastTo ?? entry?.lastTo,
         lastAccountId: deliveryFields.lastAccountId ?? entry?.lastAccountId,
       };
-    })
-    .toSorted((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+    }
+  }
 
-  if (search) {
-    sessions = sessions.filter((s) => {
+  let sessions: GatewaySessionRow[] = [];
+  const cutoff = activeMinutes !== undefined ? now - activeMinutes * 60_000 : undefined;
+
+  for (const s of generateSessions()) {
+    if (cutoff !== undefined && (s.updatedAt ?? 0) < cutoff) {
+      continue;
+    }
+    if (search) {
       const fields = [s.displayName, s.label, s.subject, s.sessionId, s.key];
-      return fields.some((f) => typeof f === "string" && f.toLowerCase().includes(search));
-    });
+      if (!fields.some((f) => typeof f === "string" && f.toLowerCase().includes(search))) {
+        continue;
+      }
+    }
+    sessions.push(s);
   }
 
-  if (activeMinutes !== undefined) {
-    const cutoff = now - activeMinutes * 60_000;
-    sessions = sessions.filter((s) => (s.updatedAt ?? 0) >= cutoff);
-  }
+  sessions.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
 
   if (typeof opts.limit === "number" && Number.isFinite(opts.limit)) {
     const limit = Math.max(1, Math.floor(opts.limit));
