@@ -8,6 +8,8 @@ import {
   DEFAULT_CRON_RUN_LOG_MAX_BYTES,
   getPendingCronRunLogWriteCountForTests,
   readCronRunLogEntries,
+  readCronRunLogEntriesPage,
+  readCronRunLogEntriesPageAll,
   resolveCronRunLogPruneOptions,
   resolveCronRunLogPath,
 } from "./run-log.js";
@@ -311,5 +313,127 @@ describe("cron run log", () => {
       // Clean up
       await writePromise.catch(() => undefined);
     });
+  });
+});
+
+describe("readCronRunLogEntriesPage", () => {
+  it("pages entries correctly from a single file", async () => {
+    const tmpdir = await fs.mkdtemp(path.join(os.tmpdir(), "cron-run-log-test-"));
+    const logPath = path.join(tmpdir, "log.jsonl");
+
+    // Write some dummy entries
+    const entries = Array.from({ length: 15 }).map((_, i) => ({
+      action: "finished",
+      ts: 1000 + i,
+      jobId: "job-" + (i % 2),
+      status: i % 2 === 0 ? "ok" : "error",
+      summary: "test " + i,
+    }));
+
+    for (const entry of entries) {
+      await fs.appendFile(logPath, JSON.stringify(entry) + "\n");
+    }
+
+    // Default limit is 50, descending sort
+    let page = await readCronRunLogEntriesPage(logPath);
+    expect(page.total).toBe(15);
+    expect(page.entries).toHaveLength(15);
+    expect(page.entries[0].ts).toBe(1014); // newest first
+    expect(page.hasMore).toBe(false);
+
+    // Limit and offset
+    page = await readCronRunLogEntriesPage(logPath, { limit: 5, offset: 5 });
+    expect(page.entries).toHaveLength(5);
+    expect(page.entries[0].ts).toBe(1009); // 6th newest
+    expect(page.hasMore).toBe(true);
+    expect(page.nextOffset).toBe(10);
+
+    // Ascending sort
+    page = await readCronRunLogEntriesPage(logPath, { sortDir: "asc", limit: 5 });
+    expect(page.entries[0].ts).toBe(1000); // oldest first
+
+    // Query filter
+    page = await readCronRunLogEntriesPage(logPath, { query: "test 11" });
+    expect(page.entries).toHaveLength(1);
+    expect(page.entries[0].ts).toBe(1011);
+
+    // Job ID filter via parsed structure (readCronRunLogEntriesPage filters by opts.jobId internally)
+    page = await readCronRunLogEntriesPage(logPath, { jobId: "job-0" });
+    expect(page.entries.every((e) => e.jobId === "job-0")).toBe(true);
+
+    // Status filter
+    page = await readCronRunLogEntriesPage(logPath, { status: "error" });
+    expect(page.entries.every((e) => e.status === "error")).toBe(true);
+
+    await fs.rm(tmpdir, { recursive: true, force: true });
+  });
+});
+
+describe("readCronRunLogEntriesPageAll", () => {
+  it("pages entries from multiple runs directories and files", async () => {
+    const tmpdir = await fs.mkdtemp(path.join(os.tmpdir(), "cron-run-log-test-"));
+    const storePath = path.join(tmpdir, "store.json");
+    const runsDir = path.join(tmpdir, "runs");
+    await fs.mkdir(runsDir);
+
+    // Empty state
+    let page = await readCronRunLogEntriesPageAll({ storePath });
+    expect(page.total).toBe(0);
+    expect(page.entries).toHaveLength(0);
+
+    const log1 = path.join(runsDir, "jobA.jsonl");
+    const log2 = path.join(runsDir, "jobB.jsonl");
+
+    const entriesA = Array.from({ length: 10 }).map((_, i) => ({
+      action: "finished",
+      ts: 2000 + i,
+      jobId: "jobA",
+      status: "ok",
+      summary: "a " + i,
+    }));
+    for (const entry of entriesA) {
+      await fs.appendFile(log1, JSON.stringify(entry) + "\n");
+    }
+
+    const entriesB = Array.from({ length: 10 }).map((_, i) => ({
+      action: "finished",
+      deliveryStatus: "not-delivered",
+      ts: 2500 + i,
+      jobId: "jobB",
+      status: "skipped",
+      summary: "b " + i,
+    }));
+    for (const entry of entriesB) {
+      await fs.appendFile(log2, JSON.stringify(entry) + "\n");
+    }
+
+    // Default limit, desc sort
+    page = await readCronRunLogEntriesPageAll({ storePath });
+    expect(page.total).toBe(20);
+    expect(page.entries).toHaveLength(20);
+    expect(page.entries[0].ts).toBe(2509); // newest first across both files
+
+    // Query filter and jobNameById resolution
+    page = await readCronRunLogEntriesPageAll({
+      storePath,
+      query: "CustomJobName",
+      jobNameById: { jobA: "CustomJobName" },
+    });
+    expect(page.entries).toHaveLength(10);
+    expect(page.entries[0].jobId).toBe("jobA");
+    expect((page.entries[0] as Record<string, unknown>).jobName).toBe("CustomJobName");
+
+    // Ascending sort, limits
+    page = await readCronRunLogEntriesPageAll({ storePath, sortDir: "asc", limit: 5 });
+    expect(page.entries).toHaveLength(5);
+    expect(page.entries[0].ts).toBe(2000);
+    expect(page.hasMore).toBe(true);
+
+    // Delivery statuses filter
+    page = await readCronRunLogEntriesPageAll({ storePath, deliveryStatuses: ["not-delivered"] });
+    expect(page.entries).toHaveLength(10);
+    expect(page.entries.every((e) => e.status === "skipped")).toBe(true);
+
+    await fs.rm(tmpdir, { recursive: true, force: true });
   });
 });
