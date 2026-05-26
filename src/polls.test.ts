@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { normalizePollDurationHours, normalizePollInput } from "./polls.js";
+import {
+  normalizePollDurationHours,
+  normalizePollInput,
+  resolvePollMaxSelections,
+} from "./polls.js";
+
+describe("resolvePollMaxSelections", () => {
+  it("returns 1 when allowMultiselect is false or undefined", () => {
+    expect(resolvePollMaxSelections(5, false)).toBe(1);
+    expect(resolvePollMaxSelections(5, undefined)).toBe(1);
+  });
+
+  it("returns at least 2 or optionCount when allowMultiselect is true", () => {
+    expect(resolvePollMaxSelections(1, true)).toBe(2);
+    expect(resolvePollMaxSelections(5, true)).toBe(5);
+  });
+});
 
 describe("polls", () => {
   it("normalizes question/options and validates maxSelections", () => {
@@ -43,5 +59,50 @@ describe("polls", () => {
         durationHours: 1,
       }),
     ).toThrow(/mutually exclusive/);
+  });
+
+  it("rejects missing or empty question", () => {
+    expect(() => normalizePollInput({ question: "   ", options: ["A", "B"] })).toThrow(
+      "Poll question is required",
+    );
+  });
+
+  it("handles missing options gracefully", () => {
+    expect(() =>
+      normalizePollInput({ question: "Q", options: undefined as unknown as string[] }),
+    ).toThrow("Poll requires at least 2 options");
+  });
+
+  it("rejects fewer than 2 options after cleaning", () => {
+    expect(() => normalizePollInput({ question: "Q", options: ["A", "  "] })).toThrow(
+      "Poll requires at least 2 options",
+    );
+  });
+
+  it("rejects maxSelections less than 1", () => {
+    expect(() =>
+      normalizePollInput({ question: "Q", options: ["A", "B"], maxSelections: 0 }),
+    ).toThrow("maxSelections must be at least 1");
+    expect(() =>
+      normalizePollInput({ question: "Q", options: ["A", "B"], maxSelections: -5 }),
+    ).toThrow("maxSelections must be at least 1");
+  });
+
+  it("rejects maxSelections exceeding option count", () => {
+    expect(() =>
+      normalizePollInput({ question: "Q", options: ["A", "B", "C"], maxSelections: 4 }),
+    ).toThrow("maxSelections cannot exceed option count");
+  });
+
+  it("rejects durationSeconds less than 1", () => {
+    expect(() =>
+      normalizePollInput({ question: "Q", options: ["A", "B"], durationSeconds: 0 }),
+    ).toThrow("durationSeconds must be at least 1");
+  });
+
+  it("rejects durationHours less than 1", () => {
+    expect(() =>
+      normalizePollInput({ question: "Q", options: ["A", "B"], durationHours: 0 }),
+    ).toThrow("durationHours must be at least 1");
   });
 });
