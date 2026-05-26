@@ -411,22 +411,24 @@ export async function readCronRunLogEntriesPageAll(
     };
   }
   await Promise.all(jsonlFiles.map((f) => drainPendingWrite(f)));
-  const chunks = await Promise.all(
-    jsonlFiles.map(async (filePath) => {
-      const raw = await fs.readFile(filePath, "utf-8").catch(() => "");
-      return parseAllRunLogEntries(raw);
-    }),
-  );
-  const all = chunks.flat();
-  const filtered = filterRunLogEntries(all, {
+  // ⚡ Bolt: Prevent OOM by parsing and filtering files concurrently to drop unmatched entries early instead of building massive intermediate arrays
+  const filterOpts = {
     statuses,
     deliveryStatuses,
     query,
-    queryTextForEntry: (entry) => {
+    queryTextForEntry: (entry: CronRunLogEntry) => {
       const jobName = opts.jobNameById?.[entry.jobId] ?? "";
       return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
     },
-  });
+  };
+  const filteredChunks = await Promise.all(
+    jsonlFiles.map(async (filePath) => {
+      const raw = await fs.readFile(filePath, "utf-8").catch(() => "");
+      const parsed = parseAllRunLogEntries(raw);
+      return filterRunLogEntries(parsed, filterOpts);
+    }),
+  );
+  const filtered = filteredChunks.flat();
   const sorted =
     sortDir === "asc"
       ? filtered.toSorted((a, b) => a.ts - b.ts)
