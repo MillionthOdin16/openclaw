@@ -213,6 +213,7 @@ export function renderChatControls(state: AppViewState) {
       </label>
       <button
         class="btn btn--sm btn--icon"
+        aria-label="Refresh"
         ?disabled=${state.chatLoading || !state.connected}
         @click=${async () => {
           const app = state as unknown as OpenClawApp;
@@ -239,6 +240,7 @@ export function renderChatControls(state: AppViewState) {
       <span class="chat-controls__separator">|</span>
       <button
         class="btn btn--sm btn--icon ${showThinking ? "active" : ""}"
+        aria-label=${disableThinkingToggle ? "Thinking disabled during onboarding" : "Toggle thinking"}
         ?disabled=${disableThinkingToggle}
         @click=${() => {
           if (disableThinkingToggle) {
@@ -256,6 +258,7 @@ export function renderChatControls(state: AppViewState) {
       </button>
       <button
         class="btn btn--sm btn--icon ${focusActive ? "active" : ""}"
+        aria-label=${disableFocusToggle ? "Focus mode disabled during onboarding" : "Toggle focus mode"}
         ?disabled=${disableFocusToggle}
         @click=${() => {
           if (disableFocusToggle) {
@@ -273,6 +276,7 @@ export function renderChatControls(state: AppViewState) {
       </button>
       <button
         class="btn btn--sm btn--icon ${hideCron ? "active" : ""}"
+        aria-label=${hideCron ? (hiddenCronCount > 0 ? `Show ${hiddenCronCount} hidden scheduled sessions` : "Show scheduled sessions") : "Hide scheduled sessions"}
         @click=${() => {
           state.sessionsHideCron = !hideCron;
         }}
