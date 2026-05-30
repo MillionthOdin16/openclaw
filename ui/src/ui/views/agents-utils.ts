@@ -289,40 +289,7 @@ function addModelConfigIds(target: Set<string>, modelConfig: unknown) {
 }
 
 export function sortLocaleStrings(values: Iterable<string>): string[] {
-  const sorted = Array.from(values);
-  const buffer = Array.from({ length: sorted.length }, () => "");
-
-  const merge = (left: number, middle: number, right: number): void => {
-    let i = left;
-    let j = middle;
-    let k = left;
-    while (i < middle && j < right) {
-      buffer[k++] = sorted[i].localeCompare(sorted[j]) <= 0 ? sorted[i++] : sorted[j++];
-    }
-    while (i < middle) {
-      buffer[k++] = sorted[i++];
-    }
-    while (j < right) {
-      buffer[k++] = sorted[j++];
-    }
-    for (let idx = left; idx < right; idx += 1) {
-      sorted[idx] = buffer[idx];
-    }
-  };
-
-  const sortRange = (left: number, right: number): void => {
-    if (right - left <= 1) {
-      return;
-    }
-
-    const middle = (left + right) >>> 1;
-    sortRange(left, middle);
-    sortRange(middle, right);
-    merge(left, middle, right);
-  };
-
-  sortRange(0, sorted.length);
-  return sorted;
+  return Array.from(values).sort((a, b) => a.localeCompare(b)); // eslint-disable-line unicorn/no-array-sort
 }
 
 export function resolveConfiguredCronModelSuggestions(
