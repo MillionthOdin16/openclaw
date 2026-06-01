@@ -1,0 +1,7 @@
+echo "🦅 Scout: Critical Inherited Defect Report - 2026-06-01"
+cat << 'REPORT'
+* **Upstream Issue #70559: runUnsafeReindex crashes with "no such table: chunks_vec" when sqlite-vec is enabled**
+* **Location in our code:**  lines 1172-1183 ()
+* **Observed Behavior:**  hard-drops the  SQLite virtual table by calling . Subsequent prepared statements referencing the table (e.g. during sync operations) crash with 'no such table'.
+* **Expected Behavior:** Reindex operations should clear rows via  instead of dropping the table, preserving schema and dimensions for subsequent statements.
+REPORT
