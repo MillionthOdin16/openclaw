@@ -594,6 +594,7 @@ function renderAllowlistEntry(
         </label>
         <button
           class="btn btn--sm danger"
+          aria-label="Remove pattern"
           ?disabled=${state.disabled}
           @click=${() => {
             if (state.allowlist.length <= 1) {
