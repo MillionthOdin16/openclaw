@@ -1,5 +1,7 @@
+import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import readline from "node:readline";
 import { parseByteSize } from "../cli/parse-bytes.js";
 import type { CronConfig } from "../config/types.cron.js";
 import type { CronDeliveryStatus, CronRunStatus, CronRunTelemetry } from "./types.js";
@@ -238,117 +240,82 @@ function normalizeDeliveryStatuses(opts?: {
   return null;
 }
 
-function parseAllRunLogEntries(raw: string, opts?: { jobId?: string }): CronRunLogEntry[] {
+function parseRunLogEntry(line: string, opts?: { jobId?: string }): CronRunLogEntry | null {
   const jobId = opts?.jobId?.trim() || undefined;
-  if (!raw.trim()) {
-    return [];
+  if (!line) {
+    return null;
   }
-  const parsed: CronRunLogEntry[] = [];
-  const lines = raw.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]?.trim();
-    if (!line) {
-      continue;
+  try {
+    const obj = JSON.parse(line) as Partial<CronRunLogEntry> | null;
+    if (!obj || typeof obj !== "object") {
+      return null;
     }
-    try {
-      const obj = JSON.parse(line) as Partial<CronRunLogEntry> | null;
-      if (!obj || typeof obj !== "object") {
-        continue;
-      }
-      if (obj.action !== "finished") {
-        continue;
-      }
-      if (typeof obj.jobId !== "string" || obj.jobId.trim().length === 0) {
-        continue;
-      }
-      if (typeof obj.ts !== "number" || !Number.isFinite(obj.ts)) {
-        continue;
-      }
-      if (jobId && obj.jobId !== jobId) {
-        continue;
-      }
-      const usage =
-        obj.usage && typeof obj.usage === "object"
-          ? (obj.usage as Record<string, unknown>)
-          : undefined;
-      const entry: CronRunLogEntry = {
-        ts: obj.ts,
-        jobId: obj.jobId,
-        action: "finished",
-        status: obj.status,
-        error: obj.error,
-        summary: obj.summary,
-        runAtMs: obj.runAtMs,
-        durationMs: obj.durationMs,
-        nextRunAtMs: obj.nextRunAtMs,
-        model: typeof obj.model === "string" && obj.model.trim() ? obj.model : undefined,
-        provider:
-          typeof obj.provider === "string" && obj.provider.trim() ? obj.provider : undefined,
-        usage: usage
-          ? {
-              input_tokens: typeof usage.input_tokens === "number" ? usage.input_tokens : undefined,
-              output_tokens:
-                typeof usage.output_tokens === "number" ? usage.output_tokens : undefined,
-              total_tokens: typeof usage.total_tokens === "number" ? usage.total_tokens : undefined,
-              cache_read_tokens:
-                typeof usage.cache_read_tokens === "number" ? usage.cache_read_tokens : undefined,
-              cache_write_tokens:
-                typeof usage.cache_write_tokens === "number" ? usage.cache_write_tokens : undefined,
-            }
-          : undefined,
-      };
-      if (typeof obj.delivered === "boolean") {
-        entry.delivered = obj.delivered;
-      }
-      if (
-        obj.deliveryStatus === "delivered" ||
-        obj.deliveryStatus === "not-delivered" ||
-        obj.deliveryStatus === "unknown" ||
-        obj.deliveryStatus === "not-requested"
-      ) {
-        entry.deliveryStatus = obj.deliveryStatus;
-      }
-      if (typeof obj.deliveryError === "string") {
-        entry.deliveryError = obj.deliveryError;
-      }
-      if (typeof obj.sessionId === "string" && obj.sessionId.trim().length > 0) {
-        entry.sessionId = obj.sessionId;
-      }
-      if (typeof obj.sessionKey === "string" && obj.sessionKey.trim().length > 0) {
-        entry.sessionKey = obj.sessionKey;
-      }
-      parsed.push(entry);
-    } catch {
-      // ignore invalid lines
+    if (obj.action !== "finished") {
+      return null;
     }
+    if (typeof obj.jobId !== "string" || obj.jobId.trim().length === 0) {
+      return null;
+    }
+    if (typeof obj.ts !== "number" || !Number.isFinite(obj.ts)) {
+      return null;
+    }
+    if (jobId && obj.jobId !== jobId) {
+      return null;
+    }
+    const usage =
+      obj.usage && typeof obj.usage === "object"
+        ? (obj.usage as Record<string, unknown>)
+        : undefined;
+    const entry: CronRunLogEntry = {
+      ts: obj.ts,
+      jobId: obj.jobId,
+      action: "finished",
+      status: obj.status,
+      error: obj.error,
+      summary: obj.summary,
+      runAtMs: obj.runAtMs,
+      durationMs: obj.durationMs,
+      nextRunAtMs: obj.nextRunAtMs,
+      model: typeof obj.model === "string" && obj.model.trim() ? obj.model : undefined,
+      provider: typeof obj.provider === "string" && obj.provider.trim() ? obj.provider : undefined,
+      usage: usage
+        ? {
+            input_tokens: typeof usage.input_tokens === "number" ? usage.input_tokens : undefined,
+            output_tokens:
+              typeof usage.output_tokens === "number" ? usage.output_tokens : undefined,
+            total_tokens: typeof usage.total_tokens === "number" ? usage.total_tokens : undefined,
+            cache_read_tokens:
+              typeof usage.cache_read_tokens === "number" ? usage.cache_read_tokens : undefined,
+            cache_write_tokens:
+              typeof usage.cache_write_tokens === "number" ? usage.cache_write_tokens : undefined,
+          }
+        : undefined,
+    };
+    if (typeof obj.delivered === "boolean") {
+      entry.delivered = obj.delivered;
+    }
+    if (
+      obj.deliveryStatus === "delivered" ||
+      obj.deliveryStatus === "not-delivered" ||
+      obj.deliveryStatus === "unknown" ||
+      obj.deliveryStatus === "not-requested"
+    ) {
+      entry.deliveryStatus = obj.deliveryStatus;
+    }
+    if (typeof obj.deliveryError === "string") {
+      entry.deliveryError = obj.deliveryError;
+    }
+    if (typeof obj.sessionId === "string" && obj.sessionId.trim().length > 0) {
+      entry.sessionId = obj.sessionId;
+    }
+    if (typeof obj.sessionKey === "string" && obj.sessionKey.trim().length > 0) {
+      entry.sessionKey = obj.sessionKey;
+    }
+    return entry;
+  } catch {
+    // ignore invalid lines
+    return null;
   }
-  return parsed;
-}
-
-function filterRunLogEntries(
-  entries: CronRunLogEntry[],
-  opts: {
-    statuses: CronRunStatus[] | null;
-    deliveryStatuses: CronDeliveryStatus[] | null;
-    query: string;
-    queryTextForEntry: (entry: CronRunLogEntry) => string;
-  },
-): CronRunLogEntry[] {
-  return entries.filter((entry) => {
-    if (opts.statuses && (!entry.status || !opts.statuses.includes(entry.status))) {
-      return false;
-    }
-    if (opts.deliveryStatuses) {
-      const deliveryStatus = entry.deliveryStatus ?? "not-requested";
-      if (!opts.deliveryStatuses.includes(deliveryStatus)) {
-        return false;
-      }
-    }
-    if (!opts.query) {
-      return true;
-    }
-    return opts.queryTextForEntry(entry).toLowerCase().includes(opts.query);
-  });
 }
 
 export async function readCronRunLogEntriesPage(
@@ -357,18 +324,35 @@ export async function readCronRunLogEntriesPage(
 ): Promise<CronRunLogPageResult> {
   await drainPendingWrite(filePath);
   const limit = Math.max(1, Math.min(200, Math.floor(opts?.limit ?? 50)));
-  const raw = await fs.readFile(path.resolve(filePath), "utf-8").catch(() => "");
   const statuses = normalizeRunStatuses(opts);
   const deliveryStatuses = normalizeDeliveryStatuses(opts);
   const query = opts?.query?.trim().toLowerCase() ?? "";
   const sortDir: CronRunLogSortDir = opts?.sortDir === "asc" ? "asc" : "desc";
-  const all = parseAllRunLogEntries(raw, { jobId: opts?.jobId });
-  const filtered = filterRunLogEntries(all, {
-    statuses,
-    deliveryStatuses,
-    query,
-    queryTextForEntry: (entry) => [entry.summary ?? "", entry.error ?? "", entry.jobId].join(" "),
-  });
+
+  const filtered: CronRunLogEntry[] = [];
+  const queryTextForEntry = (entry: CronRunLogEntry) =>
+    [entry.summary ?? "", entry.error ?? "", entry.jobId].join(" ");
+
+  try {
+    const fileStream = createReadStream(path.resolve(filePath));
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+    for await (const line of rl) {
+      const entry = parseRunLogEntry(line.trim(), { jobId: opts?.jobId });
+      if (entry) {
+        const matchesStatus = !statuses || (entry.status && statuses.includes(entry.status));
+        const deliveryStatus = entry.deliveryStatus ?? "not-requested";
+        const matchesDelivery = !deliveryStatuses || deliveryStatuses.includes(deliveryStatus);
+        const matchesQuery = !query || queryTextForEntry(entry).toLowerCase().includes(query);
+
+        if (matchesStatus && matchesDelivery && matchesQuery) {
+          filtered.push(entry);
+        }
+      }
+    }
+  } catch {
+    // Ignore missing or unreadable files
+  }
+
   const sorted =
     sortDir === "asc"
       ? filtered.toSorted((a, b) => a.ts - b.ts)
@@ -411,22 +395,37 @@ export async function readCronRunLogEntriesPageAll(
     };
   }
   await Promise.all(jsonlFiles.map((f) => drainPendingWrite(f)));
-  const chunks = await Promise.all(
+
+  const filtered: CronRunLogEntry[] = [];
+  const queryTextForEntry = (entry: CronRunLogEntry) => {
+    const jobName = opts.jobNameById?.[entry.jobId] ?? "";
+    return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
+  };
+
+  await Promise.all(
     jsonlFiles.map(async (filePath) => {
-      const raw = await fs.readFile(filePath, "utf-8").catch(() => "");
-      return parseAllRunLogEntries(raw);
+      try {
+        const fileStream = createReadStream(filePath);
+        const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+        for await (const line of rl) {
+          const entry = parseRunLogEntry(line.trim());
+          if (entry) {
+            const matchesStatus = !statuses || (entry.status && statuses.includes(entry.status));
+            const deliveryStatus = entry.deliveryStatus ?? "not-requested";
+            const matchesDelivery = !deliveryStatuses || deliveryStatuses.includes(deliveryStatus);
+            const matchesQuery = !query || queryTextForEntry(entry).toLowerCase().includes(query);
+
+            if (matchesStatus && matchesDelivery && matchesQuery) {
+              filtered.push(entry);
+            }
+          }
+        }
+      } catch {
+        // Ignore unreadable files
+      }
     }),
   );
-  const all = chunks.flat();
-  const filtered = filterRunLogEntries(all, {
-    statuses,
-    deliveryStatuses,
-    query,
-    queryTextForEntry: (entry) => {
-      const jobName = opts.jobNameById?.[entry.jobId] ?? "";
-      return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
-    },
-  });
+
   const sorted =
     sortDir === "asc"
       ? filtered.toSorted((a, b) => a.ts - b.ts)
