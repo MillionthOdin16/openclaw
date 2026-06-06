@@ -414,19 +414,21 @@ export async function readCronRunLogEntriesPageAll(
   const chunks = await Promise.all(
     jsonlFiles.map(async (filePath) => {
       const raw = await fs.readFile(filePath, "utf-8").catch(() => "");
-      return parseAllRunLogEntries(raw);
+      const parsed = parseAllRunLogEntries(raw);
+      // Filter per-file before flattening to prevent unbounded memory growth
+      // from creating massive intermediate arrays when parsing large log datasets.
+      return filterRunLogEntries(parsed, {
+        statuses,
+        deliveryStatuses,
+        query,
+        queryTextForEntry: (entry) => {
+          const jobName = opts.jobNameById?.[entry.jobId] ?? "";
+          return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
+        },
+      });
     }),
   );
-  const all = chunks.flat();
-  const filtered = filterRunLogEntries(all, {
-    statuses,
-    deliveryStatuses,
-    query,
-    queryTextForEntry: (entry) => {
-      const jobName = opts.jobNameById?.[entry.jobId] ?? "";
-      return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
-    },
-  });
+  const filtered = chunks.flat();
   const sorted =
     sortDir === "asc"
       ? filtered.toSorted((a, b) => a.ts - b.ts)
