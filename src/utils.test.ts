@@ -18,6 +18,19 @@ import {
   sleep,
   toWhatsappJid,
   withWhatsAppPrefix,
+  pathExists,
+  clampNumber,
+  clampInt,
+  clamp,
+  escapeRegExp,
+  safeParseJson,
+  isRecord,
+  isSelfChatMode,
+  sliceUtf16Safe,
+  truncateUtf16Safe,
+  displayPath,
+  displayString,
+  formatTerminalLink,
 } from "./utils.js";
 
 function withTempDirSync<T>(prefix: string, run: (dir: string) => T): T {
@@ -244,5 +257,123 @@ describe("resolveUserPath", () => {
   it("returns empty string for undefined/null input", () => {
     expect(resolveUserPath(undefined as unknown as string)).toBe("");
     expect(resolveUserPath(null as unknown as string)).toBe("");
+  });
+});
+
+describe("pathExists", () => {
+  it("returns true for existing file", async () => {
+    expect(await pathExists(__filename)).toBe(true);
+  });
+  it("returns false for missing file", async () => {
+    expect(await pathExists(__filename + ".nonexistent")).toBe(false);
+  });
+});
+
+describe("clamp functions", () => {
+  it("clampNumber clamps to min and max", () => {
+    expect(clampNumber(5, 1, 10)).toBe(5);
+    expect(clampNumber(0, 1, 10)).toBe(1);
+    expect(clampNumber(15, 1, 10)).toBe(10);
+  });
+
+  it("clampInt floors and clamps", () => {
+    expect(clampInt(5.5, 1, 10)).toBe(5);
+    expect(clampInt(0.5, 1, 10)).toBe(1);
+    expect(clampInt(15.5, 1, 10)).toBe(10);
+  });
+
+  it("clamp alias works", () => {
+    expect(clamp).toBe(clampNumber);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes regex characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid JSON", () => {
+    expect(safeParseJson('{"a": 1}')).toEqual({ a: 1 });
+  });
+  it("returns null for invalid JSON", () => {
+    expect(safeParseJson('{"a": 1')).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("identifies plain objects", () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ a: 1 })).toBe(true);
+  });
+  it("rejects non-objects", () => {
+    expect(isRecord([])).toBe(false);
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord("")).toBe(false);
+    expect(isRecord(1)).toBe(false);
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns true when selfE164 is in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+  });
+  it("returns false for mismatches or missing values", () => {
+    expect(isSelfChatMode(null)).toBe(false);
+    expect(isSelfChatMode(undefined)).toBe(false);
+    expect(isSelfChatMode("+15551234567")).toBe(false);
+    expect(isSelfChatMode("+15551234567", [])).toBe(false);
+    expect(isSelfChatMode("+15551234567", ["+15550000000"])).toBe(false);
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+    expect(isSelfChatMode("+15551234567", ["invalid"])).toBe(false);
+  });
+});
+
+describe("sliceUtf16Safe", () => {
+  it("slices strings safely preserving surrogate pairs", () => {
+    const str = "a👋b"; // 👋 is surrogate pair
+    expect(sliceUtf16Safe(str, 1, 3)).toBe("👋");
+    expect(sliceUtf16Safe(str, 2, 4)).toBe("b");
+    expect(sliceUtf16Safe(str, 0, 2)).toBe("a");
+    expect(sliceUtf16Safe(str, -3)).toBe("👋b");
+    expect(sliceUtf16Safe(str, 4, 1)).toBe("👋b");
+    expect(sliceUtf16Safe(str, 0, -2)).toBe("a");
+  });
+});
+
+describe("truncateUtf16Safe", () => {
+  it("truncates string safely", () => {
+    expect(truncateUtf16Safe("hello", 3)).toBe("hel");
+    expect(truncateUtf16Safe("hello", 10)).toBe("hello");
+    expect(truncateUtf16Safe("hello", 0)).toBe("");
+  });
+});
+
+describe("displayPath and displayString", () => {
+  it("displayPath", () => {
+    expect(displayPath("")).toBe("");
+  });
+  it("displayString", () => {
+    expect(displayString("")).toBe("");
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats terminal link correctly", () => {
+    expect(formatTerminalLink("label", "url", { force: true })).toBe(
+      "\u001b]8;;url\u0007label\u001b]8;;\u0007",
+    );
+  });
+  it("strips escape sequences from input", () => {
+    expect(formatTerminalLink("label\u001b", "url\u001b", { force: true })).toBe(
+      "\u001b]8;;url\u0007label\u001b]8;;\u0007",
+    );
+  });
+  it("returns fallback without force on non-tty", () => {
+    expect(formatTerminalLink("label", "url", { force: false })).toBe("label (url)");
+    expect(formatTerminalLink("label", "url", { force: false, fallback: "fallback" })).toBe(
+      "fallback",
+    );
   });
 });
