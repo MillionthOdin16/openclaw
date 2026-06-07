@@ -18,6 +18,9 @@ import {
   sleep,
   toWhatsappJid,
   withWhatsAppPrefix,
+  displayPath,
+  displayString,
+  formatTerminalLink,
 } from "./utils.js";
 
 function withTempDirSync<T>(prefix: string, run: (dir: string) => T): T {
@@ -244,5 +247,72 @@ describe("resolveUserPath", () => {
   it("returns empty string for undefined/null input", () => {
     expect(resolveUserPath(undefined as unknown as string)).toBe("");
     expect(resolveUserPath(null as unknown as string)).toBe("");
+  });
+});
+
+describe("displayPath", () => {
+  it("delegates to shortenHomePath", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    vi.stubEnv("HOME", "/home/other");
+
+    expect(displayPath(`${path.resolve("/srv/openclaw-home")}/.openclaw/openclaw.json`)).toBe(
+      "$OPENCLAW_HOME/.openclaw/openclaw.json",
+    );
+
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("displayString", () => {
+  it("delegates to shortenHomeInString", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    vi.stubEnv("HOME", "/home/other");
+
+    expect(
+      displayString(`config: ${path.resolve("/srv/openclaw-home")}/.openclaw/openclaw.json`),
+    ).toBe("config: $OPENCLAW_HOME/.openclaw/openclaw.json");
+
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats standard links correctly when stdout is a TTY", () => {
+    const origTTY = process.stdout.isTTY;
+    process.stdout.isTTY = true;
+    try {
+      expect(formatTerminalLink("Click here", "https://example.com")).toBe(
+        "\u001b]8;;https://example.com\u0007Click here\u001b]8;;\u0007",
+      );
+    } finally {
+      process.stdout.isTTY = origTTY;
+    }
+  });
+
+  it("removes escape characters from labels and urls", () => {
+    expect(
+      formatTerminalLink("Click \u001bhere", "https://example.com/\u001bpath", { force: true }),
+    ).toBe("\u001b]8;;https://example.com/path\u0007Click here\u001b]8;;\u0007");
+  });
+
+  it("returns fallback format when not a TTY and no force true", () => {
+    const origTTY = process.stdout.isTTY;
+    process.stdout.isTTY = false;
+    try {
+      expect(formatTerminalLink("Click here", "https://example.com")).toBe(
+        "Click here (https://example.com)",
+      );
+    } finally {
+      process.stdout.isTTY = origTTY;
+    }
+  });
+
+  it("returns explicit fallback when provided and not a TTY", () => {
+    expect(
+      formatTerminalLink("Click here", "https://example.com", {
+        force: false,
+        fallback: "fallback link",
+      }),
+    ).toBe("fallback link");
   });
 });
