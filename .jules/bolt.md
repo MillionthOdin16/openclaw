@@ -1,0 +1,3 @@
+## $(date +%Y-%m-%d) - Prevent Unbounded Memory Load in Cron Run Log Entries
+**Learning:** Loading and parsing massive unpaginated datasets sequentially, creating intermediate arrays of unfiltered items, and flattening them into a single massive array (e.g. `chunks.flat()`) before filtering leads to heavy heap allocations, severe GC pressure, and ultimately Out of Memory (OOM) crashes as log sizes grow unboundedly over time.
+**Action:** Always filter data as early as possible. Read and filter files concurrently where safe, immediately discarding unneeded items. Push directly to a shared array instead of relying on spread syntax `...` or `.flat()` functions which can hit V8 engine limits or exhaust available memory capacity.
