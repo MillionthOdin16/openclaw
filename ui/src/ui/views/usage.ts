@@ -683,6 +683,7 @@ export function renderUsage(props: UsageProps) {
                         ${label}
                         <button
                           title="Remove filter"
+                          aria-label="Remove filter ${label}"
                           @click=${() =>
                             props.onQueryDraftChange(removeQueryToken(props.queryDraft, label))}
                         >
