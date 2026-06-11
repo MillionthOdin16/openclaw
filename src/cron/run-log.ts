@@ -411,22 +411,30 @@ export async function readCronRunLogEntriesPageAll(
     };
   }
   await Promise.all(jsonlFiles.map((f) => drainPendingWrite(f)));
-  const chunks = await Promise.all(
+  // ⚡ Bolt: Prevent Unbounded Memory Bloat
+  // Filter cron run log entries concurrently within each file read chunk
+  // and push to a shared array. This prevents creating a massive multi-file
+  // array in memory and calling `.flat()`, avoiding OOM on large datasets.
+  const filtered: CronRunLogEntry[] = [];
+  await Promise.all(
     jsonlFiles.map(async (filePath) => {
       const raw = await fs.readFile(filePath, "utf-8").catch(() => "");
-      return parseAllRunLogEntries(raw);
+      const chunkParsed = parseAllRunLogEntries(raw);
+      const chunkFiltered = filterRunLogEntries(chunkParsed, {
+        statuses,
+        deliveryStatuses,
+        query,
+        queryTextForEntry: (entry) => {
+          const jobName = opts.jobNameById?.[entry.jobId] ?? "";
+          return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
+        },
+      });
+      // Iterate instead of using spread (...) to avoid call stack size errors
+      for (const entry of chunkFiltered) {
+        filtered.push(entry);
+      }
     }),
   );
-  const all = chunks.flat();
-  const filtered = filterRunLogEntries(all, {
-    statuses,
-    deliveryStatuses,
-    query,
-    queryTextForEntry: (entry) => {
-      const jobName = opts.jobNameById?.[entry.jobId] ?? "";
-      return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
-    },
-  });
   const sorted =
     sortDir === "asc"
       ? filtered.toSorted((a, b) => a.ts - b.ts)
