@@ -411,22 +411,22 @@ export async function readCronRunLogEntriesPageAll(
     };
   }
   await Promise.all(jsonlFiles.map((f) => drainPendingWrite(f)));
-  const chunks = await Promise.all(
-    jsonlFiles.map(async (filePath) => {
-      const raw = await fs.readFile(filePath, "utf-8").catch(() => "");
-      return parseAllRunLogEntries(raw);
-    }),
-  );
-  const all = chunks.flat();
-  const filtered = filterRunLogEntries(all, {
+  const filterOpts = {
     statuses,
     deliveryStatuses,
     query,
-    queryTextForEntry: (entry) => {
+    queryTextForEntry: (entry: CronRunLogEntry) => {
       const jobName = opts.jobNameById?.[entry.jobId] ?? "";
       return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
     },
-  });
+  };
+  const chunks = await Promise.all(
+    jsonlFiles.map(async (filePath) => {
+      const raw = await fs.readFile(filePath, "utf-8").catch(() => "");
+      return filterRunLogEntries(parseAllRunLogEntries(raw), filterOpts);
+    }),
+  );
+  const filtered = chunks.flat();
   const sorted =
     sortDir === "asc"
       ? filtered.toSorted((a, b) => a.ts - b.ts)
