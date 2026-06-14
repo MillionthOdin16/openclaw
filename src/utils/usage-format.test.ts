@@ -59,4 +59,38 @@ describe("usage-format", () => {
 
     expect(total).toBeCloseTo(0.003);
   });
+
+  it("handles edge cases and invalid inputs", () => {
+    // formatTokenCount edge cases
+    expect(formatTokenCount(undefined)).toBe("0");
+    expect(formatTokenCount(NaN)).toBe("0");
+    expect(formatTokenCount(Infinity)).toBe("0");
+
+    // formatUsd edge cases
+    expect(formatUsd(undefined)).toBeUndefined();
+    expect(formatUsd(NaN)).toBeUndefined();
+    expect(formatUsd(Infinity)).toBeUndefined();
+
+    // resolveModelCostConfig edge cases
+    expect(resolveModelCostConfig({})).toBeUndefined();
+    expect(resolveModelCostConfig({ provider: "  ", model: "  " })).toBeUndefined();
+    expect(
+      resolveModelCostConfig({ provider: "test", model: "missing", config: {} as OpenClawConfig }),
+    ).toBeUndefined();
+
+    // estimateUsageCost edge cases
+    expect(estimateUsageCost({})).toBeUndefined();
+    expect(estimateUsageCost({ usage: { input: 1 } })).toBeUndefined();
+    expect(
+      estimateUsageCost({ cost: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 } }),
+    ).toBeUndefined();
+
+    // Non-finite total cost
+    expect(
+      estimateUsageCost({
+        usage: { input: 1 },
+        cost: { input: Infinity, output: 1, cacheRead: 1, cacheWrite: 1 },
+      }),
+    ).toBeUndefined();
+  });
 });
