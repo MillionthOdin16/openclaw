@@ -411,22 +411,22 @@ export async function readCronRunLogEntriesPageAll(
     };
   }
   await Promise.all(jsonlFiles.map((f) => drainPendingWrite(f)));
-  const chunks = await Promise.all(
+  const filteredChunks = await Promise.all(
     jsonlFiles.map(async (filePath) => {
       const raw = await fs.readFile(filePath, "utf-8").catch(() => "");
-      return parseAllRunLogEntries(raw);
+      const chunk = parseAllRunLogEntries(raw);
+      return filterRunLogEntries(chunk, {
+        statuses,
+        deliveryStatuses,
+        query,
+        queryTextForEntry: (entry) => {
+          const jobName = opts.jobNameById?.[entry.jobId] ?? "";
+          return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
+        },
+      });
     }),
   );
-  const all = chunks.flat();
-  const filtered = filterRunLogEntries(all, {
-    statuses,
-    deliveryStatuses,
-    query,
-    queryTextForEntry: (entry) => {
-      const jobName = opts.jobNameById?.[entry.jobId] ?? "";
-      return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
-    },
-  });
+  const filtered = filteredChunks.flat();
   const sorted =
     sortDir === "asc"
       ? filtered.toSorted((a, b) => a.ts - b.ts)
