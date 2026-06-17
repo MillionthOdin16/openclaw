@@ -417,16 +417,21 @@ export async function readCronRunLogEntriesPageAll(
       return parseAllRunLogEntries(raw);
     }),
   );
-  const all = chunks.flat();
-  const filtered = filterRunLogEntries(all, {
+  const filtered: CronRunLogEntry[] = [];
+  const filterOpts = {
     statuses,
     deliveryStatuses,
     query,
-    queryTextForEntry: (entry) => {
+    queryTextForEntry: (entry: CronRunLogEntry) => {
       const jobName = opts.jobNameById?.[entry.jobId] ?? "";
       return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
     },
-  });
+  };
+  for (const chunk of chunks) {
+    for (const entry of filterRunLogEntries(chunk, filterOpts)) {
+      filtered.push(entry);
+    }
+  }
   const sorted =
     sortDir === "asc"
       ? filtered.toSorted((a, b) => a.ts - b.ts)
