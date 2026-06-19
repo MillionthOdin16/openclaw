@@ -42,4 +42,53 @@ describe("parseLogLine", () => {
   it("returns null for invalid JSON", () => {
     expect(parseLogLine("not-json")).toBeNull();
   });
+
+  it("extracts non-string messages by stringifying them", () => {
+    const line = JSON.stringify({
+      0: { error: "something went wrong", code: 500 },
+      _meta: {},
+    });
+
+    const parsed = parseLogLine(line);
+    expect(parsed?.message).toBe('{"error":"something went wrong","code":500}');
+  });
+
+  it("handles non-string meta.name", () => {
+    const line = JSON.stringify({
+      0: "hello",
+      _meta: {
+        name: 123,
+      },
+    });
+
+    const parsed = parseLogLine(line);
+    expect(parsed?.subsystem).toBeUndefined();
+    expect(parsed?.module).toBeUndefined();
+  });
+
+  it("handles invalid JSON in meta.name", () => {
+    const line = JSON.stringify({
+      0: "hello",
+      _meta: {
+        name: "not-json",
+      },
+    });
+
+    const parsed = parseLogLine(line);
+    expect(parsed?.subsystem).toBeUndefined();
+    expect(parsed?.module).toBeUndefined();
+  });
+
+  it("handles valid JSON with module in meta.name", () => {
+    const line = JSON.stringify({
+      0: "hello",
+      _meta: {
+        name: '{"subsystem":"core","module":"auth"}',
+      },
+    });
+
+    const parsed = parseLogLine(line);
+    expect(parsed?.subsystem).toBe("core");
+    expect(parsed?.module).toBe("auth");
+  });
 });
