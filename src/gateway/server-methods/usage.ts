@@ -266,17 +266,23 @@ async function discoverAllSessionsForUsage(params: {
   endMs: number;
 }): Promise<DiscoveredSessionWithAgent[]> {
   const agents = listAgentsForGateway(params.config).agents;
-  const results = await Promise.all(
+  // ⚡ Bolt Optimization: Push directly to a flat array iteratively to avoid
+  // `.flat()` on large multidimensional arrays, drastically reducing peak memory
+  // consumption when aggregating thousands of sessions across multiple agents.
+  const flatResults: DiscoveredSessionWithAgent[] = [];
+  await Promise.all(
     agents.map(async (agent) => {
       const sessions = await discoverAllSessions({
         agentId: agent.id,
         startMs: params.startMs,
         endMs: params.endMs,
       });
-      return sessions.map((session) => ({ ...session, agentId: agent.id }));
+      for (const session of sessions) {
+        flatResults.push({ ...session, agentId: agent.id });
+      }
     }),
   );
-  return results.flat().toSorted((a, b) => b.mtime - a.mtime);
+  return flatResults.toSorted((a, b) => b.mtime - a.mtime);
 }
 
 async function loadCostUsageSummaryCached(params: {
