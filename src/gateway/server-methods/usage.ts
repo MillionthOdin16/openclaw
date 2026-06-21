@@ -276,7 +276,13 @@ async function discoverAllSessionsForUsage(params: {
       return sessions.map((session) => ({ ...session, agentId: agent.id }));
     }),
   );
-  return results.flat().toSorted((a, b) => b.mtime - a.mtime);
+  const allSessions: DiscoveredSessionWithAgent[] = [];
+  for (const chunk of results) {
+    for (const session of chunk) {
+      allSessions.push(session);
+    }
+  }
+  return allSessions.toSorted((a, b) => b.mtime - a.mtime);
 }
 
 async function loadCostUsageSummaryCached(params: {
