@@ -1,0 +1,5 @@
+## 2026-06-04 - [Performance] Unbounded Memory Load Pattern
+
+**Learning:** `src/cron/run-log.ts` uses `.flat()` on an array of parsed log entries before filtering (`const all = chunks.flat()`). For massive arrays, this `.flat()` operation creates unbounded memory bloat. And then it filters the whole array. We can filter the chunks concurrently first and avoid pushing everything to an intermediate flat array.
+Also, the rule says: "When processing large datasets like parsed logs, avoid using spread syntax (`arr.push(...elements)`) which causes `RangeError` from call stack exhaustion, and avoid `.flat()` before filtering which causes unbounded memory bloat from massive intermediate arrays. Instead, filter concurrently and push matching entries directly to a single result array."
+**Action:** Replace the array mapping, `.flat()`, and `filterRunLogEntries(all, ...)` with a `.map()` that processes the chunks concurrently, filters them, and appends them to a single result array without `...` spread or `.flat()`.
