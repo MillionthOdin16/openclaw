@@ -1,0 +1,4 @@
+## 2026-06-26 - [session-write-lock.ts, refresh.ts, refresh-state.ts] Pattern
+**Defect Pattern:** Unclosed FileHandle on session JSONL lock crashes gateway on Node >=24 under sustained session-store load. `chokidar` file watchers and `workspaceVersions` accumulate memory and File Descriptor (FD) leaks under sustained session load because they lack complete teardown mechanisms. Watchers on specific files hold persistent file descriptors resulting in linear exhaustion.
+**Local Impact:** This affects the `gateway` process. It can lead to fatal `ERR_INVALID_STATE` on Node >= 24 when garbage collection runs, and also results in excessive FD and memory usage resulting in exhaustion.
+**Review Strategy:** Check for missing `finally` blocks for `fs.FileHandle` close calls. Review Chokidar usage for file watchers tracking directories instead of individual files, or ensure FD lifecycle is properly bounded.
