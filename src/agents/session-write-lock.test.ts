@@ -379,6 +379,32 @@ describe("acquireSessionWriteLock", () => {
     }
   });
 
+  it("cleans up FileHandle if writeFile fails", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-lock-cleanup-error-"));
+    const originalOpen = fs.open.bind(fs);
+    const openSpy = vi.spyOn(fs, "open").mockImplementation(async (...args) => {
+      const handle = await originalOpen(...args);
+      // intercept writeFile to throw an error
+      vi.spyOn(handle, "writeFile").mockRejectedValue(new Error("mock write error"));
+      vi.spyOn(handle, "close");
+      return handle as unknown as fs.FileHandle;
+    });
+
+    try {
+      const sessionFile = path.join(root, "sessions.json");
+      await expect(acquireSessionWriteLock({ sessionFile, timeoutMs: 500 })).rejects.toThrow(
+        "mock write error",
+      );
+
+      expect(openSpy).toHaveBeenCalled();
+      const returnedHandle = await openSpy.mock.results[0].value;
+      expect(returnedHandle.close).toHaveBeenCalled();
+    } finally {
+      openSpy.mockRestore();
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("cleans up locks on exit", async () => {
     await withTempSessionLockFile(async ({ sessionFile, lockPath }) => {
       await acquireSessionWriteLock({ sessionFile, timeoutMs: 500 });

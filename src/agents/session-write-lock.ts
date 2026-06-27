@@ -481,31 +481,30 @@ export async function acquireSessionWriteLock(params: {
   let attempt = 0;
   while (Date.now() - startedAt < timeoutMs) {
     attempt += 1;
-    let handle: fs.FileHandle | null = null;
     try {
-      handle = await fs.open(lockPath, "wx");
-      const createdAt = new Date().toISOString();
-      const starttime = getProcessStartTime(process.pid);
-      const lockPayload: LockFilePayload = { pid: process.pid, createdAt };
-      if (starttime !== null) {
-        lockPayload.starttime = starttime;
-      }
-      await handle.writeFile(JSON.stringify(lockPayload, null, 2), "utf8");
-      const createdHeld: HeldLock = {
-        count: 1,
-        handle,
-        lockPath,
-        acquiredAt: Date.now(),
-        maxHoldMs,
-      };
-      HELD_LOCKS.set(normalizedSessionFile, createdHeld);
-      return {
-        release: async () => {
-          await releaseHeldLock(normalizedSessionFile, createdHeld);
-        },
-      };
-    } catch (err) {
-      if (handle) {
+      const handle = await fs.open(lockPath, "wx");
+      try {
+        const createdAt = new Date().toISOString();
+        const starttime = getProcessStartTime(process.pid);
+        const lockPayload: LockFilePayload = { pid: process.pid, createdAt };
+        if (starttime !== null) {
+          lockPayload.starttime = starttime;
+        }
+        await handle.writeFile(JSON.stringify(lockPayload, null, 2), "utf8");
+        const createdHeld: HeldLock = {
+          count: 1,
+          handle,
+          lockPath,
+          acquiredAt: Date.now(),
+          maxHoldMs,
+        };
+        HELD_LOCKS.set(normalizedSessionFile, createdHeld);
+        return {
+          release: async () => {
+            await releaseHeldLock(normalizedSessionFile, createdHeld);
+          },
+        };
+      } catch (err) {
         try {
           await handle.close();
         } catch {
@@ -516,7 +515,9 @@ export async function acquireSessionWriteLock(params: {
         } catch {
           // Ignore cleanup errors on failed lock initialization.
         }
+        throw err;
       }
+    } catch (err) {
       const code = (err as { code?: unknown }).code;
       if (code !== "EEXIST") {
         throw err;
