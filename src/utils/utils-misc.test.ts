@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseBooleanValue } from "./boolean.js";
+import { chunkItems } from "./chunk-items.js";
 import { isReasoningTagProvider } from "./provider-utils.js";
+import { safeJsonStringify } from "./safe-json.js";
 import { splitShellArgs } from "./shell-argv.js";
+import { withTimeout } from "./with-timeout.js";
 
 describe("parseBooleanValue", () => {
   it("handles boolean inputs", () => {
@@ -111,5 +114,101 @@ describe("splitShellArgs", () => {
     expect(splitShellArgs(`echo hi # comment && whoami`)).toEqual(["echo", "hi"]);
     expect(splitShellArgs(`echo "hi # still-literal"`)).toEqual(["echo", "hi # still-literal"]);
     expect(splitShellArgs(`echo hi#tail`)).toEqual(["echo", "hi#tail"]);
+  });
+
+  it("handles unquoted backslash escapes correctly", () => {
+    expect(splitShellArgs(`echo \\"test\\"`)).toEqual(["echo", `"test"`]);
+    expect(splitShellArgs(`echo a\\ b`)).toEqual(["echo", `a b`]);
+  });
+
+  it("returns null for trailing unquoted backslash", () => {
+    expect(splitShellArgs(`echo a\\`)).toBeNull();
+  });
+});
+
+describe("chunkItems", () => {
+  it("chunks items into specified size", () => {
+    expect(chunkItems([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+    expect(chunkItems([1, 2, 3, 4, 5], 3)).toEqual([
+      [1, 2, 3],
+      [4, 5],
+    ]);
+    expect(chunkItems([1, 2, 3, 4, 5], 5)).toEqual([[1, 2, 3, 4, 5]]);
+    expect(chunkItems([1, 2, 3, 4, 5], 10)).toEqual([[1, 2, 3, 4, 5]]);
+  });
+
+  it("handles empty arrays", () => {
+    expect(chunkItems([], 2)).toEqual([]);
+  });
+
+  it("handles invalid size by returning the whole array", () => {
+    expect(chunkItems([1, 2, 3], 0)).toEqual([[1, 2, 3]]);
+    expect(chunkItems([1, 2, 3], -1)).toEqual([[1, 2, 3]]);
+  });
+});
+
+describe("safeJsonStringify", () => {
+  it("stringifies primitives", () => {
+    expect(safeJsonStringify(1)).toBe("1");
+    expect(safeJsonStringify("test")).toBe('"test"');
+    expect(safeJsonStringify(null)).toBe("null");
+    expect(safeJsonStringify(true)).toBe("true");
+  });
+
+  it("handles objects and arrays", () => {
+    expect(safeJsonStringify({ a: 1 })).toBe('{"a":1}');
+    expect(safeJsonStringify([1, 2])).toBe("[1,2]");
+  });
+
+  it("converts bigint to string", () => {
+    expect(safeJsonStringify({ val: 1n })).toBe('{"val":"1"}');
+  });
+
+  it("converts functions to string", () => {
+    expect(safeJsonStringify({ val: () => {} })).toBe('{"val":"[Function]"}');
+  });
+
+  it("converts Error objects", () => {
+    const err = new Error("test error");
+    const json = safeJsonStringify(err);
+    expect(json).toContain('"name":"Error"');
+    expect(json).toContain('"message":"test error"');
+  });
+
+  it("converts Uint8Array to base64", () => {
+    const arr = new Uint8Array([1, 2, 3]);
+    const json = safeJsonStringify(arr);
+    expect(json).toContain('"type":"Uint8Array"');
+    expect(json).toContain('"data":"AQID"');
+  });
+
+  it("returns null for circular references", () => {
+    const obj: Record<string, unknown> = {};
+    obj.self = obj;
+    expect(safeJsonStringify(obj)).toBeNull();
+  });
+});
+
+describe("withTimeout", () => {
+  it("resolves if promise resolves before timeout", async () => {
+    const promise = Promise.resolve("success");
+    await expect(withTimeout(promise, 1000)).resolves.toBe("success");
+  });
+
+  it("rejects if promise rejects before timeout", async () => {
+    const promise = Promise.reject(new Error("failure"));
+    await expect(withTimeout(promise, 1000)).rejects.toThrow("failure");
+  });
+
+  it("rejects with timeout error if promise takes too long", async () => {
+    const promise = new Promise((resolve) => setTimeout(resolve, 1000));
+    await expect(withTimeout(promise, 10)).rejects.toThrow("timeout");
+  });
+
+  it("returns original promise if timeout is 0 or negative", async () => {
+    const promise = new Promise((resolve) => setTimeout(() => resolve("done"), 50));
+    await expect(withTimeout(promise, 0)).resolves.toBe("done");
+    const promise2 = new Promise((resolve) => setTimeout(() => resolve("done2"), 50));
+    await expect(withTimeout(promise2, -100)).resolves.toBe("done2");
   });
 });
