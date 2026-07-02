@@ -54,43 +54,95 @@ async function getRecentSessionContent(
   sessionFilePath: string,
   messageCount: number = 15,
 ): Promise<string | null> {
+  let handle: fs.FileHandle | null = null;
   try {
-    const content = await fs.readFile(sessionFilePath, "utf-8");
-    const lines = content.trim().split("\n");
+    handle = await fs.open(sessionFilePath, "r");
+    const stat = await handle.stat();
+    if (stat.size === 0) {
+      return null;
+    }
 
-    // Parse JSONL and extract user/assistant messages first
     const allMessages: string[] = [];
-    for (const line of lines) {
+    const chunkSize = 16 * 1024;
+    let position = stat.size;
+    let leadingPartial = "";
+
+    while (position > 0 && allMessages.length < messageCount) {
+      const size = Math.min(chunkSize, position);
+      position -= size;
+      const buffer = Buffer.allocUnsafe(size);
+      const { bytesRead } = await handle.read(buffer, 0, size, position);
+      if (bytesRead <= 0) {
+        break;
+      }
+
+      const chunk = buffer.toString("utf-8", 0, bytesRead);
+      const combined = `${chunk}${leadingPartial}`;
+      const lines = combined.split(/\n/);
+      leadingPartial = lines.shift() || "";
+
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i]?.trim();
+        if (!line) {
+          continue;
+        }
+
+        try {
+          const entry = JSON.parse(line);
+          if (entry.type === "message" && entry.message) {
+            const msg = entry.message;
+            const role = msg.role;
+            if ((role === "user" || role === "assistant") && msg.content) {
+              if (role === "user" && hasInterSessionUserProvenance(msg)) {
+                continue;
+              }
+              const text = Array.isArray(msg.content)
+                ? // oxlint-disable-next-line typescript/no-explicit-any
+                  msg.content.find((c: any) => c.type === "text")?.text
+                : msg.content;
+              if (text && !text.startsWith("/")) {
+                allMessages.unshift(`${role}: ${text}`);
+              }
+            }
+          }
+        } catch {
+          // Skip invalid JSON lines
+        }
+
+        if (allMessages.length >= messageCount) {
+          break;
+        }
+      }
+    }
+
+    if (allMessages.length < messageCount && leadingPartial.trim()) {
       try {
-        const entry = JSON.parse(line);
-        // Session files have entries with type="message" containing a nested message object
+        const entry = JSON.parse(leadingPartial.trim());
         if (entry.type === "message" && entry.message) {
           const msg = entry.message;
           const role = msg.role;
           if ((role === "user" || role === "assistant") && msg.content) {
-            if (role === "user" && hasInterSessionUserProvenance(msg)) {
-              continue;
-            }
-            // Extract text content
-            const text = Array.isArray(msg.content)
-              ? // oxlint-disable-next-line typescript/no-explicit-any
-                msg.content.find((c: any) => c.type === "text")?.text
-              : msg.content;
-            if (text && !text.startsWith("/")) {
-              allMessages.push(`${role}: ${text}`);
+            if (!(role === "user" && hasInterSessionUserProvenance(msg))) {
+              const text = Array.isArray(msg.content)
+                ? // oxlint-disable-next-line typescript/no-explicit-any
+                  msg.content.find((c: any) => c.type === "text")?.text
+                : msg.content;
+              if (text && !text.startsWith("/")) {
+                allMessages.unshift(`${role}: ${text}`);
+              }
             }
           }
         }
-      } catch {
-        // Skip invalid JSON lines
-      }
+      } catch {}
     }
 
-    // Then slice to get exactly messageCount messages
-    const recentMessages = allMessages.slice(-messageCount);
-    return recentMessages.join("\n");
+    return allMessages.length > 0 ? allMessages.join("\n") : null;
   } catch {
     return null;
+  } finally {
+    if (handle) {
+      await handle.close().catch(() => {});
+    }
   }
 }
 
