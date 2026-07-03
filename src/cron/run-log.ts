@@ -417,16 +417,20 @@ export async function readCronRunLogEntriesPageAll(
       return parseAllRunLogEntries(raw);
     }),
   );
-  const all = chunks.flat();
-  const filtered = filterRunLogEntries(all, {
-    statuses,
-    deliveryStatuses,
-    query,
-    queryTextForEntry: (entry) => {
-      const jobName = opts.jobNameById?.[entry.jobId] ?? "";
-      return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
-    },
-  });
+  // Optimization: use flatMap to map and filter sub-arrays directly.
+  // This avoids the unbounded memory bloat of .flat() followed by .filter()
+  // on large datasets like parsed log files.
+  const filtered = chunks.flatMap((chunk) =>
+    filterRunLogEntries(chunk, {
+      statuses,
+      deliveryStatuses,
+      query,
+      queryTextForEntry: (entry) => {
+        const jobName = opts.jobNameById?.[entry.jobId] ?? "";
+        return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
+      },
+    }),
+  );
   const sorted =
     sortDir === "asc"
       ? filtered.toSorted((a, b) => a.ts - b.ts)
