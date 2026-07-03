@@ -482,6 +482,7 @@ export async function acquireSessionWriteLock(params: {
   while (Date.now() - startedAt < timeoutMs) {
     attempt += 1;
     let handle: fs.FileHandle | null = null;
+    let lockAcquired = false;
     try {
       handle = await fs.open(lockPath, "wx");
       const createdAt = new Date().toISOString();
@@ -499,24 +500,13 @@ export async function acquireSessionWriteLock(params: {
         maxHoldMs,
       };
       HELD_LOCKS.set(normalizedSessionFile, createdHeld);
+      lockAcquired = true;
       return {
         release: async () => {
           await releaseHeldLock(normalizedSessionFile, createdHeld);
         },
       };
     } catch (err) {
-      if (handle) {
-        try {
-          await handle.close();
-        } catch {
-          // Ignore cleanup errors on failed lock initialization.
-        }
-        try {
-          await fs.rm(lockPath, { force: true });
-        } catch {
-          // Ignore cleanup errors on failed lock initialization.
-        }
-      }
       const code = (err as { code?: unknown }).code;
       if (code !== "EEXIST") {
         throw err;
@@ -544,6 +534,19 @@ export async function acquireSessionWriteLock(params: {
 
       const delay = Math.min(1000, 50 * attempt);
       await new Promise((r) => setTimeout(r, delay));
+    } finally {
+      if (handle && !lockAcquired) {
+        try {
+          await handle.close();
+        } catch {
+          // Ignore cleanup errors on failed lock initialization.
+        }
+        try {
+          await fs.rm(lockPath, { force: true });
+        } catch {
+          // Ignore cleanup errors on failed lock initialization.
+        }
+      }
     }
   }
 

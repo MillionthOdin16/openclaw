@@ -397,4 +397,33 @@ describe("acquireSessionWriteLock", () => {
     expect(process.listeners("SIGINT")).toContain(keepAlive);
     process.off("SIGINT", keepAlive);
   });
+
+  it("closes handle and removes lock file if writeFile fails after open", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-lock-"));
+    const sessionFile = path.join(root, "sessions.json");
+    const lockPath = `${sessionFile}.lock`;
+
+    const originalOpen = fs.open;
+    const openSpy = vi.spyOn(fs, "open").mockImplementation(async (path, flags, mode) => {
+      const handle = await originalOpen(path, flags, mode);
+      vi.spyOn(handle, "writeFile").mockRejectedValue(new Error("Disk full"));
+      vi.spyOn(handle, "close");
+      return handle;
+    });
+
+    try {
+      await expect(acquireSessionWriteLock({ sessionFile, timeoutMs: 50 })).rejects.toThrow(
+        "Disk full",
+      );
+
+      expect(openSpy).toHaveBeenCalled();
+      const handle = await openSpy.mock.results[0].value;
+      expect(handle.writeFile).toHaveBeenCalled();
+      expect(handle.close).toHaveBeenCalled();
+      await expect(fs.access(lockPath)).rejects.toThrow();
+    } finally {
+      openSpy.mockRestore();
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
 });
