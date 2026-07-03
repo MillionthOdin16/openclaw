@@ -117,13 +117,16 @@ export async function acquireFileLock(
 
   const attempts = Math.max(1, options.retries.retries + 1);
   for (let attempt = 0; attempt < attempts; attempt += 1) {
+    let handle: fs.FileHandle | null = null;
+    let lockAcquired = false;
     try {
-      const handle = await fs.open(lockPath, "wx");
+      handle = await fs.open(lockPath, "wx");
       await handle.writeFile(
         JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }, null, 2),
         "utf8",
       );
       HELD_LOCKS.set(normalizedFile, { count: 1, handle, lockPath });
+      lockAcquired = true;
       return {
         lockPath,
         release: () => releaseHeldLock(normalizedFile),
@@ -141,6 +144,19 @@ export async function acquireFileLock(
         break;
       }
       await new Promise((resolve) => setTimeout(resolve, computeDelayMs(options.retries, attempt)));
+    } finally {
+      if (handle && !lockAcquired) {
+        try {
+          await handle.close();
+        } catch {
+          // ignore
+        }
+        try {
+          await fs.rm(lockPath, { force: true });
+        } catch {
+          // ignore
+        }
+      }
     }
   }
 
