@@ -76,8 +76,11 @@ async function getRecentSessionContent(
               ? // oxlint-disable-next-line typescript/no-explicit-any
                 msg.content.find((c: any) => c.type === "text")?.text
               : msg.content;
-            if (text && !text.startsWith("/")) {
-              allMessages.push(`${role}: ${text}`);
+            if (text && typeof text === "string" && !text.startsWith("/")) {
+              const sanitizedText = text.replace(/<\|[a-z_]+\|>/gi, "").trim();
+              if (sanitizedText) {
+                allMessages.push(`${role}: ${sanitizedText}`);
+              }
             }
           }
         }
