@@ -290,6 +290,7 @@ export function renderApp(state: AppViewState) {
                   });
                 }}
                 aria-expanded=${!isGroupCollapsed}
+                aria-label=${isGroupCollapsed ? `Expand ${t(`nav.${group.label}`)} group` : `Collapse ${t(`nav.${group.label}`)} group`}
               >
                 <span class="nav-label__text">${t(`nav.${group.label}`)}</span>
                 <span class="nav-label__chevron">${isGroupCollapsed ? "+" : "−"}</span>
