@@ -417,8 +417,7 @@ export async function readCronRunLogEntriesPageAll(
       return parseAllRunLogEntries(raw);
     }),
   );
-  const all = chunks.flat();
-  const filtered = filterRunLogEntries(all, {
+  const filtered = chunks.flatMap((chunk) => filterRunLogEntries(chunk, {
     statuses,
     deliveryStatuses,
     query,
@@ -426,7 +425,7 @@ export async function readCronRunLogEntriesPageAll(
       const jobName = opts.jobNameById?.[entry.jobId] ?? "";
       return [entry.summary ?? "", entry.error ?? "", entry.jobId, jobName].join(" ");
     },
-  });
+  }));
   const sorted =
     sortDir === "asc"
       ? filtered.toSorted((a, b) => a.ts - b.ts)
