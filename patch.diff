@@ -1,0 +1,25 @@
+<<<<<<< SEARCH
+describe("http-utils", () => {
+  describe("getHeader", () => {
+=======
+vi.mock("node:crypto", () => ({ randomUUID: () => "uuid" }));
+
+describe("http-utils", () => {
+  describe("getHeader", () => {
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+    it("generates random key if no user", () => {
+      const req = mockRequest({});
+      vi.mock("node:crypto", () => ({ randomUUID: () => "uuid" }));
+      const key = resolveSessionKey({ req, agentId: "agent1", prefix: "pref" });
+      expect(key).toContain("pref:");
+      expect(key).toContain("agent1");
+    });
+=======
+    it("generates random key if no user", () => {
+      const req = mockRequest({});
+      const key = resolveSessionKey({ req, agentId: "agent1", prefix: "pref" });
+      expect(key).toContain("pref:");
+      expect(key).toContain("agent1");
+    });
+>>>>>>> REPLACE
