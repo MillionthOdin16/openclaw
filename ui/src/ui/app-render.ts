@@ -215,14 +215,19 @@ export function renderApp(state: AppViewState) {
     .filter(Boolean);
   const accountToSuggestions = (
     selectedDeliveryChannel === "last"
-      ? Object.values(state.channelsSnapshot?.channelAccounts ?? {}).flat()
+      ? Object.values(state.channelsSnapshot?.channelAccounts ?? {})
+          .flatMap((accounts) =>
+            accounts.flatMap((account) => [
+              normalizeSuggestionValue(account.accountId),
+              normalizeSuggestionValue(account.name),
+            ])
+          )
       : (state.channelsSnapshot?.channelAccounts?.[selectedDeliveryChannel] ?? [])
-  )
-    .flatMap((account) => [
-      normalizeSuggestionValue(account.accountId),
-      normalizeSuggestionValue(account.name),
-    ])
-    .filter(Boolean);
+          .flatMap((account) => [
+            normalizeSuggestionValue(account.accountId),
+            normalizeSuggestionValue(account.name),
+          ])
+  ).filter(Boolean);
   const rawDeliveryToSuggestions = uniquePreserveOrder([
     ...jobToSuggestions,
     ...accountToSuggestions,
