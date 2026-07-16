@@ -1773,6 +1773,15 @@
       image(token) {
         return renderMarkdownImage(token);
       },
+      link(token) {
+        const href = typeof token?.href === "string" ? token.href.trim() : "";
+        if (href.toLowerCase().startsWith("javascript:") || href.toLowerCase().startsWith("vbscript:") || href.toLowerCase().startsWith("data:")) {
+          // Render the inner content without the link if unsafe
+          return this.parser.parseInline(token.tokens);
+        }
+        // Return false to let marked use its default link renderer (preserves formatting and titles)
+        return false;
+      }
     },
   });
 

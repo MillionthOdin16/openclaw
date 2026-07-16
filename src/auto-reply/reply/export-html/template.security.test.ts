@@ -318,4 +318,65 @@ describe("export html security hardening", () => {
     expect(img?.getAttribute("alt")).toBe('x" onerror="alert(1)');
     expect(img?.getAttribute("src")).toBe(dataImage);
   });
+
+  it("preserves nested formatting in safe links", () => {
+    const session: SessionData = {
+      header: { id: "session-7", timestamp: now() },
+      entries: [
+        {
+          id: "1",
+          parentId: null,
+          timestamp: now(),
+          type: "message",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: `[**bold**](https://example.com)`,
+              },
+            ],
+          },
+        },
+      ],
+      leafId: "1",
+      systemPrompt: "",
+      tools: [],
+    };
+
+    const { document } = renderTemplate(session);
+    const a = document.querySelector("#messages a");
+    expect(a?.getAttribute("href")).toBe("https://example.com");
+    expect(a?.innerHTML).toBe("<strong>bold</strong>");
+  });
+
+  it("prevents javascript urls in markdown links", () => {
+    const session: SessionData = {
+      header: { id: "session-6", timestamp: now() },
+      entries: [
+        {
+          id: "1",
+          parentId: null,
+          timestamp: now(),
+          type: "message",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: `[XSS](javascript:alert(1))`,
+              },
+            ],
+          },
+        },
+      ],
+      leafId: "1",
+      systemPrompt: "",
+      tools: [],
+    };
+
+    const { document } = renderTemplate(session);
+    const a = document.querySelector("#messages a");
+    expect(a).toBeNull();
+  });
 });
