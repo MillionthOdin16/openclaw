@@ -289,6 +289,7 @@ export function renderApp(state: AppViewState) {
                     navGroupsCollapsed: next,
                   });
                 }}
+                aria-label="Toggle ${t(`nav.${group.label}`)}"
                 aria-expanded=${!isGroupCollapsed}
               >
                 <span class="nav-label__text">${t(`nav.${group.label}`)}</span>

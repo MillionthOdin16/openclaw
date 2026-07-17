@@ -1,0 +1,3 @@
+## 2024-07-17 - Add ARIA label to nav collapse toggle
+**Learning:** Found an accessibility issue where the navigation collapse toggle button does not use standard aria-expanded but rather just aria-label, which dynamically updates its text based on state ("Expand sidebar" vs "Collapse sidebar"). While doing aria-expanded is standard for toggles, if a dynamically updating aria-label is used, adding a static aria-label is wrong. I should look for missing tooltips on icon-only buttons instead.
+**Action:** Be mindful when updating `aria-label` or `aria-expanded` and observe how the labels are dynamically set. Use static, action-neutral aria-labels when aria-expanded is already present.
