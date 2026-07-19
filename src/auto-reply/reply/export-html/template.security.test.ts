@@ -80,6 +80,30 @@ function now() {
 }
 
 describe("export html security hardening", () => {
+  it("neutralizes malicious markdown links", () => {
+    const session: SessionData = {
+      header: { id: "session-link-test", timestamp: now() },
+      entries: [
+        {
+          id: "1",
+          parentId: null,
+          timestamp: now(),
+          type: "message",
+          message: { role: "user", content: "[evil](javascript:alert(1))" },
+        },
+      ],
+      leafId: "1",
+      systemPrompt: "",
+      tools: [],
+    };
+
+    const { document } = renderTemplate(session);
+    const messages = document.getElementById("messages");
+    expect(messages).toBeTruthy();
+    expect(messages?.querySelector('a[href^="javascript:"]')).toBeNull();
+    expect(messages?.innerHTML).toContain("evil");
+  });
+
   it("escapes raw HTML from markdown blocks", () => {
     const attack = "<img src=x onerror=alert(1)>";
     const session: SessionData = {

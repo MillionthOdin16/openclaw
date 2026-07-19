@@ -1770,6 +1770,12 @@
       html(token) {
         return escapeHtml(token.text);
       },
+      link(token) {
+        if (/^(javascript|vbscript|data):/i.test(token.href)) {
+          return this.parser.parseInline(token.tokens);
+        }
+        return false;
+      },
       image(token) {
         return renderMarkdownImage(token);
       },
