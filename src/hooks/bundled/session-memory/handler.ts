@@ -72,10 +72,15 @@ async function getRecentSessionContent(
               continue;
             }
             // Extract text content
-            const text = Array.isArray(msg.content)
+            let text = Array.isArray(msg.content)
               ? // oxlint-disable-next-line typescript/no-explicit-any
                 msg.content.find((c: any) => c.type === "text")?.text
               : msg.content;
+
+            if (typeof text === "string") {
+              text = text.replace(/<\|.*?\|>(?:\s*\w+)?\s*/g, "").trim();
+            }
+
             if (text && !text.startsWith("/")) {
               allMessages.push(`${role}: ${text}`);
             }
