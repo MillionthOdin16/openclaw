@@ -26,5 +26,5 @@ export const PROVIDER_ENV_VARS: Record<string, readonly string[]> = {
 };
 
 export function listKnownSecretEnvVarNames(): string[] {
-  return [...new Set(Object.values(PROVIDER_ENV_VARS).flatMap((keys) => keys))];
+  return [...new Set(Object.values(PROVIDER_ENV_VARS).flat())];
 }
