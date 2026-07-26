@@ -4,19 +4,31 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
+  clampInt,
+  clampNumber,
   CONFIG_DIR,
+  displayPath,
+  displayString,
   ensureDir,
+  escapeRegExp,
+  formatTerminalLink,
+  isRecord,
+  isSelfChatMode,
   jidToE164,
   normalizeE164,
   normalizePath,
+  pathExists,
   resolveConfigDir,
   resolveHomeDir,
   resolveJidToE164,
   resolveUserPath,
+  safeParseJson,
   shortenHomeInString,
   shortenHomePath,
+  sliceUtf16Safe,
   sleep,
   toWhatsappJid,
+  truncateUtf16Safe,
   withWhatsAppPrefix,
 } from "./utils.js";
 
@@ -28,6 +40,148 @@ function withTempDirSync<T>(prefix: string, run: (dir: string) => T): T {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
+
+describe("pathExists", () => {
+  it("returns true if path exists", async () => {
+    await withTempDirSync("openclaw-test-", async (tmp) => {
+      expect(await pathExists(tmp)).toBe(true);
+    });
+  });
+
+  it("returns false if path does not exist", async () => {
+    await withTempDirSync("openclaw-test-", async (tmp) => {
+      const p = path.join(tmp, "non-existent");
+      expect(await pathExists(p)).toBe(false);
+    });
+  });
+});
+
+describe("clampNumber", () => {
+  it("clamps number correctly", () => {
+    expect(clampNumber(5, 1, 10)).toBe(5);
+    expect(clampNumber(0, 1, 10)).toBe(1);
+    expect(clampNumber(15, 1, 10)).toBe(10);
+  });
+});
+
+describe("clampInt", () => {
+  it("clamps and floors number correctly", () => {
+    expect(clampInt(5.5, 1, 10)).toBe(5);
+    expect(clampInt(0.5, 1, 10)).toBe(1);
+    expect(clampInt(15.5, 1, 10)).toBe(10);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes regex characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid json", () => {
+    expect(safeParseJson('{"a":1}')).toEqual({ a: 1 });
+  });
+
+  it("returns null for invalid json", () => {
+    expect(safeParseJson("{a:1}")).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for records", () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ a: 1 })).toBe(true);
+  });
+
+  it("returns false for non-records", () => {
+    expect(isRecord([])).toBe(false);
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord("test")).toBe(false);
+    expect(isRecord(1)).toBe(false);
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns true when selfE164 is in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("15551234567", ["+15551234567"])).toBe(true);
+  });
+
+  it("returns false when allowFrom is empty or selfE164 is not set", () => {
+    expect(isSelfChatMode(null, ["+15551234567"])).toBe(false);
+    expect(isSelfChatMode("+15551234567", [])).toBe(false);
+    expect(isSelfChatMode("+15551234567", null)).toBe(false);
+  });
+
+  it("returns false when wildcard or invalid number", () => {
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+    expect(isSelfChatMode("+15551234567", ["invalid"])).toBe(false);
+  });
+});
+
+describe("sliceUtf16Safe", () => {
+  it("slices strings preserving surrogates", () => {
+    const s = "a😀b"; // length 4: 'a', high, low, 'b'
+    expect(sliceUtf16Safe(s, 0, 1)).toBe("a");
+    // If we cut at index 2, it cuts the surrogate in half, so sliceUtf16Safe should step back to 1
+    // Let's check how it behaves based on the implementation
+    // from = 0, to = 2.
+    // to-1 is 1 (high surrogate), to is 2 (low surrogate).
+    // so to becomes 1.
+    // slice(0, 1) -> "a"
+    expect(sliceUtf16Safe(s, 0, 2)).toBe("a");
+    expect(sliceUtf16Safe(s, 0, 3)).toBe("a😀");
+    expect(sliceUtf16Safe(s, 1, 3)).toBe("😀");
+
+    // from = 2 (low surrogate), from-1 is 1 (high surrogate)
+    // from becomes 3.
+    // slice(3, 4) -> "b"
+    expect(sliceUtf16Safe(s, 2, 4)).toBe("b");
+
+    expect(sliceUtf16Safe(s, -1)).toBe("b");
+
+    // reverse args (3, 1) -> swapped to (1, 3)
+    expect(sliceUtf16Safe(s, 3, 1)).toBe("😀");
+  });
+});
+
+describe("truncateUtf16Safe", () => {
+  it("truncates strings preserving surrogates", () => {
+    const s = "a😀b";
+    expect(truncateUtf16Safe(s, 1)).toBe("a");
+    expect(truncateUtf16Safe(s, 2)).toBe("a"); // limits to index 2, which cuts the surrogate, so steps back to 1
+    expect(truncateUtf16Safe(s, 3)).toBe("a😀");
+    expect(truncateUtf16Safe(s, 10)).toBe(s);
+  });
+});
+
+describe("displayPath & displayString", () => {
+  it("displayPath delegates to shortenHomePath", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/home/test");
+    vi.stubEnv("HOME", "/home/other");
+    expect(displayPath("/home/test/file.txt")).toBe("$OPENCLAW_HOME/file.txt");
+    vi.unstubAllEnvs();
+  });
+
+  it("displayString delegates to shortenHomeInString", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/home/test");
+    vi.stubEnv("HOME", "/home/other");
+    expect(displayString("path: /home/test/file.txt")).toBe("path: $OPENCLAW_HOME/file.txt");
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats terminal link", () => {
+    expect(formatTerminalLink("label", "url", { force: true })).toBe("\u001b]8;;url\u0007label\u001b]8;;\u0007");
+  });
+
+  it("returns fallback if force is false", () => {
+    expect(formatTerminalLink("label", "url", { force: false })).toBe("label (url)");
+    expect(formatTerminalLink("label", "url", { force: false, fallback: "fb" })).toBe("fb");
+  });
+});
 
 describe("normalizePath", () => {
   it("adds leading slash when missing", () => {
