@@ -89,6 +89,12 @@ describe("toSanitizedMarkdownHtml", () => {
     expect(html).not.toContain("|------|");
   });
 
+  it("strips unsafe links while preserving formatting", () => {
+    const html = toSanitizedMarkdownHtml("[**bold**](javascript:alert(1))");
+    expect(html).not.toContain("javascript:");
+    expect(html).toContain("<strong>bold</strong>");
+  });
+
   it("does not throw on deeply nested emphasis markers (#36213)", () => {
     // Pathological patterns that can trigger catastrophic backtracking / recursion
     const nested = "*".repeat(500) + "text" + "*".repeat(500);
