@@ -147,6 +147,22 @@ htmlEscapeRenderer.image = (token: { href?: string | null; text?: string | null 
   return `<img src="${escapeHtml(href)}" alt="${escapeHtml(label)}">`;
 };
 
+const defaultRenderer = new marked.Renderer();
+
+htmlEscapeRenderer.link = function (
+  this: unknown,
+  token: { href?: string | null; tokens?: unknown[]; title?: string | null; text?: string },
+) {
+  if (token.href && /^\s*(javascript|vbscript|data):/i.test(token.href)) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - marked types don't expose parser easily
+    return this.parser.parseInline(token.tokens || []);
+  }
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - call with correct context
+  return defaultRenderer.link.call(this, token);
+} as unknown as marked.Renderer["link"];
+
 function normalizeMarkdownImageLabel(text?: string | null): string {
   const trimmed = text?.trim();
   return trimmed ? trimmed : "image";
