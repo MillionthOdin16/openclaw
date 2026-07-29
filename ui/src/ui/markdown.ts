@@ -138,6 +138,14 @@ export function toSanitizedMarkdownHtml(markdown: string): string {
 // pages) as formatted output is confusing UX (#13937).
 const htmlEscapeRenderer = new marked.Renderer();
 htmlEscapeRenderer.html = ({ text }: { text: string }) => escapeHtml(text);
+htmlEscapeRenderer.link = function (token: { href: string; tokens?: unknown[] }) {
+  const href = token.href || "";
+  const isSafe = !/^(?:javascript|vbscript|data):/i.test(href.trim());
+  if (!isSafe) {
+    return this.parser.parseInline(token.tokens || []);
+  }
+  return new marked.Renderer().link.call(this, token as unknown as marked.Tokens.Link);
+};
 htmlEscapeRenderer.image = (token: { href?: string | null; text?: string | null }) => {
   const label = normalizeMarkdownImageLabel(token.text);
   const href = token.href?.trim() ?? "";
