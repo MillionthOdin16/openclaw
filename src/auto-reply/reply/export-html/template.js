@@ -1773,6 +1773,14 @@
       image(token) {
         return renderMarkdownImage(token);
       },
+      link(token) {
+        const href = token.href || "";
+        const isSafe = !/^(?:javascript|vbscript|data):/i.test(href.trim());
+        if (!isSafe) {
+          return this.parser.parseInline(token.tokens || []);
+        }
+        return false;
+      },
     },
   });
 
