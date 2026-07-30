@@ -595,6 +595,7 @@ function renderTextInput(params: {
           <button
             type="button"
             class="cfg-input__reset"
+        aria-label="Reset to default"
             title="Reset to default"
             ?disabled=${disabled}
             @click=${() => onPatch(path, schema.default)}
@@ -632,6 +633,7 @@ function renderNumberInput(params: {
         <button
           type="button"
           class="cfg-number__btn"
+          aria-label="Decrease value"
           ?disabled=${disabled}
           @click=${() => onPatch(path, numValue - 1)}
         >−</button>
@@ -649,6 +651,7 @@ function renderNumberInput(params: {
         <button
           type="button"
           class="cfg-number__btn"
+          aria-label="Increase value"
           ?disabled=${disabled}
           @click=${() => onPatch(path, numValue + 1)}
         >+</button>
@@ -879,6 +882,7 @@ function renderArray(params: {
                 <button
                   type="button"
                   class="cfg-array__item-remove"
+              aria-label="Remove item"
                   title="Remove item"
                   ?disabled=${disabled}
                   @click=${() => {
@@ -1013,6 +1017,7 @@ function renderMapField(params: {
                   <button
                     type="button"
                     class="cfg-map__item-remove"
+                aria-label="Remove entry"
                     title="Remove entry"
                     ?disabled=${disabled}
                     @click=${() => {
