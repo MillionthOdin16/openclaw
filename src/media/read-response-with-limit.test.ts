@@ -63,4 +63,63 @@ describe("readResponseWithLimit", () => {
     const buf = await readResponseWithLimit(res, 100, { chunkTimeoutMs: 500 });
     expect(buf).toEqual(Buffer.from([1, 2]));
   });
+
+  it("uses arrayBuffer fallback if body has no getReader", async () => {
+    const mockRes = {
+      body: {},
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+    } as unknown as Response;
+    const buf = await readResponseWithLimit(mockRes, 10);
+    expect(buf).toEqual(Buffer.from([1, 2, 3]));
+  });
+
+  it("uses arrayBuffer fallback and throws if exceeding limit", async () => {
+    const mockRes = {
+      body: {},
+      arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer,
+    } as unknown as Response;
+    await expect(readResponseWithLimit(mockRes, 3)).rejects.toThrow(/too large/i);
+  });
+
+  it("rejects if reader.read() fails before timeout", async () => {
+    const body = new ReadableStream({
+      start(controller) {
+        controller.error(new Error("reader error"));
+      },
+    });
+    const res = new Response(body);
+    await expect(readResponseWithLimit(res, 100, { chunkTimeoutMs: 50 })).rejects.toThrow("reader error");
+  });
+
+  it("ignores errors thrown by reader.cancel when exceeding limit", async () => {
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3, 4]));
+      },
+      cancel() {
+        throw new Error("cancel error");
+      },
+    });
+    const res = new Response(body);
+    await expect(readResponseWithLimit(res, 3)).rejects.toThrow(/too large/i);
+  });
+
+  it("ignores errors thrown by reader.releaseLock in finally block", async () => {
+    let released = false;
+    const mockRes = {
+      body: {
+        getReader: () => ({
+          read: async () => ({ done: true, value: undefined }),
+          releaseLock: () => {
+            released = true;
+            throw new Error("release error");
+          },
+        }),
+      },
+    } as unknown as Response;
+
+    const buf = await readResponseWithLimit(mockRes, 100);
+    expect(buf).toEqual(Buffer.from([]));
+    expect(released).toBe(true);
+  });
 });
