@@ -18,6 +18,8 @@ import {
   sleep,
   toWhatsappJid,
   withWhatsAppPrefix,
+  safeParseJson,
+  isRecord,
 } from "./utils.js";
 
 function withTempDirSync<T>(prefix: string, run: (dir: string) => T): T {
@@ -211,6 +213,36 @@ describe("resolveJidToE164", () => {
     };
     await expect(resolveJidToE164("777@lid", { lidLookup })).resolves.toBeNull();
     expect(lidLookup.getPNForLID).toHaveBeenCalledWith("777@lid");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("returns parsed object for valid json", () => {
+    expect(safeParseJson('{"foo": "bar"}')).toEqual({ foo: "bar" });
+  });
+
+  it("returns null for invalid json", () => {
+    expect(safeParseJson('{"foo": "bar"')).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for plain objects", () => {
+    expect(isRecord({ foo: "bar" })).toBe(true);
+  });
+
+  it("returns false for arrays", () => {
+    expect(isRecord(["foo"])).toBe(false);
+  });
+
+  it("returns false for null", () => {
+    expect(isRecord(null)).toBe(false);
+  });
+
+  it("returns false for primitives", () => {
+    expect(isRecord("string")).toBe(false);
+    expect(isRecord(123)).toBe(false);
+    expect(isRecord(true)).toBe(false);
   });
 });
 
