@@ -1,0 +1,3 @@
+## 2026-03-09 - Avoid Map-Filter Chain Memory Bloat
+**Learning:** In V8 and JavaScript engines, chaining `.map().filter()` causes the engine to allocate an entirely new, intermediate array before running the filter loop. This is especially wasteful in large arrays or frequently called extraction pipelines.
+**Action:** Use `.flatMap()` when applying mapping and filtering in the same pass. `.flatMap()` evaluates the callback and flattens the result concurrently, skipping the intermediate array allocation while keeping code readability high. However, never replace a native `.flat()` call with `.flatMap((x) => x)`, as `.flat()` is heavily optimized.
