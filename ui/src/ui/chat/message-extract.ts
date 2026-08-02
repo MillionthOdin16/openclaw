@@ -65,7 +65,10 @@ export function extractThinking(message: unknown): string | null {
   const matches = [
     ...rawText.matchAll(/<\s*think(?:ing)?\s*>([\s\S]*?)<\s*\/\s*think(?:ing)?\s*>/gi),
   ];
-  const extracted = matches.map((m) => (m[1] ?? "").trim()).filter(Boolean);
+  const extracted = matches.flatMap((m) => {
+    const t = (m[1] ?? "").trim();
+    return t ? [t] : [];
+  });
   return extracted.length > 0 ? extracted.join("\n") : null;
 }
 
@@ -89,15 +92,13 @@ export function extractRawText(message: unknown): string | null {
     return content;
   }
   if (Array.isArray(content)) {
-    const parts = content
-      .map((p) => {
-        const item = p as Record<string, unknown>;
-        if (item.type === "text" && typeof item.text === "string") {
-          return item.text;
-        }
-        return null;
-      })
-      .filter((v): v is string => typeof v === "string");
+    const parts = content.flatMap((p) => {
+      const item = p as Record<string, unknown>;
+      if (item.type === "text" && typeof item.text === "string") {
+        return [item.text];
+      }
+      return [];
+    });
     if (parts.length > 0) {
       return parts.join("\n");
     }
@@ -115,8 +116,9 @@ export function formatReasoningMarkdown(text: string): string {
   }
   const lines = trimmed
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => `_${line}_`);
+    .flatMap((line) => {
+      const t = line.trim();
+      return t ? [`_${t}_`] : [];
+    });
   return lines.length ? ["_Reasoning:_", ...lines].join("\n") : "";
 }
