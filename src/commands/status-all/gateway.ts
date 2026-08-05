@@ -7,7 +7,14 @@ export async function readFileTailLines(filePath: string, maxLines: number): Pro
   }
   const lines = raw.replace(/\r/g, "").split("\n");
   const out = lines.slice(Math.max(0, lines.length - maxLines));
-  return out.map((line) => line.trimEnd()).filter((line) => line.trim().length > 0);
+  const result: string[] = [];
+  for (const line of out) {
+    const trimmed = line.trimEnd();
+    if (trimmed.length > 0) {
+      result.push(trimmed);
+    }
+  }
+  return result;
 }
 
 function countMatches(haystack: string, needle: string): number {
@@ -80,7 +87,13 @@ export function summarizeLogTail(rawLines: string[], opts?: { maxLines?: number 
     out.push(trimmed);
   };
 
-  const lines = rawLines.map((line) => line.trimEnd()).filter(Boolean);
+  const lines: string[] = [];
+  for (const line of rawLines) {
+    const trimmed = line.trimEnd();
+    if (trimmed) {
+      lines.push(trimmed);
+    }
+  }
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
     const trimmedStart = line.trimStart();
