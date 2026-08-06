@@ -153,7 +153,17 @@ export function coerceFormValues(value: unknown, schema: JsonSchema): unknown {
     if (!itemsSchema) {
       return value;
     }
-    return value.map((item) => coerceFormValues(item, itemsSchema)).filter((v) => v !== undefined);
+    // Optimization: Avoid intermediate array allocation from chained .map().filter().
+    // For large arrays, this reduces GC pressure and execution time by doing both
+    // the coercion mapping and undefined filtering in a single pass.
+    const result = [];
+    for (const item of value) {
+      const coerced = coerceFormValues(item, itemsSchema);
+      if (coerced !== undefined) {
+        result.push(coerced);
+      }
+    }
+    return result;
   }
 
   return value;
