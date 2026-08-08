@@ -318,4 +318,37 @@ describe("export html security hardening", () => {
     expect(img?.getAttribute("alt")).toBe('x" onerror="alert(1)');
     expect(img?.getAttribute("src")).toBe(dataImage);
   });
+
+  it("strips javascript: links to prevent XSS but keeps text content", () => {
+    const session: SessionData = {
+      header: { id: "session-6", timestamp: now() },
+      entries: [
+        {
+          id: "1",
+          parentId: null,
+          timestamp: now(),
+          type: "message",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: `[click me](javascript:alert(1)) and [**bold click me**](javascript:alert(2))`,
+              },
+            ],
+          },
+        },
+      ],
+      leafId: "1",
+      systemPrompt: "",
+      tools: [],
+    };
+
+    const { document } = renderTemplate(session);
+    const messages = document.getElementById("messages");
+    expect(messages).toBeTruthy();
+    expect(messages?.querySelector('a[href^="javascript:"]')).toBeNull();
+    expect(messages?.innerHTML).toContain("click me");
+    expect(messages?.innerHTML).toContain("<strong>bold click me</strong>");
+  });
 });
