@@ -1773,6 +1773,13 @@
       image(token) {
         return renderMarkdownImage(token);
       },
+      link(token) {
+        const href = typeof token?.href === "string" ? token.href.trim() : "";
+        if (/^\s*javascript:/i.test(href)) {
+          return this.parser.parseInline(token.tokens || []);
+        }
+        return false;
+      },
     },
   });
 
