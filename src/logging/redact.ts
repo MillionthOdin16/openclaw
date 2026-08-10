@@ -62,7 +62,15 @@ function parsePattern(raw: string): RegExp | null {
 
 function resolvePatterns(value?: string[]): RegExp[] {
   const source = value?.length ? value : DEFAULT_REDACT_PATTERNS;
-  return source.map(parsePattern).filter((re): re is RegExp => Boolean(re));
+  // ⚡ Bolt: Use single-pass for...of loop instead of .map().filter() to avoid intermediate array allocations
+  const patterns: RegExp[] = [];
+  for (const pattern of source) {
+    const parsed = parsePattern(pattern);
+    if (parsed) {
+      patterns.push(parsed);
+    }
+  }
+  return patterns;
 }
 
 function maskToken(token: string): string {
