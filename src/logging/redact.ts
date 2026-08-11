@@ -62,7 +62,15 @@ function parsePattern(raw: string): RegExp | null {
 
 function resolvePatterns(value?: string[]): RegExp[] {
   const source = value?.length ? value : DEFAULT_REDACT_PATTERNS;
-  return source.map(parsePattern).filter((re): re is RegExp => Boolean(re));
+  // ⚡ Bolt: Replaced map().filter() with a single-pass loop to avoid intermediate array allocations
+  const resolved: RegExp[] = [];
+  for (const raw of source) {
+    const re = parsePattern(raw);
+    if (re) {
+      resolved.push(re);
+    }
+  }
+  return resolved;
 }
 
 function maskToken(token: string): string {
@@ -86,8 +94,15 @@ function redactMatch(match: string, groups: string[]): string {
   if (match.includes("PRIVATE KEY-----")) {
     return redactPemBlock(match);
   }
-  const token =
-    groups.filter((value) => typeof value === "string" && value.length > 0).at(-1) ?? match;
+  // ⚡ Bolt: Replaced filter().at(-1) with a single-pass reverse loop to avoid array allocation
+  let token = match;
+  for (let i = groups.length - 1; i >= 0; i--) {
+    const value = groups[i];
+    if (typeof value === "string" && value.length > 0) {
+      token = value;
+      break;
+    }
+  }
   const masked = maskToken(token);
   if (token === match) {
     return masked;
