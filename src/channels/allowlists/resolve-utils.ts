@@ -42,16 +42,25 @@ export function buildAllowlistResolutionSummary<T extends AllowlistUserResolutio
   unresolved: string[];
   additions: string[];
 } {
-  const resolvedMap = new Map(resolvedUsers.map((entry) => [entry.input, entry]));
-  const resolvedOk = (entry: T) => Boolean(entry.resolved && entry.id);
+  // ⚡ Bolt: Replaced multiple .filter().map() passes with a single loop to avoid intermediate array allocations
+  const resolvedMap = new Map<string, T>();
+  const mapping: string[] = [];
+  const unresolved: string[] = [];
+  const additions: string[] = [];
+
   const formatResolved = opts?.formatResolved ?? ((entry: T) => `${entry.input}→${entry.id}`);
   const formatUnresolved = opts?.formatUnresolved ?? ((entry: T) => entry.input);
-  const mapping = resolvedUsers.filter(resolvedOk).map(formatResolved);
-  const additions = resolvedUsers
-    .filter(resolvedOk)
-    .map((entry) => entry.id)
-    .filter((entry): entry is string => Boolean(entry));
-  const unresolved = resolvedUsers.filter((entry) => !resolvedOk(entry)).map(formatUnresolved);
+
+  for (const entry of resolvedUsers) {
+    resolvedMap.set(entry.input, entry);
+    if (entry.resolved && entry.id) {
+      mapping.push(formatResolved(entry));
+      additions.push(entry.id);
+    } else {
+      unresolved.push(formatUnresolved(entry));
+    }
+  }
+
   return { resolvedMap, mapping, unresolved, additions };
 }
 
