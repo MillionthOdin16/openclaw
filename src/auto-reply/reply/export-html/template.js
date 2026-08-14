@@ -1737,6 +1737,13 @@
     breaks: true,
     gfm: true,
     renderer: {
+      link(token) {
+        const href = (token.href || "").trim().toLowerCase();
+        if (href.startsWith("javascript:") || href.startsWith("data:") || href.startsWith("vbscript:")) {
+          return this.parser.parseInline(token.tokens || []);
+        }
+        return false;
+      },
       // Code blocks: syntax highlight, no HTML escaping
       code(token) {
         const code = token.text;
