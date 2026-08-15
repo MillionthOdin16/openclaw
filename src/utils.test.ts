@@ -12,7 +12,11 @@ import {
   resolveConfigDir,
   resolveHomeDir,
   resolveJidToE164,
+  escapeRegExp,
+  isRecord,
+  isSelfChatMode,
   resolveUserPath,
+  safeParseJson,
   shortenHomeInString,
   shortenHomePath,
   sleep,
@@ -28,6 +32,87 @@ function withTempDirSync<T>(prefix: string, run: (dir: string) => T): T {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
+
+describe("escapeRegExp", () => {
+  it("escapes special regex characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+
+  it("does not alter normal strings", () => {
+    expect(escapeRegExp("hello world")).toBe("hello world");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("returns parsed json for valid input", () => {
+    expect(safeParseJson('{"key":"value"}')).toEqual({ key: "value" });
+    expect(safeParseJson("123")).toBe(123);
+  });
+
+  it("returns null for invalid input", () => {
+    expect(safeParseJson("invalid")).toBeNull();
+    expect(safeParseJson("")).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for plain objects", () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ key: "value" })).toBe(true);
+    expect(isRecord(Object.create(null))).toBe(true);
+  });
+
+  it("returns false for arrays", () => {
+    expect(isRecord([])).toBe(false);
+    expect(isRecord([1, 2, 3])).toBe(false);
+  });
+
+  it("returns false for null", () => {
+    expect(isRecord(null)).toBe(false);
+  });
+
+  it("returns false for non-objects", () => {
+    expect(isRecord("string")).toBe(false);
+    expect(isRecord(123)).toBe(false);
+    expect(isRecord(undefined)).toBe(false);
+    expect(isRecord(true)).toBe(false);
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns false if selfE164 is not provided", () => {
+    expect(isSelfChatMode(null, ["+15551234567"])).toBe(false);
+    expect(isSelfChatMode(undefined, ["+15551234567"])).toBe(false);
+    expect(isSelfChatMode("", ["+15551234567"])).toBe(false);
+  });
+
+  it("returns false if allowFrom is missing or empty", () => {
+    expect(isSelfChatMode("+15551234567")).toBe(false);
+    expect(isSelfChatMode("+15551234567", [])).toBe(false);
+    expect(isSelfChatMode("+15551234567", null)).toBe(false);
+  });
+
+  it("returns true if selfE164 is in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("whatsapp:+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("+15551234567", ["whatsapp:+15551234567"])).toBe(true);
+    expect(isSelfChatMode("15551234567", ["+15551234567"])).toBe(true);
+  });
+
+  it("returns false if selfE164 is not in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15559876543"])).toBe(false);
+  });
+
+  it("returns false for wildcard '*' in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+    expect(isSelfChatMode("+15551234567", ["*", "+15551234567"])).toBe(true);
+  });
+
+  it("handles un-parseable entries in allowFrom gracefully", () => {
+    expect(isSelfChatMode("+15551234567", ["invalid", "+15551234567"])).toBe(true);
+    expect(isSelfChatMode("+15551234567", ["invalid"])).toBe(false);
+  });
+});
 
 describe("normalizePath", () => {
   it("adds leading slash when missing", () => {
