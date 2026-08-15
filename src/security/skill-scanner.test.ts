@@ -36,6 +36,24 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe("scanSource", () => {
+  it("detects setTimeout and setInterval with string arguments", () => {
+    const source1 = `
+setTimeout("console.log('hello')", 1000);
+`;
+    const findings1 = scanSource(source1, "plugin.ts");
+    expect(
+      findings1.some((f) => f.ruleId === "dynamic-code-execution" && f.severity === "critical"),
+    ).toBe(true);
+
+    const source2 = `
+setInterval("console.log('hello')", 1000);
+`;
+    const findings2 = scanSource(source2, "plugin.ts");
+    expect(
+      findings2.some((f) => f.ruleId === "dynamic-code-execution" && f.severity === "critical"),
+    ).toBe(true);
+  });
+
   it("detects child_process exec with string interpolation", () => {
     const source = `
 import { exec } from "child_process";

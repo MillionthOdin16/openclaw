@@ -156,7 +156,7 @@ const LINE_RULES: LineRule[] = [
     ruleId: "dynamic-code-execution",
     severity: "critical",
     message: "Dynamic code execution detected",
-    pattern: /\beval\s*\(|new\s+Function\s*\(/,
+    pattern: /\beval\s*\(|new\s+Function\s*\(|\b(?:setTimeout|setInterval)\s*\(\s*["'`]/,
   },
   {
     ruleId: "crypto-mining",
