@@ -65,7 +65,14 @@ export function extractThinking(message: unknown): string | null {
   const matches = [
     ...rawText.matchAll(/<\s*think(?:ing)?\s*>([\s\S]*?)<\s*\/\s*think(?:ing)?\s*>/gi),
   ];
-  const extracted = matches.map((m) => (m[1] ?? "").trim()).filter(Boolean);
+  // ⚡ Bolt: Replace chained .map().filter() with a single-pass loop to avoid intermediate array allocations and callback overhead.
+  const extracted: string[] = [];
+  for (const m of matches) {
+    const val = (m[1] ?? "").trim();
+    if (val) {
+      extracted.push(val);
+    }
+  }
   return extracted.length > 0 ? extracted.join("\n") : null;
 }
 
@@ -89,15 +96,14 @@ export function extractRawText(message: unknown): string | null {
     return content;
   }
   if (Array.isArray(content)) {
-    const parts = content
-      .map((p) => {
-        const item = p as Record<string, unknown>;
-        if (item.type === "text" && typeof item.text === "string") {
-          return item.text;
-        }
-        return null;
-      })
-      .filter((v): v is string => typeof v === "string");
+    // ⚡ Bolt: Replace chained .map().filter() with a single-pass loop to avoid intermediate array allocations and callback overhead.
+    const parts: string[] = [];
+    for (const p of content) {
+      const item = p as Record<string, unknown>;
+      if (item.type === "text" && typeof item.text === "string") {
+        parts.push(item.text);
+      }
+    }
     if (parts.length > 0) {
       return parts.join("\n");
     }
@@ -113,10 +119,13 @@ export function formatReasoningMarkdown(text: string): string {
   if (!trimmed) {
     return "";
   }
-  const lines = trimmed
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => `_${line}_`);
+  // ⚡ Bolt: Replace chained .map().filter().map() with a single-pass loop to avoid intermediate array allocations and callback overhead.
+  const lines: string[] = [];
+  for (const line of trimmed.split(/\r?\n/)) {
+    const l = line.trim();
+    if (l) {
+      lines.push(`_${l}_`);
+    }
+  }
   return lines.length ? ["_Reasoning:_", ...lines].join("\n") : "";
 }
