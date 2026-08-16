@@ -1,0 +1,4 @@
+## 2026-08-16 - Agent Context Management Pattern
+**Defect Pattern:** Compaction and truncation thresholds fail to account for aggregate payload sizes within a single conversation turn, particularly when individual items (like tool results) pass single-item limits but collectively exceed the context window.
+**Local Impact:** In our embedded runner (`src/agents/pi-embedded-runner`), context guards and preflight checks might skip necessary truncation, allowing oversized context prompts to trigger fatal "input-too-long" API errors and trap the session in a failure loop.
+**Review Strategy:** When auditing context window and compaction logic, explicitly check for logic that only evaluates single-item sizes; ensure comprehensive preflight checks sum the total token footprint and dynamically compact before dispatching to the LLM.
