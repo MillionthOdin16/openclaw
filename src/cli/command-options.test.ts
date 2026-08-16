@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { describe, expect, it } from "vitest";
-import { inheritOptionFromParent } from "./command-options.js";
+import { hasExplicitOptions, inheritOptionFromParent } from "./command-options.js";
 
 function attachRunCommandAndCaptureInheritedToken(command: Command) {
   let inherited: string | undefined;
@@ -85,7 +85,39 @@ describe("inheritOptionFromParent", () => {
     expect(getInherited()).toBe("root-token");
   });
 
+  it("returns undefined when command lacks getOptionValueSource", () => {
+    const mockCommand = { parent: undefined } as unknown as Command;
+    expect(inheritOptionFromParent<string>(mockCommand, "token")).toBeUndefined();
+  });
+
+  it("returns undefined when ancestor lacks getOptionValueSource", () => {
+    const mockCommand = {
+      getOptionValueSource: () => undefined,
+      parent: {} as unknown as Command,
+    } as unknown as Command;
+    expect(inheritOptionFromParent<string>(mockCommand, "token")).toBeUndefined();
+  });
+
   it("returns undefined when command is missing", () => {
     expect(inheritOptionFromParent<string>(undefined, "token")).toBeUndefined();
+  });
+});
+
+describe("hasExplicitOptions", () => {
+  it("returns true when an option is provided via cli", () => {
+    const program = new Command().option("--token <token>", "A token");
+    program.setOptionValueWithSource("token", "my-token", "cli");
+    expect(hasExplicitOptions(program, ["token"])).toBe(true);
+  });
+
+  it("returns false when an option is provided via env", () => {
+    const program = new Command().option("--token <token>", "A token");
+    program.setOptionValueWithSource("token", "my-token", "env");
+    expect(hasExplicitOptions(program, ["token"])).toBe(false);
+  });
+
+  it("returns false when command lacks getOptionValueSource", () => {
+    const mockCommand = {} as unknown as Command;
+    expect(hasExplicitOptions(mockCommand, ["token"])).toBe(false);
   });
 });
