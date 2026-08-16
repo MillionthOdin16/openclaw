@@ -285,6 +285,47 @@ describe("export html security hardening", () => {
     expect(messages?.querySelector(`img[src="${dataImage}"]`)).toBeTruthy();
   });
 
+  it("escapes read tool offset and limit arguments", () => {
+    const attack1 = "<img src=x onerror=alert(1)>";
+    const attack2 = "<img src=y onerror=alert(2)>";
+    const session: SessionData = {
+      header: { id: "session-6", timestamp: now() },
+      entries: [
+        {
+          id: "1",
+          parentId: null,
+          timestamp: now(),
+          type: "message",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "toolCall",
+                id: "call_1",
+                name: "read",
+                arguments: {
+                  path: "test.txt",
+                  offset: attack1,
+                  limit: attack2,
+                },
+              },
+            ],
+          },
+        },
+      ],
+      leafId: "1",
+      systemPrompt: "",
+      tools: [],
+    };
+
+    const { document } = renderTemplate(session);
+    const messages = document.getElementById("messages");
+    expect(messages).toBeTruthy();
+    expect(messages?.querySelector("img[onerror]")).toBeNull();
+    expect(messages?.innerHTML).toContain("&lt;img src=x onerror=alert(1)&gt;");
+    // limit undergoes math (- 1) so it becomes NaN if it's a string, hence it doesn't need explicit checking
+  });
+
   it("escapes markdown data-image attributes", () => {
     const dataImage = "data:image/png;base64,AAAA";
     const session: SessionData = {
