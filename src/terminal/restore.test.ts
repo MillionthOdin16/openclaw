@@ -94,4 +94,83 @@ describe("restoreTerminalState", () => {
     expect(setRawMode).not.toHaveBeenCalled();
     expect(resume).not.toHaveBeenCalled();
   });
+
+  it("handles progress line errors gracefully", () => {
+    const mockStderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    clearActiveProgressLine.mockImplementationOnce(() => {
+      throw new Error("progress error");
+    });
+    restoreTerminalState("test reason");
+    expect(mockStderr).toHaveBeenCalledWith(
+      expect.stringContaining("[terminal] restore progress line failed (test reason): Error: progress error\n")
+    );
+  });
+
+  it("handles raw mode errors gracefully", () => {
+    const mockStderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const setRawMode = vi.fn(() => {
+      throw new Error("raw mode error");
+    });
+    configureTerminalIO({
+      stdinIsTTY: true,
+      stdoutIsTTY: false,
+      setRawMode,
+      isPaused: vi.fn(() => false),
+    });
+    restoreTerminalState();
+    expect(mockStderr).toHaveBeenCalledWith(
+      expect.stringContaining("[terminal] restore raw mode failed: Error: raw mode error\n")
+    );
+  });
+
+  it("handles stdin resume errors gracefully", () => {
+    const mockStderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const resume = vi.fn(() => {
+      throw new Error("resume error");
+    });
+    configureTerminalIO({
+      stdinIsTTY: true,
+      stdoutIsTTY: false,
+      setRawMode: vi.fn(),
+      resume,
+      isPaused: vi.fn(() => true),
+    });
+    restoreTerminalState(undefined, { resumeStdin: true });
+    expect(mockStderr).toHaveBeenCalledWith(
+      expect.stringContaining("[terminal] restore stdin resume failed: Error: resume error\n")
+    );
+  });
+
+  it("writes reset sequence and handles stdout reset errors gracefully", () => {
+    const mockStdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    configureTerminalIO({
+      stdinIsTTY: false,
+      stdoutIsTTY: true,
+    });
+    restoreTerminalState();
+    expect(mockStdout).toHaveBeenCalled();
+
+    const mockStderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    mockStdout.mockImplementation(() => {
+      throw new Error("stdout error");
+    });
+    restoreTerminalState();
+    expect(mockStderr).toHaveBeenCalledWith(
+      expect.stringContaining("[terminal] restore stdout reset failed: Error: stdout error\n")
+    );
+  });
+
+  it("falls back to console.error if process.stderr.write throws", () => {
+    const mockConsoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process.stderr, "write").mockImplementation(() => {
+      throw new Error("stderr error");
+    });
+    clearActiveProgressLine.mockImplementationOnce(() => {
+      throw new Error("progress error");
+    });
+    restoreTerminalState("test");
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      expect.stringContaining("[terminal] restore reporting failed (test): Error: stderr error")
+    );
+  });
 });
