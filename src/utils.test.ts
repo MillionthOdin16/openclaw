@@ -18,6 +18,12 @@ import {
   sleep,
   toWhatsappJid,
   withWhatsAppPrefix,
+  pathExists,
+  clampNumber,
+  clampInt,
+  clamp,
+  escapeRegExp,
+  safeParseJson,
 } from "./utils.js";
 
 function withTempDirSync<T>(prefix: string, run: (dir: string) => T): T {
@@ -244,5 +250,70 @@ describe("resolveUserPath", () => {
   it("returns empty string for undefined/null input", () => {
     expect(resolveUserPath(undefined as unknown as string)).toBe("");
     expect(resolveUserPath(null as unknown as string)).toBe("");
+  });
+});
+
+describe("pathExists", () => {
+  it("returns true for existing file", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-test-"));
+    try {
+      const target = path.join(tmp, "exists.txt");
+      fs.writeFileSync(target, "content");
+      expect(await pathExists(target)).toBe(true);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("returns false for non-existing file", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-test-"));
+    try {
+      const target = path.join(tmp, "missing.txt");
+      expect(await pathExists(target)).toBe(false);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("clampNumber", () => {
+  it("clamps to min", () => {
+    expect(clampNumber(5, 10, 20)).toBe(10);
+  });
+  it("clamps to max", () => {
+    expect(clampNumber(25, 10, 20)).toBe(20);
+  });
+  it("keeps within range", () => {
+    expect(clampNumber(15, 10, 20)).toBe(15);
+  });
+});
+
+describe("clampInt", () => {
+  it("clamps floats and floors them", () => {
+    expect(clampInt(5.5, 10, 20)).toBe(10);
+    expect(clampInt(25.5, 10, 20)).toBe(20);
+    expect(clampInt(15.5, 10, 20)).toBe(15);
+  });
+});
+
+describe("clamp", () => {
+  it("is an alias for clampNumber", () => {
+    expect(clamp).toBe(clampNumber);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes special regex characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid JSON", () => {
+    expect(safeParseJson('{"foo":"bar"}')).toEqual({ foo: "bar" });
+  });
+
+  it("returns null for invalid JSON", () => {
+    expect(safeParseJson("{bad-json}")).toBeNull();
   });
 });
