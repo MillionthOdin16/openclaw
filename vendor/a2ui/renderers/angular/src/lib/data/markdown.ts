@@ -30,7 +30,7 @@ export class MarkdownRenderer {
         iframe.classList.add('html-view');
         iframe.srcdoc = str;
         iframe.sandbox = '';
-        return iframe.innerHTML;
+        return iframe.outerHTML;
       }
 
       return str;
