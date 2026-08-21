@@ -1,0 +1,163 @@
+ui/src/ui/app-render.ts:240:          <button
+ui/src/ui/app-render.ts:282:              <button
+ui/src/ui/app-render.ts:327:              <button
+ui/src/ui/app-render.helpers.ts:214:      <button
+ui/src/ui/app-render.helpers.ts:240:      <button
+ui/src/ui/app-render.helpers.ts:257:      <button
+ui/src/ui/app-render.helpers.ts:274:      <button
+ui/src/ui/app-render.helpers.ts:508:        <button
+ui/src/ui/app-render.helpers.ts:517:        <button
+ui/src/ui/app-render.helpers.ts:526:        <button
+ui/src/ui/views/instances.ts:21:        <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
+ui/src/ui/views/channels.nostr-profile-form.ts:245:        <button
+ui/src/ui/views/channels.nostr-profile-form.ts:253:        <button
+ui/src/ui/views/channels.nostr-profile-form.ts:261:        <button
+ui/src/ui/views/channels.nostr-profile-form.ts:268:        <button
+ui/src/ui/views/agents-panels-status-files.ts:154:          <button class="btn btn--sm" ?disabled=${params.loading} @click=${params.onRefresh}>
+ui/src/ui/views/agents-panels-status-files.ts:242:          <button class="btn btn--sm" ?disabled=${params.loading} @click=${params.onRefresh}>
+ui/src/ui/views/agents-panels-status-files.ts:341:        <button
+ui/src/ui/views/agents-panels-status-files.ts:392:                              <button
+ui/src/ui/views/agents-panels-status-files.ts:399:                              <button
+ui/src/ui/views/agents-panels-status-files.ts:443:    <button
+ui/src/ui/views/channels.whatsapp.ts:82:        <button
+ui/src/ui/views/channels.whatsapp.ts:89:        <button
+ui/src/ui/views/channels.whatsapp.ts:96:        <button
+ui/src/ui/views/channels.whatsapp.ts:103:        <button
+ui/src/ui/views/channels.whatsapp.ts:110:        <button class="btn" @click=${() => props.onRefresh(true)}>
+ui/src/ui/views/nodes.ts:62:        <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
+ui/src/ui/views/nodes.ts:90:        <button class="btn" ?disabled=${props.devicesLoading} @click=${props.onDevicesRefresh}>
+ui/src/ui/views/nodes.ts:145:          <button class="btn btn--sm primary" @click=${() => props.onDeviceApprove(req.requestId)}>
+ui/src/ui/views/nodes.ts:148:          <button class="btn btn--sm" @click=${() => props.onDeviceReject(req.requestId)}>
+ui/src/ui/views/nodes.ts:196:        <button
+ui/src/ui/views/nodes.ts:206:              <button
+ui/src/ui/views/nodes.ts:280:        <button
+ui/src/ui/views/nodes.ts:303:            <button class="btn" ?disabled=${state.configLoading} @click=${state.onLoadConfig}>
+ui/src/ui/views/usage-render-details.ts:277:        <button class="session-close-btn" @click=${onClose} title="Close session details">×</button>
+ui/src/ui/views/usage-render-details.ts:461:              <button class="toggle-btn active" @click=${() => onCursorRangeChange?.(null, null)}>Reset</button>
+ui/src/ui/views/usage-render-details.ts:467:            <button
+ui/src/ui/views/usage-render-details.ts:473:            <button
+ui/src/ui/views/usage-render-details.ts:484:                    <button
+ui/src/ui/views/usage-render-details.ts:490:                    <button
+ui/src/ui/views/usage-render-details.ts:772:            ? html`<button class="context-expand-btn" @click=${onToggleExpanded}>
+ui/src/ui/views/usage-render-details.ts:974:        <button class="btn btn-sm usage-action-btn usage-secondary-btn" @click=${onToggleExpandedAll}>
+ui/src/ui/views/usage-render-details.ts:1024:        <button class="btn btn-sm usage-action-btn usage-secondary-btn" @click=${onFilterClear}>
+ui/src/ui/views/markdown-sidebar.ts:18:        <button @click=${props.onClose} class="btn" title="Close sidebar">
+ui/src/ui/views/markdown-sidebar.ts:27:              <button @click=${props.onViewRawText} class="btn" style="margin-top: 12px;">
+ui/src/ui/views/exec-approval.ts:64:          <button
+ui/src/ui/views/exec-approval.ts:71:          <button
+ui/src/ui/views/exec-approval.ts:78:          <button
+ui/src/ui/views/channels.googlechat.ts:73:        <button class="btn" @click=${() => props.onRefresh(true)}>
+ui/src/ui/views/chat.ts:223:            <button
+ui/src/ui/views/chat.ts:327:            <button
+ui/src/ui/views/chat.ts:390:                      <button
+ui/src/ui/views/chat.ts:413:            <button
+ui/src/ui/views/chat.ts:462:            <button
+ui/src/ui/views/chat.ts:469:            <button
+ui/src/ui/views/config.ts:504:                  <button
+ui/src/ui/views/config.ts:549:                    <button
+ui/src/ui/views/config.ts:572:          <button
+ui/src/ui/views/config.ts:581:              <button
+ui/src/ui/views/config.ts:597:            <button
+ui/src/ui/views/config.ts:604:            <button
+ui/src/ui/views/config.ts:636:            <button
+ui/src/ui/views/config.ts:643:            <button
+ui/src/ui/views/config.ts:650:            <button
+ui/src/ui/views/config.ts:657:            <button
+ui/src/ui/views/config.ts:736:                <button
+ui/src/ui/views/config.ts:744:                    <button
+ui/src/ui/views/config-form.node.ts:392:              <button
+ui/src/ui/views/config-form.node.ts:458:              <button
+ui/src/ui/views/config-form.node.ts:595:          <button
+ui/src/ui/views/config-form.node.ts:632:        <button
+ui/src/ui/views/config-form.node.ts:649:        <button
+ui/src/ui/views/config-form.node.ts:852:        <button
+ui/src/ui/views/config-form.node.ts:879:                <button
+ui/src/ui/views/config-form.node.ts:957:        <button
+ui/src/ui/views/config-form.node.ts:1013:                  <button
+ui/src/ui/views/sessions.ts:119:        <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
+ui/src/ui/views/sessions.ts:315:        <button class="btn danger" ?disabled=${disabled} @click=${() => onDelete(row.key)}>
+ui/src/ui/views/channels.telegram.ts:114:        <button class="btn" @click=${() => props.onRefresh(true)}>
+ui/src/ui/views/channels.discord.ts:59:        <button class="btn" @click=${() => props.onRefresh(true)}>
+ui/src/ui/views/channels.nostr.ts:130:                <button
+ui/src/ui/views/channels.nostr.ts:233:        <button class="btn" @click=${() => props.onRefresh(false)}>Refresh</button>
+ui/src/ui/views/skills.ts:45:        <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
+ui/src/ui/views/skills.ts:133:          <button
+ui/src/ui/views/skills.ts:142:              ? html`<button
+ui/src/ui/views/skills.ts:178:              <button
+ui/src/ui/views/gateway-url-confirmation.ts:24:          <button
+ui/src/ui/views/gateway-url-confirmation.ts:30:          <button
+ui/src/ui/views/logs.ts:64:          <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
+ui/src/ui/views/logs.ts:67:          <button
+ui/src/ui/views/channels.imessage.ts:59:        <button class="btn" @click=${() => props.onRefresh(true)}>
+ui/src/ui/views/channels.config.ts:138:        <button
+ui/src/ui/views/channels.config.ts:145:        <button
+ui/src/ui/views/agents-panels-tools-skills.ts:136:          <button class="btn btn--sm" ?disabled=${!editable} @click=${() => updateAll(true)}>
+ui/src/ui/views/agents-panels-tools-skills.ts:139:          <button class="btn btn--sm" ?disabled=${!editable} @click=${() => updateAll(false)}>
+ui/src/ui/views/agents-panels-tools-skills.ts:142:          <button class="btn btn--sm" ?disabled=${params.configLoading} @click=${params.onConfigReload}>
+ui/src/ui/views/agents-panels-tools-skills.ts:145:          <button
+ui/src/ui/views/agents-panels-tools-skills.ts:218:              <button
+ui/src/ui/views/agents-panels-tools-skills.ts:227:          <button
+ui/src/ui/views/agents-panels-tools-skills.ts:365:          <button class="btn btn--sm" ?disabled=${!editable} @click=${() => params.onClear(params.agentId)}>
+ui/src/ui/views/agents-panels-tools-skills.ts:368:          <button
+ui/src/ui/views/agents-panels-tools-skills.ts:375:          <button class="btn btn--sm" ?disabled=${params.configLoading} @click=${params.onConfigReload}>
+ui/src/ui/views/agents-panels-tools-skills.ts:378:          <button class="btn btn--sm" ?disabled=${params.loading} @click=${params.onRefresh}>
+ui/src/ui/views/agents-panels-tools-skills.ts:381:          <button
+ui/src/ui/views/debug.ts:44:          <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
+ui/src/ui/views/debug.ts:103:          <button class="btn primary" @click=${props.onCall}>Call</button>
+ui/src/ui/views/agents.ts:118:          <button class="btn btn--sm" ?disabled=${props.loading} @click=${props.onRefresh}>
+ui/src/ui/views/agents.ts:137:                    <button
+ui/src/ui/views/agents.ts:334:          <button
+ui/src/ui/views/agents.ts:485:          <button class="btn btn--sm" ?disabled=${configLoading} @click=${onConfigReload}>
+ui/src/ui/views/agents.ts:488:          <button
+ui/src/ui/views/usage-render-overview.ts:95:              <button class="filter-chip-remove" @click=${onClearDays} title="Remove filter">×</button>
+ui/src/ui/views/usage-render-overview.ts:105:              <button class="filter-chip-remove" @click=${onClearHours} title="Remove filter">×</button>
+ui/src/ui/views/usage-render-overview.ts:115:              <button class="filter-chip-remove" @click=${onClearSessions} title="Remove filter">×</button>
+ui/src/ui/views/usage-render-overview.ts:123:            <button class="btn btn-sm filter-clear-btn" @click=${onClearFilters}>
+ui/src/ui/views/usage-render-overview.ts:162:          <button
+ui/src/ui/views/usage-render-overview.ts:168:          <button
+ui/src/ui/views/usage-render-overview.ts:668:          <button
+ui/src/ui/views/usage-render-overview.ts:706:          <button
+ui/src/ui/views/usage-render-overview.ts:712:          <button
+ui/src/ui/views/usage-render-overview.ts:731:        <button
+ui/src/ui/views/usage-render-overview.ts:741:                <button class="btn btn-sm sessions-action-btn sessions-clear-btn" @click=${onClearSessions}>
+ui/src/ui/views/overview.ts:274:          <button class="btn" @click=${() => props.onConnect()}>${t("common.connect")}</button>
+ui/src/ui/views/overview.ts:275:          <button class="btn" @click=${() => props.onRefresh()}>${t("common.refresh")}</button>
+ui/src/ui/views/channels.signal.ts:63:        <button class="btn" @click=${() => props.onRefresh(true)}>
+ui/src/ui/views/nodes-exec-approvals.ts:204:        <button
+ui/src/ui/views/nodes-exec-approvals.ts:219:            <button class="btn" ?disabled=${state.loading || !targetReady} @click=${state.onLoad}>
+ui/src/ui/views/nodes-exec-approvals.ts:315:        <button
+ui/src/ui/views/nodes-exec-approvals.ts:324:            <button
+ui/src/ui/views/nodes-exec-approvals.ts:516:              ? html`<button
+ui/src/ui/views/nodes-exec-approvals.ts:540:      <button
+ui/src/ui/views/nodes-exec-approvals.ts:595:        <button
+ui/src/ui/views/channels.slack.ts:59:        <button class="btn" @click=${() => props.onRefresh(true)}>
+ui/src/ui/views/usage.ts:387:            <button
+ui/src/ui/views/usage.ts:398:            <button
+ui/src/ui/views/usage.ts:483:          <button
+ui/src/ui/views/usage.ts:510:                <button
+ui/src/ui/views/usage.ts:522:                <button
+ui/src/ui/views/usage.ts:534:                <button
+ui/src/ui/views/usage.ts:575:                <button class="btn btn-sm" @click=${() => applyPreset(preset.days)}>
+ui/src/ui/views/usage.ts:604:            <button
+ui/src/ui/views/usage.ts:610:            <button
+ui/src/ui/views/usage.ts:617:          <button
+ui/src/ui/views/usage.ts:644:            <button
+ui/src/ui/views/usage.ts:653:                ? html`<button class="btn btn-sm usage-action-btn usage-secondary-btn" @click=${props.onClearQuery}>Clear</button>`
+ui/src/ui/views/usage.ts:684:                        <button
+ui/src/ui/views/usage.ts:704:                      <button
+ui/src/ui/views/cron.ts:196:            <button class="btn" type="button" @click=${params.onClear}>${t("cron.runs.clear")}</button>
+ui/src/ui/views/cron.ts:420:        <button class="btn" ?disabled=${props.loading} @click=${props.onRefresh}>
+ui/src/ui/views/cron.ts:530:              <button
+ui/src/ui/views/cron.ts:555:                    <button
+ui/src/ui/views/cron.ts:683:                    <button
+ui/src/ui/views/cron.ts:1344:                          <button
+ui/src/ui/views/cron.ts:1360:          <button class="btn primary" ?disabled=${props.busy || !props.canSubmit} @click=${props.onAdd}>
+ui/src/ui/views/cron.ts:1371:                  <button class="btn" ?disabled=${props.busy} @click=${props.onCancelEdit}>
+ui/src/ui/views/cron.ts:1517:          <button
+ui/src/ui/views/cron.ts:1527:          <button
+ui/src/ui/views/cron.ts:1537:          <button
+ui/src/ui/views/cron.ts:1547:          <button
+ui/src/ui/views/cron.ts:1557:          <button
+ui/src/ui/views/cron.ts:1567:          <button
+ui/src/ui/views/cron.ts:1577:          <button
+ui/src/ui/chat/copy-as-markdown.ts:36:    <button
