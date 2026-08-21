@@ -1,9 +1,25 @@
 export function normalizeStringEntries(list?: ReadonlyArray<unknown>) {
-  return (list ?? []).map((entry) => String(entry).trim()).filter(Boolean);
+  const result: string[] = [];
+  // ⚡ Bolt: Single-pass for...of loop avoids intermediate array allocations from .map().filter()
+  for (const entry of list ?? []) {
+    const trimmed = String(entry).trim();
+    if (trimmed) {
+      result.push(trimmed);
+    }
+  }
+  return result;
 }
 
 export function normalizeStringEntriesLower(list?: ReadonlyArray<unknown>) {
-  return normalizeStringEntries(list).map((entry) => entry.toLowerCase());
+  const result: string[] = [];
+  // ⚡ Bolt: Single-pass for...of loop avoids intermediate array allocations
+  for (const entry of list ?? []) {
+    const trimmed = String(entry).trim();
+    if (trimmed) {
+      result.push(trimmed.toLowerCase());
+    }
+  }
+  return result;
 }
 
 export function normalizeHyphenSlug(raw?: string | null) {
