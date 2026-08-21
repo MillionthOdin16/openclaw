@@ -6,6 +6,7 @@ import {
   assertWebChannel,
   CONFIG_DIR,
   ensureDir,
+  isSelfChatMode,
   jidToE164,
   normalizeE164,
   normalizePath,
@@ -15,8 +16,10 @@ import {
   resolveUserPath,
   shortenHomeInString,
   shortenHomePath,
+  sliceUtf16Safe,
   sleep,
   toWhatsappJid,
+  truncateUtf16Safe,
   withWhatsAppPrefix,
 } from "./utils.js";
 
@@ -66,6 +69,57 @@ describe("sleep", () => {
     vi.advanceTimersByTime(1000);
     await expect(promise).resolves.toBeUndefined();
     vi.useRealTimers();
+  });
+});
+
+describe("sliceUtf16Safe & truncateUtf16Safe", () => {
+  it("slices basic strings", () => {
+    expect(sliceUtf16Safe("hello", 1, 4)).toBe("ell");
+    expect(sliceUtf16Safe("hello", 0, 5)).toBe("hello");
+  });
+
+  it("handles negative indices", () => {
+    expect(sliceUtf16Safe("hello", -4, -1)).toBe("ell");
+  });
+
+  it("safely handles surrogate pairs (emoji)", () => {
+    const str = "a👋b👋c";
+    expect(sliceUtf16Safe(str, 0, 2)).toBe("a");
+    expect(sliceUtf16Safe(str, 1, 2)).toBe("");
+    expect(sliceUtf16Safe(str, 2, 4)).toBe("b");
+  });
+
+  it("truncates basic strings", () => {
+    expect(truncateUtf16Safe("hello", 4)).toBe("hell");
+  });
+
+  it("safely truncates emoji strings", () => {
+    const str = "a👋b👋c";
+    expect(truncateUtf16Safe(str, 2)).toBe("a");
+    expect(truncateUtf16Safe(str, 3)).toBe("a👋");
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns false if selfE164 is null", () => {
+    expect(isSelfChatMode(null, ["+123"])).toBe(false);
+  });
+
+  it("returns false if allowFrom is missing or empty", () => {
+    expect(isSelfChatMode("+123", [])).toBe(false);
+    expect(isSelfChatMode("+123")).toBe(false);
+  });
+
+  it("returns false if allowFrom only contains '*'", () => {
+    expect(isSelfChatMode("+123", ["*"])).toBe(false);
+  });
+
+  it("returns false if allowFrom does not contain selfE164", () => {
+    expect(isSelfChatMode("+1234567890", ["+9876543210"])).toBe(false);
+  });
+
+  it("returns true if allowFrom contains selfE164", () => {
+    expect(isSelfChatMode("+1234567890", ["+1234567890", "+9876543210"])).toBe(true);
   });
 });
 
