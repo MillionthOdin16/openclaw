@@ -69,6 +69,16 @@ const options: ExecOptions = { timeout: 5000 };
     expect(findings.some((f) => f.ruleId === "dangerous-exec")).toBe(false);
   });
 
+  it("detects alternative runtime exec usage", () => {
+    const source = `
+const proc = Bun.spawn(["ls"]);
+`;
+    const findings = scanSource(source, "plugin.ts");
+    expect(findings.some((f) => f.ruleId === "dangerous-exec-runtime" && f.severity === "critical")).toBe(
+      true,
+    );
+  });
+
   it("detects eval usage", () => {
     const source = `
 const code = "1+1";

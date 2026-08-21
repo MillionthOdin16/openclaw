@@ -153,6 +153,12 @@ const LINE_RULES: LineRule[] = [
     requiresContext: /child_process/,
   },
   {
+    ruleId: "dangerous-exec-runtime",
+    severity: "critical",
+    message: "Shell command execution detected (alternative runtime)",
+    pattern: /\b(?:Bun\.spawn|Bun\.spawnSync|Deno\.run|Deno\.Command)\b/,
+  },
+  {
     ruleId: "dynamic-code-execution",
     severity: "critical",
     message: "Dynamic code execution detected",
