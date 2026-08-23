@@ -80,6 +80,16 @@ const result = eval(code);
     ).toBe(true);
   });
 
+  it("detects Function constructor without new", () => {
+    const source = `
+const fn = Function("a", "b", "return a + b");
+`;
+    const findings = scanSource(source, "plugin.ts");
+    expect(
+      findings.some((f) => f.ruleId === "dynamic-code-execution" && f.severity === "critical"),
+    ).toBe(true);
+  });
+
   it("detects new Function constructor", () => {
     const source = `
 const fn = new Function("a", "b", "return a + b");
