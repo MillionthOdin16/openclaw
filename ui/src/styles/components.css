@@ -365,6 +365,11 @@
   box-shadow: var(--shadow-sm);
 }
 
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .btn:active {
   background: var(--secondary);
   transform: translateY(0);
