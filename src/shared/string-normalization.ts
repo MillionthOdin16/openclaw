@@ -1,5 +1,16 @@
 export function normalizeStringEntries(list?: ReadonlyArray<unknown>) {
-  return (list ?? []).map((entry) => String(entry).trim()).filter(Boolean);
+  if (!list) {
+    return [];
+  }
+  const out: string[] = [];
+  // ⚡ Bolt: Single-pass iteration avoids intermediate array allocation and callback overhead
+  for (const entry of list) {
+    const trimmed = String(entry).trim();
+    if (trimmed) {
+      out.push(trimmed);
+    }
+  }
+  return out;
 }
 
 export function normalizeStringEntriesLower(list?: ReadonlyArray<unknown>) {
