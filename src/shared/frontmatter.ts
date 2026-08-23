@@ -7,13 +7,26 @@ export function normalizeStringList(input: unknown): string[] {
     return [];
   }
   if (Array.isArray(input)) {
-    return input.map((value) => String(value).trim()).filter(Boolean);
+    const out: string[] = [];
+    // ⚡ Bolt: Single-pass iteration avoids intermediate array allocation and callback overhead
+    for (const value of input) {
+      const trimmed = String(value).trim();
+      if (trimmed) {
+        out.push(trimmed);
+      }
+    }
+    return out;
   }
   if (typeof input === "string") {
-    return input
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
+    const out: string[] = [];
+    // ⚡ Bolt: Single-pass iteration avoids intermediate array allocation and callback overhead
+    for (const value of input.split(",")) {
+      const trimmed = value.trim();
+      if (trimmed) {
+        out.push(trimmed);
+      }
+    }
+    return out;
   }
   return [];
 }
