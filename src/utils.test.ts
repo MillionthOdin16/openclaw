@@ -4,19 +4,28 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
+  clamp,
+  clampInt,
+  clampNumber,
   CONFIG_DIR,
   ensureDir,
+  escapeRegExp,
+  isRecord,
   jidToE164,
   normalizeE164,
   normalizePath,
+  pathExists,
   resolveConfigDir,
   resolveHomeDir,
   resolveJidToE164,
   resolveUserPath,
+  safeParseJson,
   shortenHomeInString,
   shortenHomePath,
+  sliceUtf16Safe,
   sleep,
   toWhatsappJid,
+  truncateUtf16Safe,
   withWhatsAppPrefix,
 } from "./utils.js";
 
@@ -244,5 +253,86 @@ describe("resolveUserPath", () => {
   it("returns empty string for undefined/null input", () => {
     expect(resolveUserPath(undefined as unknown as string)).toBe("");
     expect(resolveUserPath(null as unknown as string)).toBe("");
+  });
+});
+
+describe("sliceUtf16Safe", () => {
+  it("adjusts start if splitting a surrogate pair", () => {
+    expect(sliceUtf16Safe("a😊b", 1, 4)).toBe("😊b");
+    expect(sliceUtf16Safe("a😊b", 2, 4)).toBe("b");
+  });
+
+  it("adjusts end if splitting a surrogate pair", () => {
+    expect(sliceUtf16Safe("a😊b", 0, 2)).toBe("a");
+  });
+});
+
+describe("truncateUtf16Safe", () => {
+  it("truncates string safely", () => {
+    expect(truncateUtf16Safe("a😊b", 2)).toBe("a");
+    expect(truncateUtf16Safe("a😊b", 3)).toBe("a😊");
+    expect(truncateUtf16Safe("hello", 10)).toBe("hello");
+    expect(truncateUtf16Safe("hello", 2)).toBe("he");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid JSON", () => {
+    expect(safeParseJson('{"a": 1}')).toEqual({ a: 1 });
+  });
+
+  it("returns null for invalid JSON", () => {
+    expect(safeParseJson("{a: 1}")).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for records", () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ a: 1 })).toBe(true);
+  });
+
+  it("returns false for arrays and null", () => {
+    expect(isRecord([])).toBe(false);
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord("")).toBe(false);
+  });
+});
+
+describe("pathExists", () => {
+  it("returns true for existing path", async () => {
+    expect(await pathExists("src/utils.ts")).toBe(true);
+  });
+
+  it("returns false for non-existing path", async () => {
+    expect(await pathExists("src/non-existing.ts")).toBe(false);
+  });
+});
+
+describe("clampNumber", () => {
+  it("clamps between min and max", () => {
+    expect(clampNumber(5, 1, 10)).toBe(5);
+    expect(clampNumber(0, 1, 10)).toBe(1);
+    expect(clampNumber(15, 1, 10)).toBe(10);
+  });
+});
+
+describe("clampInt", () => {
+  it("clamps and floors", () => {
+    expect(clampInt(5.5, 1, 10)).toBe(5);
+    expect(clampInt(0.5, 1, 10)).toBe(1);
+    expect(clampInt(15.5, 1, 10)).toBe(10);
+  });
+});
+
+describe("clamp", () => {
+  it("aliases clampNumber", () => {
+    expect(clamp).toBe(clampNumber);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes regex characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
   });
 });
