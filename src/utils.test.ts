@@ -96,6 +96,13 @@ describe("jidToE164", () => {
   it("maps @lid using reverse mapping file", () => {
     const mappingPath = path.join(CONFIG_DIR, "credentials", "lid-mapping-123_reverse.json");
     const original = fs.readFileSync;
+    const existsOriginal = fs.existsSync;
+    const existsSpy = vi.spyOn(fs, "existsSync").mockImplementation((...args) => {
+      if (args[0] === mappingPath) {
+        return true;
+      }
+      return existsOriginal(...args);
+    });
     const spy = vi.spyOn(fs, "readFileSync").mockImplementation((...args) => {
       if (args[0] === mappingPath) {
         return `"5551234"`;
@@ -104,6 +111,7 @@ describe("jidToE164", () => {
     });
     expect(jidToE164("123@lid")).toBe("+5551234");
     spy.mockRestore();
+    existsSpy.mockRestore();
   });
 
   it("maps @lid from authDir mapping files", () => {
