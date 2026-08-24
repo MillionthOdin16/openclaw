@@ -163,6 +163,10 @@ function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | n
   const mappingDirs = resolveLidMappingDirs(opts);
   for (const dir of mappingDirs) {
     const mappingPath = path.join(dir, mappingFilename);
+    // ⚡ Bolt: Use fs.existsSync to avoid the significant performance penalty of throwing and catching exceptions in readFileSync when the file doesn't exist
+    if (!fs.existsSync(mappingPath)) {
+      continue;
+    }
     try {
       const data = fs.readFileSync(mappingPath, "utf8");
       const phone = JSON.parse(data) as string | number | null;
