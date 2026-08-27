@@ -95,15 +95,23 @@ describe("normalizeE164 & toWhatsappJid", () => {
 describe("jidToE164", () => {
   it("maps @lid using reverse mapping file", () => {
     const mappingPath = path.join(CONFIG_DIR, "credentials", "lid-mapping-123_reverse.json");
-    const original = fs.readFileSync;
-    const spy = vi.spyOn(fs, "readFileSync").mockImplementation((...args) => {
+    const originalRead = fs.readFileSync;
+    const spyRead = vi.spyOn(fs, "readFileSync").mockImplementation((...args) => {
       if (args[0] === mappingPath) {
         return `"5551234"`;
       }
-      return original(...args);
+      return originalRead(...args);
+    });
+    const originalExists = fs.existsSync;
+    const spyExists = vi.spyOn(fs, "existsSync").mockImplementation((...args) => {
+      if (args[0] === mappingPath) {
+        return true;
+      }
+      return originalExists(...args);
     });
     expect(jidToE164("123@lid")).toBe("+5551234");
-    spy.mockRestore();
+    spyRead.mockRestore();
+    spyExists.mockRestore();
   });
 
   it("maps @lid from authDir mapping files", () => {
