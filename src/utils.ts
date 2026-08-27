@@ -163,6 +163,10 @@ function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | n
   const mappingDirs = resolveLidMappingDirs(opts);
   for (const dir of mappingDirs) {
     const mappingPath = path.join(dir, mappingFilename);
+    // ⚡ Bolt: Check existence before reading to avoid expensive try/catch blocks on missing files (which is common here)
+    if (!fs.existsSync(mappingPath)) {
+      continue;
+    }
     try {
       const data = fs.readFileSync(mappingPath, "utf8");
       const phone = JSON.parse(data) as string | number | null;
@@ -171,7 +175,7 @@ function readLidReverseMapping(lid: string, opts?: JidToE164Options): string | n
       }
       return normalizeE164(String(phone));
     } catch {
-      // Try the next location.
+      // Try the next location (e.g., if file exists but is not readable or invalid JSON).
     }
   }
   return null;
