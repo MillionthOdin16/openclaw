@@ -1,0 +1,3 @@
+## 2024-05-24 - Prevent N+1 disk IO for named session titles
+**Learning:** In the session list API endpoint, the system was reading transcript files from disk for every single session to derive titles, even if the session already had an explicitly set name (`displayName` or `subject`). This caused N+1 expensive synchronous disk operations, significantly slowing down the list retrieval.
+**Action:** Always check if a computed property (like a derived title) requires data from disk before fetching it. If the property can be satisfied by existing in-memory state (like a pre-existing explicit title), short-circuit the disk IO.

@@ -867,7 +867,10 @@ export function listSessionsFromStore(params: {
     let derivedTitle: string | undefined;
     let lastMessagePreview: string | undefined;
     if (entry?.sessionId) {
-      if (includeDerivedTitles || includeLastMessage) {
+      // ⚡ Bolt: Skip expensive disk IO to read transcript titles if the session already has a saved title (displayName/subject) and we don't need the last message preview.
+      const needsDiskTitle = includeDerivedTitles && !entry.displayName?.trim() && !entry.subject?.trim();
+
+      if (needsDiskTitle || includeLastMessage) {
         const parsed = parseAgentSessionKey(s.key);
         const agentId =
           parsed && parsed.agentId ? normalizeAgentId(parsed.agentId) : resolveDefaultAgentId(cfg);
@@ -883,6 +886,8 @@ export function listSessionsFromStore(params: {
         if (includeLastMessage && fields.lastMessagePreview) {
           lastMessagePreview = fields.lastMessagePreview;
         }
+      } else if (includeDerivedTitles) {
+        derivedTitle = deriveSessionTitle(entry, null);
       }
     }
     return { ...rest, derivedTitle, lastMessagePreview } satisfies GatewaySessionRow;
