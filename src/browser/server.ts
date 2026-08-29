@@ -51,6 +51,7 @@ export async function startBrowserControlServerFromConfig(): Promise<BrowserServ
   }
 
   const app = express();
+  app.disable("x-powered-by");
   installBrowserCommonMiddleware(app);
   installBrowserAuthMiddleware(app, browserAuth);
 
