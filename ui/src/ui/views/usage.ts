@@ -630,6 +630,7 @@ export function renderUsage(props: UsageProps) {
           <input
             class="usage-query-input"
             type="text"
+            aria-label="Filter sessions"
             .value=${props.queryDraft}
             placeholder="Filter sessions (e.g. key:agent:main:cron* model:gpt-4o has:errors minTokens:2000)"
             @input=${(e: Event) => props.onQueryDraftChange((e.target as HTMLInputElement).value)}
