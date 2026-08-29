@@ -1017,6 +1017,7 @@ function renderSessionLogsCompact(
         </label>
         <input
           type="text"
+          aria-label="Search conversation"
           placeholder="Search conversation"
           .value=${filters.query}
           @input=${(event: Event) => onFilterQueryChange((event.target as HTMLInputElement).value)}

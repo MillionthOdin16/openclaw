@@ -494,6 +494,7 @@ export function renderConfig(props: ConfigProps) {
             <input
               type="text"
               class="config-search__input"
+              aria-label="Search settings"
               placeholder="Search settings..."
               .value=${props.searchQuery}
               @input=${(e: Event) => props.onSearchChange((e.target as HTMLInputElement).value)}
