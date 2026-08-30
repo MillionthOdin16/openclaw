@@ -153,19 +153,23 @@ export function renderUsage(props: UsageProps) {
     return valB - valA;
   });
 
+  // ⚡ Bolt: Optimize array lookups by converting to Sets, reducing lookup time from O(N*M) to O(N)
+  const selectedDaysSet = new Set(props.selectedDays);
+  const selectedSessionsSet = new Set(props.selectedSessions);
+
   // Filter sessions by selected days
   const dayFilteredSessions =
     props.selectedDays.length > 0
       ? sortedSessions.filter((s) => {
           if (s.usage?.activityDates?.length) {
-            return s.usage.activityDates.some((d) => props.selectedDays.includes(d));
+            return s.usage.activityDates.some((d) => selectedDaysSet.has(d));
           }
           if (!s.updatedAt) {
             return false;
           }
           const d = new Date(s.updatedAt);
           const sessionDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-          return props.selectedDays.includes(sessionDate);
+          return selectedDaysSet.has(sessionDate);
         })
       : sortedSessions;
 
@@ -259,7 +263,9 @@ export function renderUsage(props: UsageProps) {
 
   // Compute totals from daily data for selected days (more accurate than session totals)
   const computeDailyTotals = (days: string[]): UsageTotals => {
-    const matchingDays = props.costDaily.filter((d) => days.includes(d.date));
+    // ⚡ Bolt: Optimize array lookups by converting to Sets, reducing lookup time from O(N*M) to O(N)
+    const daysSet = new Set(days);
+    const matchingDays = props.costDaily.filter((d) => daysSet.has(d.date));
     return matchingDays.reduce((acc, day) => addUsageTotals(acc, day), createEmptyUsageTotals());
   };
 
@@ -271,7 +277,8 @@ export function renderUsage(props: UsageProps) {
   if (props.selectedSessions.length > 0) {
     // Sessions selected - compute totals from selected sessions
     const selectedSessionEntries = filteredSessions.filter((s) =>
-      props.selectedSessions.includes(s.key),
+      // ⚡ Bolt: Optimize array lookups by converting to Sets, reducing lookup time from O(N*M) to O(N)
+      selectedSessionsSet.has(s.key),
     );
     displayTotals = computeSessionTotals(selectedSessionEntries);
     displaySessionCount = selectedSessionEntries.length;
@@ -293,7 +300,8 @@ export function renderUsage(props: UsageProps) {
 
   const aggregateSessions =
     props.selectedSessions.length > 0
-      ? filteredSessions.filter((s) => props.selectedSessions.includes(s.key))
+      // ⚡ Bolt: Optimize array lookups by converting to Sets, reducing lookup time from O(N*M) to O(N)
+      ? filteredSessions.filter((s) => selectedSessionsSet.has(s.key))
       : hasQuery || props.selectedHours.length > 0
         ? filteredSessions
         : props.selectedDays.length > 0
@@ -306,7 +314,8 @@ export function renderUsage(props: UsageProps) {
     props.selectedSessions.length > 0
       ? (() => {
           const selectedEntries = filteredSessions.filter((s) =>
-            props.selectedSessions.includes(s.key),
+            // ⚡ Bolt: Optimize array lookups by converting to Sets, reducing lookup time from O(N*M) to O(N)
+            selectedSessionsSet.has(s.key),
           );
           const allActivityDates = new Set<string>();
           for (const entry of selectedEntries) {
