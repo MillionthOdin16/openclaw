@@ -155,6 +155,9 @@ function renderDailyChartCompact(
   const barMaxWidth = daily.length > 30 ? 12 : daily.length > 20 ? 18 : daily.length > 14 ? 24 : 32;
   const showTotals = daily.length <= 14;
 
+  // ⚡ Bolt: Optimize array lookups by converting to Sets outside the loop, reducing lookup time from O(N*M) to O(N)
+  const selectedDaysSet = new Set(selectedDays);
+
   return html`
     <div class="daily-chart-compact">
       <div class="daily-chart-header">
@@ -179,7 +182,7 @@ function renderDailyChartCompact(
           ${daily.map((d, idx) => {
             const value = values[idx];
             const heightPct = (value / maxValue) * 100;
-            const isSelected = selectedDays.includes(d.date);
+            const isSelected = selectedDaysSet.has(d.date);
             const label = formatDayLabel(d.date);
             // Shorter label for many days (just day number)
             const shortLabel = daily.length > 20 ? String(parseInt(d.date.slice(8), 10)) : label;
@@ -615,7 +618,9 @@ function renderSessionsCard(
 
     // If days are selected and session has daily breakdown, compute filtered total
     if (selectedDays.length > 0 && usage.dailyBreakdown && usage.dailyBreakdown.length > 0) {
-      const filteredDays = usage.dailyBreakdown.filter((d) => selectedDays.includes(d.date));
+      // ⚡ Bolt: Optimize array lookups by converting to Sets, reducing lookup time from O(N*M) to O(N)
+      const selectedDaysSet = new Set(selectedDays);
+      const filteredDays = usage.dailyBreakdown.filter((d) => selectedDaysSet.has(d.date));
       return isTokenMode
         ? filteredDays.reduce((sum, d) => sum + d.tokens, 0)
         : filteredDays.reduce((sum, d) => sum + d.cost, 0);
