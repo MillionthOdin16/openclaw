@@ -747,6 +747,10 @@ export async function removeCronJob(state: CronState, job: CronJob) {
   if (!state.client || !state.connected || state.cronBusy) {
     return;
   }
+  const confirmed = window.confirm(`Delete cron job "${job.name}"?`);
+  if (!confirmed) {
+    return;
+  }
   state.cronBusy = true;
   state.cronError = null;
   try {
