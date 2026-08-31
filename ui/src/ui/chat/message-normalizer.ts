@@ -5,10 +5,20 @@
 import { stripInboundMetadata } from "../../../../src/auto-reply/reply/strip-inbound-meta.js";
 import type { NormalizedMessage, MessageContentItem } from "../types/chat-types.ts";
 
+const normalizationCache = new WeakMap<object, NormalizedMessage>();
+
 /**
  * Normalize a raw message object into a consistent structure.
  */
 export function normalizeMessage(message: unknown): NormalizedMessage {
+  // ⚡ Bolt: Use a WeakMap cache to prevent duplicate normalization parsing overhead during heavy render cycles
+  if (message && typeof message === "object") {
+    const cached = normalizationCache.get(message);
+    if (cached) {
+      return cached;
+    }
+  }
+
   const m = message as Record<string, unknown>;
   let role = typeof m.role === "string" ? m.role : "unknown";
 
@@ -63,7 +73,13 @@ export function normalizeMessage(message: unknown): NormalizedMessage {
     });
   }
 
-  return { role, content, timestamp, id, senderLabel };
+  const result = { role, content, timestamp, id, senderLabel };
+
+  if (message && typeof message === "object") {
+    normalizationCache.set(message, result);
+  }
+
+  return result;
 }
 
 /**
