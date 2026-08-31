@@ -39,6 +39,7 @@ async function waitForSlowBodySocketClose(port: number, timeoutMs: number): Prom
 describe("msteams monitor webhook hardening", () => {
   it("applies explicit webhook timeout values", async () => {
     const app = express();
+    app.disable("x-powered-by");
     const server = app.listen(0, "127.0.0.1");
     await once(server, "listening");
     try {
@@ -58,6 +59,7 @@ describe("msteams monitor webhook hardening", () => {
 
   it("drops slow-body webhook requests within configured inactivity timeout", async () => {
     const app = express();
+    app.disable("x-powered-by");
     app.use(express.json({ limit: "1mb" }));
     app.use((_req, res, _next) => {
       res.status(401).end("unauthorized");
