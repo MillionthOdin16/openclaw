@@ -106,6 +106,7 @@ export async function startMediaServer(
   runtime: RuntimeEnv = defaultRuntime,
 ): Promise<Server> {
   const app = express();
+  app.disable('x-powered-by');
   attachMediaRoutes(app, ttlMs, runtime);
   return await new Promise((resolve, reject) => {
     const server = app.listen(port, "127.0.0.1");

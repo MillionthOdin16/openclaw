@@ -72,6 +72,7 @@ export async function startBrowserBridgeServer(params: {
   const port = params.port ?? 0;
 
   const app = express();
+  app.disable('x-powered-by');
   installBrowserCommonMiddleware(app);
 
   if (params.resolveSandboxNoVncToken) {
