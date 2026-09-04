@@ -1,0 +1,3 @@
+## 2023-09-04 - Adding ARIA labels to icon-only buttons
+**Learning:** Found several icon-only buttons in the chat controls (`ui/src/ui/app-render.helpers.ts`) that only had `title` attributes for tooltips, which aren't always reliably read by screen readers. The design pattern in this codebase relies heavily on tooltips for visual users but sometimes misses the corresponding accessibility attributes.
+**Action:** Always ensure that any button styled as `.btn--icon` includes an explicit `aria-label` attribute, especially if its content is solely an SVG icon. Re-use the existing localization keys (`t()`) originally intended for the `title` attribute.
