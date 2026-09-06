@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { normalizePollDurationHours, normalizePollInput } from "./polls.js";
+import { normalizePollDurationHours, normalizePollInput, resolvePollMaxSelections } from "./polls.js";
 
 describe("polls", () => {
+  describe("resolvePollMaxSelections", () => {
+    it("returns 1 if allowMultiselect is falsy", () => {
+      expect(resolvePollMaxSelections(5, false)).toBe(1);
+      expect(resolvePollMaxSelections(5, undefined)).toBe(1);
+    });
+
+    it("returns max of 2 and optionCount if allowMultiselect is true", () => {
+      expect(resolvePollMaxSelections(5, true)).toBe(5);
+      expect(resolvePollMaxSelections(1, true)).toBe(2);
+    });
+  });
+
   it("normalizes question/options and validates maxSelections", () => {
     expect(
       normalizePollInput({
@@ -22,6 +34,42 @@ describe("polls", () => {
     expect(() =>
       normalizePollInput({ question: "Q", options: ["A", "B", "C"] }, { maxOptions: 2 }),
     ).toThrow(/at most 2/);
+  });
+
+  it("throws if question is missing", () => {
+    expect(() =>
+      normalizePollInput({ question: "  ", options: ["A", "B"] }),
+    ).toThrow(/question is required/);
+  });
+
+  it("throws if fewer than 2 valid options", () => {
+    expect(() =>
+      normalizePollInput({ question: "Q", options: ["A", " "] }),
+    ).toThrow(/at least 2 options/);
+  });
+
+  it("throws if maxSelections is less than 1", () => {
+    expect(() =>
+      normalizePollInput({ question: "Q", options: ["A", "B"], maxSelections: 0 }),
+    ).toThrow(/maxSelections must be at least 1/);
+  });
+
+  it("throws if maxSelections exceeds option count", () => {
+    expect(() =>
+      normalizePollInput({ question: "Q", options: ["A", "B"], maxSelections: 3 }),
+    ).toThrow(/maxSelections cannot exceed option count/);
+  });
+
+  it("throws if durationSeconds is less than 1", () => {
+    expect(() =>
+      normalizePollInput({ question: "Q", options: ["A", "B"], durationSeconds: 0 }),
+    ).toThrow(/durationSeconds must be at least 1/);
+  });
+
+  it("throws if durationHours is less than 1", () => {
+    expect(() =>
+      normalizePollInput({ question: "Q", options: ["A", "B"], durationHours: 0 }),
+    ).toThrow(/durationHours must be at least 1/);
   });
 
   it.each([
