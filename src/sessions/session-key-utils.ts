@@ -91,7 +91,14 @@ export function getSubagentDepth(sessionKey: string | undefined | null): number 
   if (!raw) {
     return 0;
   }
-  return raw.split(":subagent:").length - 1;
+  let count = 0;
+  // ⚡ Bolt: Optimize substring counting by avoiding allocation of intermediate arrays from split()
+  let pos = raw.indexOf(":subagent:");
+  while (pos !== -1) {
+    count++;
+    pos = raw.indexOf(":subagent:", pos + 10);
+  }
+  return count;
 }
 
 export function isAcpSessionKey(sessionKey: string | undefined | null): boolean {
