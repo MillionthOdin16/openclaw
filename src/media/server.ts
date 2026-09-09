@@ -30,6 +30,7 @@ export function attachMediaRoutes(
   ttlMs = DEFAULT_TTL_MS,
   _runtime: RuntimeEnv = defaultRuntime,
 ) {
+  app.disable("x-powered-by");
   const mediaDir = getMediaDir();
 
   app.get("/media/:id", async (req, res) => {
