@@ -363,7 +363,8 @@ export function shortenHomeInString(input: string): string {
   if (!display) {
     return input;
   }
-  return input.split(display.home).join(display.prefix);
+  // ⚡ Bolt: Optimize string replacement by using replaceAll instead of split().join(), avoiding intermediate array allocations
+  return input.replaceAll(display.home, display.prefix);
 }
 
 export function displayPath(input: string): string {
