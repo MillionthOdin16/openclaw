@@ -274,7 +274,7 @@ function renderSessionDetailPanel(
               : nothing
           }
         </div>
-        <button class="session-close-btn" @click=${onClose} title="Close session details">×</button>
+        <button class="session-close-btn" @click=${onClose} aria-label="Close session details" title="Close session details">×</button>
       </div>
       <div class="session-detail-content">
         ${renderSessionSummary(
@@ -458,7 +458,7 @@ function renderTimeSeriesCompact(
             hasSelection
               ? html`
             <div class="chart-toggle small">
-              <button class="toggle-btn active" @click=${() => onCursorRangeChange?.(null, null)}>Reset</button>
+              <button class="toggle-btn active" aria-label="Reset chart selection" @click=${() => onCursorRangeChange?.(null, null)}>Reset</button>
             </div>
           `
               : nothing
