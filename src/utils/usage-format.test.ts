@@ -15,12 +15,20 @@ describe("usage-format", () => {
     expect(formatTokenCount(999_499)).toBe("999k");
     expect(formatTokenCount(999_500)).toBe("1.0m");
     expect(formatTokenCount(2_500_000)).toBe("2.5m");
+
+    expect(formatTokenCount(undefined)).toBe("0");
+    expect(formatTokenCount(NaN)).toBe("0");
+    expect(formatTokenCount(Infinity)).toBe("0");
   });
 
   it("formats USD values", () => {
     expect(formatUsd(1.234)).toBe("$1.23");
     expect(formatUsd(0.5)).toBe("$0.50");
     expect(formatUsd(0.0042)).toBe("$0.0042");
+
+    expect(formatUsd(undefined)).toBeUndefined();
+    expect(formatUsd(NaN)).toBeUndefined();
+    expect(formatUsd(Infinity)).toBeUndefined();
   });
 
   it("resolves model cost config and estimates usage cost", () => {
@@ -58,5 +66,18 @@ describe("usage-format", () => {
     });
 
     expect(total).toBeCloseTo(0.003);
+
+    expect(resolveModelCostConfig({ provider: "test", config })).toBeUndefined();
+    expect(resolveModelCostConfig({ model: "m1", config })).toBeUndefined();
+
+    expect(estimateUsageCost({})).toBeUndefined();
+    expect(estimateUsageCost({ cost })).toBeUndefined();
+    expect(estimateUsageCost({ usage: {} })).toBeUndefined();
+    expect(
+      estimateUsageCost({
+        usage: { input: 1000 },
+        cost: { input: Infinity, output: 0, cacheRead: 0, cacheWrite: 0 },
+      })
+    ).toBeUndefined();
   });
 });
