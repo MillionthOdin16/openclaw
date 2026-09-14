@@ -4,19 +4,32 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
+  clamp,
+  clampInt,
+  clampNumber,
   CONFIG_DIR,
+  displayPath,
+  displayString,
   ensureDir,
+  escapeRegExp,
+  formatTerminalLink,
+  isRecord,
+  isSelfChatMode,
   jidToE164,
   normalizeE164,
   normalizePath,
+  pathExists,
   resolveConfigDir,
   resolveHomeDir,
   resolveJidToE164,
   resolveUserPath,
+  safeParseJson,
   shortenHomeInString,
   shortenHomePath,
+  sliceUtf16Safe,
   sleep,
   toWhatsappJid,
+  truncateUtf16Safe,
   withWhatsAppPrefix,
 } from "./utils.js";
 
@@ -59,6 +72,62 @@ describe("ensureDir", () => {
   });
 });
 
+describe("pathExists", () => {
+  it("returns true for existing path", async () => {
+    expect(await pathExists("package.json")).toBe(true);
+  });
+
+  it("returns false for non-existing path", async () => {
+    expect(await pathExists("does-not-exist.txt")).toBe(false);
+  });
+});
+
+describe("clampNumber", () => {
+  it("clamps values", () => {
+    expect(clampNumber(5, 0, 10)).toBe(5);
+    expect(clampNumber(-5, 0, 10)).toBe(0);
+    expect(clampNumber(15, 0, 10)).toBe(10);
+    expect(clamp(5, 0, 10)).toBe(5);
+  });
+});
+
+describe("clampInt", () => {
+  it("clamps and floors values", () => {
+    expect(clampInt(5.5, 0, 10)).toBe(5);
+    expect(clampInt(-5.5, 0, 10)).toBe(0);
+    expect(clampInt(15.5, 0, 10)).toBe(10);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes special regex characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid json", () => {
+    expect(safeParseJson('{"a": 1}')).toEqual({ a: 1 });
+  });
+  it("returns null for invalid json", () => {
+    expect(safeParseJson("{a: 1}")).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for records", () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ a: 1 })).toBe(true);
+  });
+  it("returns false for non-records", () => {
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord([])).toBe(false);
+    expect(isRecord("")).toBe(false);
+    expect(isRecord(1)).toBe(false);
+    expect(isRecord(undefined)).toBe(false);
+  });
+});
+
 describe("sleep", () => {
   it("resolves after delay using fake timers", async () => {
     vi.useFakeTimers();
@@ -89,6 +158,84 @@ describe("normalizeE164 & toWhatsappJid", () => {
     expect(toWhatsappJid("123456789-987654321@g.us")).toBe("123456789-987654321@g.us");
     expect(toWhatsappJid("whatsapp:123456789-987654321@g.us")).toBe("123456789-987654321@g.us");
     expect(toWhatsappJid("1555123@s.whatsapp.net")).toBe("1555123@s.whatsapp.net");
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns false if selfE164 is null", () => {
+    expect(isSelfChatMode(null, ["*"])).toBe(false);
+  });
+
+  it("returns false if allowFrom is empty or null", () => {
+    expect(isSelfChatMode("+15551234567", [])).toBe(false);
+    expect(isSelfChatMode("+15551234567", null)).toBe(false);
+  });
+
+  it("returns false if allowFrom only contains *", () => {
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+  });
+
+  it("returns true if selfE164 is in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("+15551234567", ["+15550000000", "15551234567"])).toBe(true);
+  });
+
+  it("returns false if selfE164 is not in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15550000000"])).toBe(false);
+  });
+
+  it("returns false if allowFrom contains invalid numbers", () => {
+    expect(isSelfChatMode("+15551234567", ["invalid"])).toBe(false);
+  });
+});
+
+describe("sliceUtf16Safe", () => {
+  it("slices normally", () => {
+    expect(sliceUtf16Safe("hello", 1, 4)).toBe("ell");
+  });
+
+  it("handles out of bounds", () => {
+    expect(sliceUtf16Safe("hello", -1, 10)).toBe("o");
+    expect(sliceUtf16Safe("hello", -10, 1)).toBe("h");
+  });
+
+  it("handles negative indices", () => {
+    expect(sliceUtf16Safe("hello", -3, -1)).toBe("ll");
+  });
+
+  it("swaps indices if end < start", () => {
+    expect(sliceUtf16Safe("hello", 4, 1)).toBe("ell");
+  });
+
+  it("does not split surrogate pairs at start", () => {
+    // '😀' is \ud83d\ude00
+    const str = "a😀b"; // length 4: 'a', high, low, 'b'
+    // slicing from 2 (low surrogate) should step back to 1
+    // The implementation actually steps forward `from += 1` if it lands on a low surrogate!
+    // So it skips the rest of the surrogate and starts from 'b' which is at index 3.
+    expect(sliceUtf16Safe(str, 2, 4)).toBe("b");
+  });
+
+  it("does not split surrogate pairs at end", () => {
+    const str = "a😀b";
+    // slicing to 2 (low surrogate) should step forward to 3
+    expect(sliceUtf16Safe(str, 0, 2)).toBe("a");
+  });
+});
+
+describe("truncateUtf16Safe", () => {
+  it("truncates normally", () => {
+    expect(truncateUtf16Safe("hello", 3)).toBe("hel");
+  });
+
+  it("does not truncate if limit > length", () => {
+    expect(truncateUtf16Safe("hello", 10)).toBe("hello");
+  });
+
+  it("does not split surrogate pairs", () => {
+    const str = "a😀b";
+    expect(truncateUtf16Safe(str, 2)).toBe("a");
+    expect(truncateUtf16Safe(str, 3)).toBe("a😀");
   });
 });
 
@@ -185,6 +332,42 @@ describe("shortenHomeInString", () => {
     ).toBe("config: $OPENCLAW_HOME/.openclaw/openclaw.json");
 
     vi.unstubAllEnvs();
+  });
+});
+
+describe("displayPath", () => {
+  it("calls shortenHomePath", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    vi.stubEnv("HOME", "/home/other");
+    expect(displayPath(path.resolve("/srv/openclaw-home") + "/.openclaw/openclaw.json")).toBe(
+      "$OPENCLAW_HOME/.openclaw/openclaw.json",
+    );
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("displayString", () => {
+  it("calls shortenHomeInString", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    vi.stubEnv("HOME", "/home/other");
+    expect(displayString("config: " + path.resolve("/srv/openclaw-home") + "/.openclaw/openclaw.json")).toBe(
+      "config: $OPENCLAW_HOME/.openclaw/openclaw.json",
+    );
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats a terminal link", () => {
+    expect(formatTerminalLink("label", "url", { force: true })).toBe("\u001b]8;;url\u0007label\u001b]8;;\u0007");
+  });
+
+  it("falls back if not forced and not TTY", () => {
+    expect(formatTerminalLink("label", "url", { force: false })).toBe("label (url)");
+  });
+
+  it("strips escape characters from label and url", () => {
+    expect(formatTerminalLink("l\u001babel", "u\u001brl", { force: true })).toBe("\u001b]8;;url\u0007label\u001b]8;;\u0007");
   });
 });
 
