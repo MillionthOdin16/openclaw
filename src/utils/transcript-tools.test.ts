@@ -31,6 +31,14 @@ describe("transcript-tools", () => {
       });
       expect(names).toEqual(["read"]);
     });
+
+    it("ignores invalid content entries", () => {
+      expect(
+        extractToolCallNames({
+          content: [null, "string", { type: 123 }, { type: "tool_call", name: "test" }],
+        }),
+      ).toEqual(["test"]);
+    });
   });
 
   describe("hasToolCall", () => {
@@ -61,6 +69,14 @@ describe("transcript-tools", () => {
 
     it("handles non-array content", () => {
       expect(countToolResults({ content: "nope" })).toEqual({ total: 0, errors: 0 });
+    });
+
+    it("ignores invalid content entries", () => {
+      expect(
+        countToolResults({
+          content: [null, "string", { type: 123 }, { type: "tool_result" }],
+        }),
+      ).toEqual({ total: 1, errors: 0 });
     });
   });
 });
