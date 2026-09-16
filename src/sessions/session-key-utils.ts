@@ -91,7 +91,15 @@ export function getSubagentDepth(sessionKey: string | undefined | null): number 
   if (!raw) {
     return 0;
   }
-  return raw.split(":subagent:").length - 1;
+  // ⚡ Bolt: Optimize array lookups by avoiding string slice allocations via .split()
+  let count = 0;
+  let pos = 0;
+  const needle = ":subagent:";
+  while ((pos = raw.indexOf(needle, pos)) !== -1) {
+    count++;
+    pos += needle.length;
+  }
+  return count;
 }
 
 export function isAcpSessionKey(sessionKey: string | undefined | null): boolean {

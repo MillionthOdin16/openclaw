@@ -1,0 +1,3 @@
+## 2026-03-09 - Avoid string split for substring counting
+**Learning:** Using `.split(needle).length - 1` to count occurrences is a common but expensive anti-pattern because it allocates a new array in memory containing all the substrings, which is proportional to the number of matches. In hot paths, this causes significant memory pressure and garbage collection pauses.
+**Action:** Replace it with an `indexOf` while loop that increments the search index by `needle.length`. This reduces the space complexity to O(1) and eliminates array allocations while preserving the non-overlapping behavior of `.split()`. Always ensure `needle.length > 0` to prevent infinite loops.
