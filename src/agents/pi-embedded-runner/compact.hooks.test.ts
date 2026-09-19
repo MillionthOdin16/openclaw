@@ -334,6 +334,10 @@ describe("compactEmbeddedPiSessionDirect hooks", () => {
     expect(afterContext).toMatchObject({
       messageCount: 1,
       compactedCount: 1,
+      tokensBefore: 120,
+      tokensAfter: 10,
+      summaryLength: 7,
+      firstKeptEntryId: "entry-1",
     });
     expect(afterContext?.compactedCount).toBe(
       (beforeContext?.messageCountOriginal as number) - (afterContext?.messageCount as number),

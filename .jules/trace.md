@@ -1,0 +1,3 @@
+## 2024-09-19 - Verify internal compaction hook details
+**Learning:** Internal event payloads for session compaction (compact:before and compact:after) contain rich metadata like tokensBefore, tokensAfter, and firstKeptEntryId, which were previously unverified in test coverage. Adding exact assertions on these payloads ensures that the core hook pipeline correctly dispatches this critical metric data without unexpected regressions.
+**Action:** Added targeted assertions inside compact.hooks.test.ts to strictly validate the payload payload properties of compact:after events against the expected mocked output.
