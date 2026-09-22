@@ -15,7 +15,7 @@ export function renderMarkdownSidebar(props: MarkdownSidebarProps) {
     <div class="sidebar-panel">
       <div class="sidebar-header">
         <div class="sidebar-title">Tool Output</div>
-        <button @click=${props.onClose} class="btn" title="Close sidebar">
+        <button @click=${props.onClose} class="btn" aria-label="Close sidebar" title="Close sidebar">
           ${icons.x}
         </button>
       </div>
