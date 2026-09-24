@@ -112,4 +112,9 @@ describe("splitShellArgs", () => {
     expect(splitShellArgs(`echo "hi # still-literal"`)).toEqual(["echo", "hi # still-literal"]);
     expect(splitShellArgs(`echo hi#tail`)).toEqual(["echo", "hi#tail"]);
   });
+
+  it("handles outer escapes without quotes", () => {
+    expect(splitShellArgs("echo a\\ b")).toEqual(["echo", "a b"]);
+    expect(splitShellArgs("echo \\\"")).toEqual(["echo", "\""]);
+  });
 });
