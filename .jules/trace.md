@@ -1,0 +1,3 @@
+## 2024-09-24 - src/utils/ Utility Test Coverage Improvements
+**Learning:** Found that multiple small utility functions (safe-json.ts, chunk-items.ts, with-timeout.ts, fetch-timeout.ts) in the codebase were not being tested and lacked coverage, and some branches in shell-argv.ts were missing coverage. Tests are vital to ensure code functions as expected across changes.
+**Action:** Created dedicated test files for each of these untested utility modules (safe-json.test.ts, chunk-items.test.ts, with-timeout.test.ts, fetch-timeout.test.ts) covering all their functionality and edge cases. Added a new test case in utils-misc.test.ts to cover outer escape parsing for shell-argv.ts, raising coverage to 100%.
