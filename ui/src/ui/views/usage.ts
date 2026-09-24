@@ -483,6 +483,7 @@ export function renderUsage(props: UsageProps) {
           <button
             class="usage-pin-btn ${props.headerPinned ? "active" : ""}"
             title=${props.headerPinned ? "Unpin filters" : "Pin filters"}
+            aria-label=${props.headerPinned ? "Unpin filters" : "Pin filters"}
             @click=${props.onToggleHeaderPinned}
           >
             ${props.headerPinned ? "Pinned" : "Pin"}
@@ -683,6 +684,7 @@ export function renderUsage(props: UsageProps) {
                         ${label}
                         <button
                           title="Remove filter"
+                          aria-label="Remove filter"
                           @click=${() =>
                             props.onQueryDraftChange(removeQueryToken(props.queryDraft, label))}
                         >
