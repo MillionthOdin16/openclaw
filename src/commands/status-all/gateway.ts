@@ -10,11 +10,18 @@ export async function readFileTailLines(filePath: string, maxLines: number): Pro
   return out.map((line) => line.trimEnd()).filter((line) => line.trim().length > 0);
 }
 
+// PERF: using indexOf loop instead of split() avoids array allocation
 function countMatches(haystack: string, needle: string): number {
   if (!haystack || !needle) {
     return 0;
   }
-  return haystack.split(needle).length - 1;
+  let count = 0;
+  let pos = 0;
+  while ((pos = haystack.indexOf(needle, pos)) !== -1) {
+    count++;
+    pos += needle.length;
+  }
+  return count;
 }
 
 function shorten(message: string, maxLen: number): string {

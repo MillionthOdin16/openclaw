@@ -1,0 +1,3 @@
+## 2026-03-09 - String Count Optimization via IndexOf
+**Learning:** In utility functions dealing with high-frequency string parsing (like processing log lines or parsing session keys), using `.split(needle).length - 1` allocates intermediate arrays, creating unnecessary GC overhead. This is a common anti-pattern that can add up quickly over thousands of calls.
+**Action:** Replace string counting operations with a non-allocating `while` loop utilizing `String.prototype.indexOf`. Ensure you handle the infinite loop edge case where `needle.length === 0` by adding an explicit guard or ensuring the needle is a static non-empty string.
