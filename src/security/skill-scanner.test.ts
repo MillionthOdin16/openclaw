@@ -48,6 +48,18 @@ exec(cmd);
     );
   });
 
+  it("detects node:child_process exec with string interpolation", () => {
+    const source = [
+      'import { exec } from "node:child_process";',
+      'const cmd = "ls " + dir;',
+      'exec(cmd);'
+    ].join("\n");
+    const findings = scanSource(source, "plugin.ts");
+    expect(findings.some((f) => f.ruleId === "dangerous-exec" && f.severity === "critical")).toBe(
+      true,
+    );
+  });
+
   it("detects child_process spawn usage", () => {
     const source = `
 const cp = require("child_process");

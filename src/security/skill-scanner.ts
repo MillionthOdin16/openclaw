@@ -150,7 +150,7 @@ const LINE_RULES: LineRule[] = [
     severity: "critical",
     message: "Shell command execution detected (child_process)",
     pattern: /\b(exec|execSync|spawn|spawnSync|execFile|execFileSync)\s*\(/,
-    requiresContext: /child_process/,
+    requiresContext: /(?:node:)?child_process/,
   },
   {
     ruleId: "dynamic-code-execution",
