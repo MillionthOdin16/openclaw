@@ -32,8 +32,10 @@ export class ResizableDivider extends LitElement {
       right: -4px;
       bottom: 0;
     }
-    :host(:hover) {
+    :host(:hover),
+    :host(:focus-visible) {
       background: var(--accent, #007bff);
+      outline: none;
     }
     :host(.dragging) {
       background: var(--accent, #007bff);
@@ -47,14 +49,44 @@ export class ResizableDivider extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener("mousedown", this.handleMouseDown);
+    this.addEventListener("keydown", this.handleKeyDown);
+    this.setAttribute("tabindex", "0");
+    this.setAttribute("role", "separator");
+    this.setAttribute("aria-label", "Resize split view");
+    this.setAttribute("aria-valuenow", Math.round(this.splitRatio * 100).toString());
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener("mousedown", this.handleMouseDown);
+    this.removeEventListener("keydown", this.handleKeyDown);
     document.removeEventListener("mousemove", this.handleMouseMove);
     document.removeEventListener("mouseup", this.handleMouseUp);
   }
+
+  updated(changedProperties: Map<string, unknown>) {
+    super.updated?.(changedProperties);
+    if (changedProperties.has("splitRatio")) {
+      this.setAttribute("aria-valuenow", Math.round(this.splitRatio * 100).toString());
+    }
+  }
+
+  private handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      const step = 0.05;
+      const deltaRatio = e.key === "ArrowLeft" ? -step : step;
+      const newRatio = Math.max(this.minRatio, Math.min(this.maxRatio, this.splitRatio + deltaRatio));
+
+      this.dispatchEvent(
+        new CustomEvent("resize", {
+          detail: { splitRatio: newRatio },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+  };
 
   private handleMouseDown = (e: MouseEvent) => {
     this.isDragging = true;
