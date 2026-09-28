@@ -1,0 +1,3 @@
+## 2024-10-09 - Accessible Tool Interaction Cards
+**Learning:** Tool interaction cards in the chat UI were missing `aria-label` attributes while having `role="button"` and `tabindex="0"`, leaving screen readers without context when navigating to them via keyboard. Using template literals for attributes in standard components can be an easy fix to vastly improve keyboard accessibility.
+**Action:** Always ensure that elements configured to act as interactive buttons (via role and tabindex) have an explicitly defined, descriptive `aria-label` attribute if they do not contain clear visible text that serves as the accessible name.
