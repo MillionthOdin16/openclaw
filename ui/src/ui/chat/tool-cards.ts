@@ -77,6 +77,7 @@ export function renderToolCardSidebar(card: ToolCard, onOpenSidebar?: (content: 
       class="chat-tool-card ${canClick ? "chat-tool-card--clickable" : ""}"
       @click=${handleClick}
       role=${canClick ? "button" : nothing}
+      aria-label=${canClick ? "View " + display.label + " details" : nothing}
       tabindex=${canClick ? "0" : nothing}
       @keydown=${
         canClick
