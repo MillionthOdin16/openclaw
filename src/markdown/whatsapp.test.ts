@@ -19,6 +19,8 @@ describe("markdownToWhatsApp", () => {
       ["returns empty string for empty input", "", ""],
       ["returns plain text unchanged", "no formatting here", "no formatting here"],
       ["handles bold inside a sentence", "This is **very** important", "This is *very* important"],
+      ["handles missing inline code placeholder gracefully", "\x00CODE999", ""],
+      ["handles missing fence placeholder gracefully", "\x00FENCE999", ""],
     ] as const;
     for (const [name, input, expected] of cases) {
       expect(markdownToWhatsApp(input), name).toBe(expected);
