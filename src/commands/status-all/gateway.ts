@@ -14,7 +14,16 @@ function countMatches(haystack: string, needle: string): number {
   if (!haystack || !needle) {
     return 0;
   }
-  return haystack.split(needle).length - 1;
+  // Use an indexOf loop instead of `.split(needle).length - 1` to avoid
+  // intermediate array allocation and GC pressure, which is faster for
+  // parsing large log strings.
+  let count = 0;
+  let pos = haystack.indexOf(needle);
+  while (pos !== -1) {
+    count++;
+    pos = haystack.indexOf(needle, pos + needle.length);
+  }
+  return count;
 }
 
 function shorten(message: string, maxLen: number): string {
