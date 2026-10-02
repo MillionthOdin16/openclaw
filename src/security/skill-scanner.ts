@@ -149,7 +149,7 @@ const LINE_RULES: LineRule[] = [
     ruleId: "dangerous-exec",
     severity: "critical",
     message: "Shell command execution detected (child_process)",
-    pattern: /\b(exec|execSync|spawn|spawnSync|execFile|execFileSync)\s*\(/,
+    pattern: /(?:(?<!\.\s*)\b(?:exec|execSync|spawn|spawnSync|execFile|execFileSync)\s*\(|\b(?:require\(['"](?:node:)?child_process['"]\)|cp|child_process)\.(?:exec|execSync|spawn|spawnSync|execFile|execFileSync)\s*\()/,
     requiresContext: /child_process/,
   },
   {

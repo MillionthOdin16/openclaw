@@ -69,6 +69,15 @@ const options: ExecOptions = { timeout: 5000 };
     expect(findings.some((f) => f.ruleId === "dangerous-exec")).toBe(false);
   });
 
+  it("does not flag RegExp exec calls in files with child_process", () => {
+    const source = `
+import { exec } from "child_process";
+const match = /pattern/.exec(str);
+`;
+    const findings = scanSource(source, "plugin.ts");
+    expect(findings.some((f) => f.ruleId === "dangerous-exec")).toBe(false);
+  });
+
   it("detects eval usage", () => {
     const source = `
 const code = "1+1";
