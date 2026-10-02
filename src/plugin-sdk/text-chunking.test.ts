@@ -13,4 +13,20 @@ describe("chunkTextForOutbound", () => {
   it("falls back to hard limit when no separator exists", () => {
     expect(chunkTextForOutbound("abcdefghij", 4)).toEqual(["abcd", "efgh", "ij"]);
   });
+
+  it("returns single chunk when length <= limit", () => {
+    expect(chunkTextForOutbound("short", 10)).toEqual(["short"]);
+  });
+
+  it("trims trailing spaces from chunk", () => {
+    expect(chunkTextForOutbound("alpha    beta", 9)).toEqual(["alpha", "beta"]);
+  });
+
+  it("ignores empty chunks resulting from trimmed whitespace", () => {
+    expect(chunkTextForOutbound("   abc", 3)).toEqual(["abc"]);
+  });
+
+  it("does not add remaining if it is empty after trimming", () => {
+    expect(chunkTextForOutbound("abc   ", 3)).toEqual(["abc"]);
+  });
 });
