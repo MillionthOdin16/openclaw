@@ -1,0 +1,3 @@
+## 2024-10-02 - Optimize string counting in JSON log parsing
+**Learning:** In `src/commands/status-all/gateway.ts`, the function `countMatches` counts occurrences of `{` and `}` in log lines to parse JSON blocks by checking depth. It originally used `.split(needle).length - 1`, which creates intermediate arrays for every check (which happens inside a while loop over log lines). An `indexOf` loop with `pos += needle.length` avoids array allocations and performs faster for this use case.
+**Action:** When counting substring occurrences, use an `indexOf` loop instead of `.split(needle).length - 1` to prevent unnecessary allocations, especially in parsing loops.
