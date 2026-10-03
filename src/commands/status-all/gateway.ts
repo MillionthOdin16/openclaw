@@ -14,7 +14,17 @@ function countMatches(haystack: string, needle: string): number {
   if (!haystack || !needle) {
     return 0;
   }
-  return haystack.split(needle).length - 1;
+  let count = 0;
+  let pos = 0;
+  while (true) {
+    pos = haystack.indexOf(needle, pos);
+    if (pos === -1) {
+      break;
+    }
+    count++;
+    pos += needle.length;
+  }
+  return count;
 }
 
 function shorten(message: string, maxLen: number): string {
