@@ -1,0 +1,3 @@
+## 2024-05-18 - Improve test coverage for utils.ts
+**Learning:** Adding explicit test coverage for core utility functions ensures edge case handling is correct and prevents subtle regressions when utilities are relied on by multiple parts of the application. The specific utilities, like 'isSelfChatMode' and 'sliceUtf16Safe', contain parsing and string manipulation logic that needs robust tests.
+**Action:** Wrote isolated unit tests covering 'clampNumber', 'clampInt', 'escapeRegExp', 'safeParseJson', 'isRecord', 'isSelfChatMode', 'shortenHomePath', 'formatTerminalLink', and 'sliceUtf16Safe' in src/utils.ts, achieving >90% statement coverage.
