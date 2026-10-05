@@ -4,6 +4,8 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
+  clampInt,
+  clampNumber,
   CONFIG_DIR,
   ensureDir,
   jidToE164,
@@ -11,14 +13,89 @@ import {
   normalizePath,
   resolveConfigDir,
   resolveHomeDir,
+  escapeRegExp,
+  isRecord,
+  isSelfChatMode,
   resolveJidToE164,
   resolveUserPath,
+  safeParseJson,
   shortenHomeInString,
   shortenHomePath,
   sleep,
   toWhatsappJid,
   withWhatsAppPrefix,
 } from "./utils.js";
+
+describe("clampNumber", () => {
+  it("clamps below min", () => {
+    expect(clampNumber(5, 10, 20)).toBe(10);
+  });
+  it("clamps above max", () => {
+    expect(clampNumber(25, 10, 20)).toBe(20);
+  });
+  it("leaves value within range", () => {
+    expect(clampNumber(15, 10, 20)).toBe(15);
+  });
+});
+
+describe("clampInt", () => {
+  it("floors and clamps", () => {
+    expect(clampInt(15.7, 10, 20)).toBe(15);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes special characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid json", () => {
+    expect(safeParseJson('{"a": 1}')).toEqual({ a: 1 });
+  });
+  it("returns null for invalid json", () => {
+    expect(safeParseJson("{a: 1}")).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for objects", () => {
+    expect(isRecord({ a: 1 })).toBe(true);
+  });
+  it("returns false for arrays", () => {
+    expect(isRecord([1, 2, 3])).toBe(false);
+  });
+  it("returns false for null", () => {
+    expect(isRecord(null)).toBe(false);
+  });
+  it("returns false for primitives", () => {
+    expect(isRecord("string")).toBe(false);
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns false if selfE164 is null", () => {
+    expect(isSelfChatMode(null, ["+15551234567"])).toBe(false);
+  });
+  it("returns false if allowFrom is empty or not an array", () => {
+    expect(isSelfChatMode("+15551234567", [])).toBe(false);
+    expect(isSelfChatMode("+15551234567", null)).toBe(false);
+  });
+  it("returns false for wildcard allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+  });
+  it("returns true if selfE164 is in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+  });
+  it("normalizes and returns true if selfE164 matches allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["whatsapp:+15551234567"])).toBe(true);
+    expect(isSelfChatMode("whatsapp:+15551234567", ["+15551234567"])).toBe(true);
+  });
+  it("returns false if unparseable number in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["not a number"])).toBe(false);
+  });
+});
 
 function withTempDirSync<T>(prefix: string, run: (dir: string) => T): T {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -244,5 +321,128 @@ describe("resolveUserPath", () => {
   it("returns empty string for undefined/null input", () => {
     expect(resolveUserPath(undefined as unknown as string)).toBe("");
     expect(resolveUserPath(null as unknown as string)).toBe("");
+  });
+});
+
+describe("clamp", () => {
+  it("acts as alias to clampNumber", async () => {
+    const { clamp } = await import("./utils.ts");
+    expect(clamp(5, 10, 20)).toBe(10);
+  });
+});
+
+describe("displayPath and displayString", () => {
+  it("shortens home path for display", async () => {
+    const { displayPath, displayString } = await import("./utils.ts");
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    expect(displayPath("/srv/openclaw-home/.openclaw")).toBe("$OPENCLAW_HOME/.openclaw");
+    expect(displayString("File at /srv/openclaw-home/.openclaw")).toBe(
+      "File at $OPENCLAW_HOME/.openclaw",
+    );
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats terminal link correctly", async () => {
+    const { formatTerminalLink } = await import("./utils.ts");
+    expect(formatTerminalLink("Click here", "https://example.com", { force: true })).toBe(
+      "\u001b]8;;https://example.com\u0007Click here\u001b]8;;\u0007",
+    );
+  });
+  it("returns fallback if not forced and not TTY", async () => {
+    const { formatTerminalLink } = await import("./utils.ts");
+    expect(formatTerminalLink("Click here", "https://example.com", { force: false })).toBe(
+      "Click here (https://example.com)",
+    );
+  });
+});
+
+describe("shortenHomePath edge cases", () => {
+  it("returns original input when empty", async () => {
+    const { shortenHomePath } = await import("./utils.ts");
+    expect(shortenHomePath("")).toBe("");
+  });
+  it("returns original input when OPENCLAW_HOME is not set and no OS homedir", async () => {
+    const { shortenHomePath } = await import("./utils.ts");
+    vi.stubEnv("HOME", "");
+    vi.stubEnv("OPENCLAW_HOME", "");
+    // mock os.homedir to return empty or we'd need to mock the full resolution flow
+    // we just test it doesn't fail. The core logic falls back to undefined home.
+    expect(shortenHomePath("/some/path")).toBe("/some/path");
+    vi.unstubAllEnvs();
+  });
+  it("handles exact match for home", async () => {
+    const { shortenHomePath } = await import("./utils.ts");
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    expect(shortenHomePath("/srv/openclaw-home")).toBe("$OPENCLAW_HOME");
+    vi.unstubAllEnvs();
+  });
+  it("returns original input when it doesn't start with home/", async () => {
+    const { shortenHomePath } = await import("./utils.ts");
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    expect(shortenHomePath("/srv/other-path")).toBe("/srv/other-path");
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("shortenHomeInString edge cases", () => {
+  it("returns original input when empty", async () => {
+    const { shortenHomeInString } = await import("./utils.ts");
+    expect(shortenHomeInString("")).toBe("");
+  });
+  it("returns original input when OPENCLAW_HOME is not set and no OS homedir", async () => {
+    const { shortenHomeInString } = await import("./utils.ts");
+    vi.stubEnv("HOME", "");
+    vi.stubEnv("OPENCLAW_HOME", "");
+    expect(shortenHomeInString("string with /some/path")).toBe("string with /some/path");
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("sliceUtf16Safe and truncateUtf16Safe", () => {
+  const surrogateString = "a\uD83D\uDE00b"; // "a😀b" where 😀 is a surrogate pair
+
+  it("sliceUtf16Safe slices normally when no surrogate pair splits", async () => {
+    const { sliceUtf16Safe } = await import("./utils.ts");
+    expect(sliceUtf16Safe("abc", 0, 2)).toBe("ab");
+  });
+
+  it("sliceUtf16Safe shifts start index if it splits a surrogate pair", async () => {
+    const { sliceUtf16Safe } = await import("./utils.ts");
+    // "a😀b" length is 4 (1 for 'a', 2 for '😀', 1 for 'b')
+    // index 2 points to the low surrogate of '😀'
+    // it should shift to index 3 (the 'b')
+    expect(sliceUtf16Safe(surrogateString, 2, 4)).toBe("b");
+  });
+
+  it("sliceUtf16Safe shifts end index if it splits a surrogate pair", async () => {
+    const { sliceUtf16Safe } = await import("./utils.ts");
+    // index 2 points to low surrogate. End index at 2 means it splits the pair at the end
+    // it should shift end to 1 (before '😀')
+    expect(sliceUtf16Safe(surrogateString, 0, 2)).toBe("a");
+  });
+
+  it("sliceUtf16Safe handles negative indices and swapped start/end", async () => {
+    const { sliceUtf16Safe } = await import("./utils.ts");
+    expect(sliceUtf16Safe("abc", -1, -3)).toBe("ab");
+    expect(sliceUtf16Safe("abc", 2, 0)).toBe("ab");
+  });
+
+  it("truncateUtf16Safe truncates normally without splitting pairs", async () => {
+    const { truncateUtf16Safe } = await import("./utils.ts");
+    expect(truncateUtf16Safe("abc", 2)).toBe("ab");
+  });
+
+  it("truncateUtf16Safe avoids splitting surrogate pairs", async () => {
+    const { truncateUtf16Safe } = await import("./utils.ts");
+    // 2 is right in the middle of the surrogate pair
+    // so it should stop before it
+    expect(truncateUtf16Safe(surrogateString, 2)).toBe("a");
+  });
+
+  it("truncateUtf16Safe returns whole string if shorter than limit", async () => {
+    const { truncateUtf16Safe } = await import("./utils.ts");
+    expect(truncateUtf16Safe("abc", 5)).toBe("abc");
   });
 });
