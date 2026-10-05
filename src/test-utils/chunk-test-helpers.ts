@@ -1,5 +1,11 @@
 export function countLines(text: string): number {
-  return text.split("\n").length;
+  let count = 1;
+  let pos = text.indexOf("\n");
+  while (pos !== -1) {
+    count++;
+    pos = text.indexOf("\n", pos + 1);
+  }
+  return count;
 }
 
 export function hasBalancedFences(chunk: string): boolean {

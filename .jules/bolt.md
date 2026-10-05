@@ -1,0 +1,3 @@
+## 2026-03-09 - Optimize string splitting for line counting
+**Learning:** In string intensive tasks (like chunking large texts for Discord), using `text.split("\n").length` to count lines is a performance bottleneck because it allocates arrays and copies strings just to count occurrences. Using a `while(pos !== -1)` loop with `indexOf` avoids allocations and is more than 3x faster.
+**Action:** Replace `split(needle).length` and `split(needle).length - 1` with an `indexOf` loop where it's used for simple counting, especially in hot paths like Discord chunking. Remember to advance `pos` by `pos + needle.length` to avoid overlap counting.

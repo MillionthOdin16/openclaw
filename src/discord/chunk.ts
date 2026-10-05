@@ -27,7 +27,13 @@ function countLines(text: string) {
   if (!text) {
     return 0;
   }
-  return text.split("\n").length;
+  let count = 1;
+  let pos = text.indexOf("\n");
+  while (pos !== -1) {
+    count++;
+    pos = text.indexOf("\n", pos + 1);
+  }
+  return count;
 }
 
 function parseFenceLine(line: string): OpenFence | null {

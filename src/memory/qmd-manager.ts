@@ -1684,7 +1684,12 @@ export class QmdMemoryManager implements MemorySearchManager {
         return { startLine: start, endLine: start + count - 1 };
       }
     }
-    const lines = snippet.split("\n").length;
+    let lines = 1;
+    let pos = snippet.indexOf("\n");
+    while (pos !== -1) {
+      lines++;
+      pos = snippet.indexOf("\n", pos + 1);
+    }
     return { startLine: 1, endLine: lines };
   }
 
