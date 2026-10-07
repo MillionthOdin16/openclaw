@@ -1,0 +1,4 @@
+## 2023-10-25 - Fix Command Injection in Windows Task Restart
+**Vulnerability:** A command injection vulnerability existed in `relaunchGatewayScheduledTask` because user-controlled environment variables (`OPENCLAW_WINDOWS_TASK_NAME`) were embedded into a generated `.cmd` batch file. Even with string quoting (`quoteCmdScriptArg`), the contents could be broken out of if an attacker included quotes and batch operators like `&`.
+**Learning:** `quoteCmdScriptArg` is not sufficient to prevent command injection when generating `.cmd` batch scripts dynamically from user inputs. Double quotes within the batch script evaluate the batch operators immediately when executed.
+**Prevention:** Instead of trying to quote arbitrary strings perfectly for batch execution, validate strings heavily using a strict allowlist (e.g., `isBatchSafe` rejecting any shell special characters like `&`, `|`, `"`, `<`) before writing them into a batch script.
