@@ -423,12 +423,23 @@ export function isCronSessionKey(key: string): boolean {
   if (!normalized.startsWith("agent:")) {
     return false;
   }
-  const parts = normalized.split(":").filter(Boolean);
-  if (parts.length < 3) {
-    return false;
+
+  let validPartCount = 0;
+  let inPart = false;
+  for (let i = 0; i < normalized.length; i++) {
+    if (normalized[i] !== ":") {
+      if (!inPart) {
+        inPart = true;
+        validPartCount++;
+        if (validPartCount === 3) {
+          return normalized.startsWith("cron:", i);
+        }
+      }
+    } else {
+      inPart = false;
+    }
   }
-  const rest = parts.slice(2).join(":");
-  return rest.startsWith("cron:");
+  return false;
 }
 
 function resolveSessionOptions(
@@ -484,7 +495,15 @@ function countHiddenCronSessions(sessionKey: string, sessions: SessionsListResul
     return 0;
   }
   // Don't count the currently active session even if it's a cron.
-  return sessions.sessions.filter((s) => isCronSessionKey(s.key) && s.key !== sessionKey).length;
+  let count = 0;
+  const len = sessions.sessions.length;
+  for (let i = 0; i < len; i++) {
+    const s = sessions.sessions[i];
+    if (isCronSessionKey(s.key) && s.key !== sessionKey) {
+      count++;
+    }
+  }
+  return count;
 }
 
 const THEME_ORDER: ThemeMode[] = ["system", "light", "dark"];

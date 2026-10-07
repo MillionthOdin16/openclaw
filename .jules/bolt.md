@@ -1,0 +1,3 @@
+## 2024-05-18 - Optimize isCronSessionKey and countHiddenCronSessions
+**Learning:** String splitting (`split(":").filter(Boolean)`) and array iteration with `filter` inside frequently called render functions like `countHiddenCronSessions` creates unnecessary intermediate arrays and objects, causing a noticeable performance drop in high-frequency rendering scenarios. We can eliminate allocations by manually iterating over the string and the sessions list without using high-level JS array methods.
+**Action:** Replaced `.split(":").filter(Boolean)` with a manual char-by-char scan in `isCronSessionKey`. Replaced `.filter(...).length` with a standard `for` loop in `countHiddenCronSessions`. Always look for array map/filter/split in frequently called paths.
