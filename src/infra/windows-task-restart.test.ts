@@ -87,6 +87,17 @@ describe("relaunchGatewayScheduledTask", () => {
     expect(script).toContain('del "%~f0" >nul 2>&1');
   });
 
+  it("rejects unsafe batch profile names to prevent command injection", () => {
+    const result = relaunchGatewayScheduledTask({
+      OPENCLAW_PROFILE: "work",
+      OPENCLAW_WINDOWS_TASK_NAME: 'OpenClaw" & echo VULNERABLE & "',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.method).toBe("schtasks");
+    expect(result.detail).toContain("invalid characters");
+  });
+
   it("prefers OPENCLAW_WINDOWS_TASK_NAME overrides", () => {
     spawnMock.mockImplementation((_file: string, args: string[]) => {
       createdScriptPaths.add(decodeCmdPathArg(args[3]));

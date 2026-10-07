@@ -18,6 +18,11 @@ function resolveWindowsTaskName(env: NodeJS.ProcessEnv): string {
   return resolveGatewayWindowsTaskName(env.OPENCLAW_PROFILE);
 }
 
+function isBatchSafe(value: string): boolean {
+  // Reject characters that have special meaning in batch: & | < > ^ % " ` $
+  return /^[A-Za-z0-9 _\-().]+$/.test(value);
+}
+
 function buildScheduledTaskRestartScript(taskName: string): string {
   const quotedTaskName = quoteCmdScriptArg(taskName);
   return [
@@ -38,6 +43,14 @@ function buildScheduledTaskRestartScript(taskName: string): string {
 
 export function relaunchGatewayScheduledTask(env: NodeJS.ProcessEnv = process.env): RestartAttempt {
   const taskName = resolveWindowsTaskName(env);
+  if (!isBatchSafe(taskName)) {
+    return {
+      ok: false,
+      method: "schtasks",
+      detail: "Task name contains invalid characters and cannot be safely restarted.",
+      tried: [],
+    };
+  }
   const scriptPath = path.join(
     resolvePreferredOpenClawTmpDir(),
     `openclaw-schtasks-restart-${randomUUID()}.cmd`,
