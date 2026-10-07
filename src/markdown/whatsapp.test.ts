@@ -36,4 +36,13 @@ describe("markdownToWhatsApp", () => {
       "Before ```**bold** and ~~strike~~``` after *real bold*",
     );
   });
+  it("handles missing inline code gracefully", () => {
+    const input = "\x00CODE999";
+    expect(markdownToWhatsApp(input)).toBe("");
+  });
+
+  it("handles missing fenced code block gracefully", () => {
+    const input = "\x00FENCE999";
+    expect(markdownToWhatsApp(input)).toBe("");
+  });
 });

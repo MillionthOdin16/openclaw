@@ -1,0 +1,3 @@
+## 2025-03-08 - Complete branch coverage for whatsapp markdown conversions
+**Learning:** In utility functions dealing with string replacements involving placeholders and indices (like in `src/markdown/whatsapp.ts`), it's important to test edge cases where the indices from the string don't map to actual items in the stored arrays. The code correctly handles this using `?? ""` (nullish coalescing), but it lacked tests to prove it worked correctly.
+**Action:** Added test cases to `src/markdown/whatsapp.test.ts` to simulate missing index scenarios (`\x00CODE999`, `\x00FENCE999`) and assert that they are gracefully replaced with empty strings, achieving 100% branch coverage for the file.
