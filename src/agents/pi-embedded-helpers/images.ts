@@ -60,95 +60,91 @@ export async function sanitizeSessionMessagesImages(
   const sanitizedIds = shouldSanitizeToolCallIds
     ? sanitizeToolCallIdsForCloudCodeAssist(messages, options.toolCallIdMode)
     : messages;
-  const out: AgentMessage[] = [];
-  for (const msg of sanitizedIds) {
-    if (!msg || typeof msg !== "object") {
-      out.push(msg);
-      continue;
-    }
+  const out = await Promise.all(
+    sanitizedIds.map(async (msg) => {
+      if (!msg || typeof msg !== "object") {
+        return msg;
+      }
 
-    const role = (msg as { role?: unknown }).role;
-    if (role === "toolResult") {
-      const toolMsg = msg as Extract<AgentMessage, { role: "toolResult" }>;
-      const content = Array.isArray(toolMsg.content) ? toolMsg.content : [];
-      const nextContent = (await sanitizeContentBlocksImages(
-        content,
-        label,
-        imageSanitization,
-      )) as unknown as typeof toolMsg.content;
-      out.push({ ...toolMsg, content: nextContent });
-      continue;
-    }
-
-    if (role === "user") {
-      const userMsg = msg as Extract<AgentMessage, { role: "user" }>;
-      const content = userMsg.content;
-      if (Array.isArray(content)) {
+      const role = (msg as { role?: unknown }).role;
+      if (role === "toolResult") {
+        const toolMsg = msg as Extract<AgentMessage, { role: "toolResult" }>;
+        const content = Array.isArray(toolMsg.content) ? toolMsg.content : [];
         const nextContent = (await sanitizeContentBlocksImages(
-          content as unknown as ContentBlock[],
+          content,
           label,
           imageSanitization,
-        )) as unknown as typeof userMsg.content;
-        out.push({ ...userMsg, content: nextContent });
-        continue;
+        )) as unknown as typeof toolMsg.content;
+        return { ...toolMsg, content: nextContent };
       }
-    }
 
-    if (role === "assistant") {
-      const assistantMsg = msg as Extract<AgentMessage, { role: "assistant" }>;
-      if (assistantMsg.stopReason === "error") {
-        const content = assistantMsg.content;
+      if (role === "user") {
+        const userMsg = msg as Extract<AgentMessage, { role: "user" }>;
+        const content = userMsg.content;
         if (Array.isArray(content)) {
           const nextContent = (await sanitizeContentBlocksImages(
             content as unknown as ContentBlock[],
             label,
             imageSanitization,
-          )) as unknown as typeof assistantMsg.content;
-          out.push({ ...assistantMsg, content: nextContent });
-        } else {
-          out.push(assistantMsg);
+          )) as unknown as typeof userMsg.content;
+          return { ...userMsg, content: nextContent };
         }
-        continue;
       }
-      const content = assistantMsg.content;
-      if (Array.isArray(content)) {
-        if (!allowNonImageSanitization) {
-          const nextContent = (await sanitizeContentBlocksImages(
-            content as unknown as ContentBlock[],
+
+      if (role === "assistant") {
+        const assistantMsg = msg as Extract<AgentMessage, { role: "assistant" }>;
+        if (assistantMsg.stopReason === "error") {
+          const content = assistantMsg.content;
+          if (Array.isArray(content)) {
+            const nextContent = (await sanitizeContentBlocksImages(
+              content as unknown as ContentBlock[],
+              label,
+              imageSanitization,
+            )) as unknown as typeof assistantMsg.content;
+            return { ...assistantMsg, content: nextContent };
+          } else {
+            return assistantMsg;
+          }
+        }
+        const content = assistantMsg.content;
+        if (Array.isArray(content)) {
+          if (!allowNonImageSanitization) {
+            const nextContent = (await sanitizeContentBlocksImages(
+              content as unknown as ContentBlock[],
+              label,
+              imageSanitization,
+            )) as unknown as typeof assistantMsg.content;
+            return { ...assistantMsg, content: nextContent };
+          }
+          const strippedContent = options?.preserveSignatures
+            ? content // Keep signatures for Antigravity Claude
+            : stripThoughtSignatures(content, options?.sanitizeThoughtSignatures); // Strip for Gemini
+
+          const filteredContent = strippedContent.filter((block) => {
+            if (!block || typeof block !== "object") {
+              return true;
+            }
+            const rec = block as { type?: unknown; text?: unknown };
+            if (rec.type !== "text" || typeof rec.text !== "string") {
+              return true;
+            }
+            return rec.text.trim().length > 0;
+          });
+          const finalContent = (await sanitizeContentBlocksImages(
+            filteredContent as unknown as ContentBlock[],
             label,
             imageSanitization,
           )) as unknown as typeof assistantMsg.content;
-          out.push({ ...assistantMsg, content: nextContent });
-          continue;
-        }
-        const strippedContent = options?.preserveSignatures
-          ? content // Keep signatures for Antigravity Claude
-          : stripThoughtSignatures(content, options?.sanitizeThoughtSignatures); // Strip for Gemini
-
-        const filteredContent = strippedContent.filter((block) => {
-          if (!block || typeof block !== "object") {
-            return true;
+          if (finalContent.length === 0) {
+            return null; // Handle null filtering afterwards
           }
-          const rec = block as { type?: unknown; text?: unknown };
-          if (rec.type !== "text" || typeof rec.text !== "string") {
-            return true;
-          }
-          return rec.text.trim().length > 0;
-        });
-        const finalContent = (await sanitizeContentBlocksImages(
-          filteredContent as unknown as ContentBlock[],
-          label,
-          imageSanitization,
-        )) as unknown as typeof assistantMsg.content;
-        if (finalContent.length === 0) {
-          continue;
+          return { ...assistantMsg, content: finalContent };
         }
-        out.push({ ...assistantMsg, content: finalContent });
-        continue;
       }
-    }
 
-    out.push(msg);
-  }
-  return out;
+      return msg;
+    }),
+  );
+
+  return out.filter((msg) => msg !== null);
 }
