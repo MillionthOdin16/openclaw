@@ -1,11 +1,14 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assertWebChannel,
   CONFIG_DIR,
+  displayPath,
+  displayString,
   ensureDir,
+  formatTerminalLink,
   jidToE164,
   normalizeE164,
   normalizePath,
@@ -15,8 +18,10 @@ import {
   resolveUserPath,
   shortenHomeInString,
   shortenHomePath,
+  sliceUtf16Safe,
   sleep,
   toWhatsappJid,
+  truncateUtf16Safe,
   withWhatsAppPrefix,
 } from "./utils.js";
 
@@ -151,6 +156,26 @@ describe("resolveConfigDir", () => {
   });
 });
 
+describe("sliceUtf16Safe & truncateUtf16Safe", () => {
+  it("truncates safe", () => {
+    expect(truncateUtf16Safe("hello", 3)).toBe("hel");
+    expect(truncateUtf16Safe("hello", 10)).toBe("hello");
+  });
+
+  it("slice safe", () => {
+    const emoji = "😃";
+    // If the end cuts a surrogate pair, it adjusts to not break the character
+    expect(sliceUtf16Safe(emoji + " test", 0, 1)).toBe("");
+    expect(sliceUtf16Safe("test " + emoji, 5, 6)).toBe("");
+
+    // Normal cases
+    expect(sliceUtf16Safe("test", -2)).toBe("st");
+    expect(sliceUtf16Safe("test", 10)).toBe("");
+    expect(sliceUtf16Safe("test", 0, 10)).toBe("test");
+    expect(sliceUtf16Safe("test", 3, 1)).toBe("es");
+  });
+});
+
 describe("resolveHomeDir", () => {
   it("prefers OPENCLAW_HOME over HOME", () => {
     vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
@@ -244,5 +269,93 @@ describe("resolveUserPath", () => {
   it("returns empty string for undefined/null input", () => {
     expect(resolveUserPath(undefined as unknown as string)).toBe("");
     expect(resolveUserPath(null as unknown as string)).toBe("");
+  });
+});
+
+describe("displayPath & displayString", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("displayPath calls shortenHomePath", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    expect(displayPath("/srv/openclaw-home/foo")).toBe("$OPENCLAW_HOME/foo");
+  });
+
+  it("displayString calls shortenHomeInString", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    expect(displayString("path: /srv/openclaw-home/foo")).toBe("path: $OPENCLAW_HOME/foo");
+  });
+});
+
+describe("shortenHomePath edge cases", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("returns prefix when input is exactly home", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    expect(shortenHomePath("/srv/openclaw-home")).toBe("$OPENCLAW_HOME");
+  });
+
+  it("returns original input when input does not start with home", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    expect(shortenHomePath("/other/path")).toBe("/other/path");
+  });
+
+  it("handles empty input", () => {
+    expect(shortenHomePath("")).toBe("");
+  });
+});
+
+describe("shortenHomeInString edge cases", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("returns empty input as is", () => {
+    expect(shortenHomeInString("")).toBe("");
+  });
+
+  it("returns original input when home cannot be resolved", () => {
+    vi.stubEnv("HOME", "");
+    vi.stubEnv("OPENCLAW_HOME", "");
+    expect(shortenHomeInString("some string")).toBe("some string");
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats terminal link with TTY enabled by force flag", () => {
+    expect(formatTerminalLink("My Link", "https://example.com", { force: true })).toBe(
+      "\u001b]8;;https://example.com\u0007My Link\u001b]8;;\u0007",
+    );
+  });
+
+  it("formats terminal link with fallback when force is false", () => {
+    expect(formatTerminalLink("My Link", "https://example.com", { force: false })).toBe(
+      "My Link (https://example.com)",
+    );
+  });
+
+  it("formats terminal link with custom fallback", () => {
+    expect(
+      formatTerminalLink("My Link", "https://example.com", {
+        force: false,
+        fallback: "Custom Fallback",
+      }),
+    ).toBe("Custom Fallback");
+  });
+
+  it("removes escape characters from label and url", () => {
+    expect(formatTerminalLink("My\u001bLink", "https://\u001bexample.com", { force: true })).toBe(
+      "\u001b]8;;https://example.com\u0007MyLink\u001b]8;;\u0007",
+    );
+  });
+
+  it("formats terminal link without opts based on TTY", () => {
+    const isTTY = Boolean(process.stdout.isTTY);
+    const link = formatTerminalLink("Test", "https://test.com");
+    if (isTTY) {
+      expect(link).toBe("\u001b]8;;https://test.com\u0007Test\u001b]8;;\u0007");
+    } else {
+      expect(link).toBe("Test (https://test.com)");
+    }
   });
 });
