@@ -13,6 +13,9 @@ import {
   resolveHomeDir,
   resolveJidToE164,
   resolveUserPath,
+  displayPath,
+  displayString,
+  formatTerminalLink,
   shortenHomeInString,
   shortenHomePath,
   sleep,
@@ -244,5 +247,71 @@ describe("resolveUserPath", () => {
   it("returns empty string for undefined/null input", () => {
     expect(resolveUserPath(undefined as unknown as string)).toBe("");
     expect(resolveUserPath(null as unknown as string)).toBe("");
+  });
+});
+
+describe("displayPath", () => {
+  it("returns shortened home path", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    vi.stubEnv("HOME", "/home/other");
+
+    expect(displayPath(path.resolve("/srv/openclaw-home") + "/.openclaw/openclaw.json")).toBe(
+      "$OPENCLAW_HOME/.openclaw/openclaw.json",
+    );
+
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("displayString", () => {
+  it("returns shortened home string", () => {
+    vi.stubEnv("OPENCLAW_HOME", "/srv/openclaw-home");
+    vi.stubEnv("HOME", "/home/other");
+
+    expect(
+      displayString("config: " + path.resolve("/srv/openclaw-home") + "/.openclaw/openclaw.json"),
+    ).toBe("config: $OPENCLAW_HOME/.openclaw/openclaw.json");
+
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("returns terminal link sequence when force is true", () => {
+    expect(formatTerminalLink("My Link", "https://example.com", { force: true })).toBe(
+      "\u001b]8;;https://example.com\u0007My Link\u001b]8;;\u0007",
+    );
+  });
+
+  it("returns fallback format when force is false", () => {
+    expect(formatTerminalLink("My Link", "https://example.com", { force: false })).toBe(
+      "My Link (https://example.com)",
+    );
+  });
+
+  it("returns provided fallback when force is false", () => {
+    expect(
+      formatTerminalLink("My Link", "https://example.com", {
+        force: false,
+        fallback: "fallback string",
+      }),
+    ).toBe("fallback string");
+  });
+
+  it("strips escape sequences from label and url", () => {
+    expect(formatTerminalLink("My \u001bLink", "https://example.com\u001b", { force: true })).toBe(
+      "\u001b]8;;https://example.com\u0007My Link\u001b]8;;\u0007",
+    );
+  });
+
+  it("falls back based on process.stdout.isTTY", () => {
+    const _isTTY = process.stdout.isTTY;
+    process.stdout.isTTY = false;
+
+    expect(formatTerminalLink("My Link", "https://example.com")).toBe(
+      "My Link (https://example.com)",
+    );
+
+    process.stdout.isTTY = _isTTY;
   });
 });
