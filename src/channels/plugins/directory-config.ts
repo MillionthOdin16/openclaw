@@ -65,7 +65,7 @@ function resolveDirectoryLimit(limit?: number | null): number | undefined {
 function applyDirectoryQueryAndLimit(ids: string[], params: DirectoryConfigParams): string[] {
   const q = resolveDirectoryQuery(params.query);
   const limit = resolveDirectoryLimit(params.limit);
-  const filtered = ids.filter((id) => (q ? id.toLowerCase().includes(q) : true));
+  const filtered = q ? ids.filter((id) => id.toLowerCase().includes(q)) : ids;
   return typeof limit === "number" ? filtered.slice(0, limit) : filtered;
 }
 
