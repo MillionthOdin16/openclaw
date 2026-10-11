@@ -46,15 +46,66 @@ export class ResizableDivider extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.setAttribute("role", "separator");
+    this.setAttribute("aria-orientation", "vertical");
+    this.setAttribute("tabindex", "0");
+    this.setAttribute("aria-valuemin", this.minRatio.toString());
+    this.setAttribute("aria-valuemax", this.maxRatio.toString());
+    this.setAttribute("aria-valuenow", this.splitRatio.toString());
+    this.setAttribute("aria-label", "Resize panels");
+
     this.addEventListener("mousedown", this.handleMouseDown);
+    this.addEventListener("keydown", this.handleKeyDown);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.removeEventListener("mousedown", this.handleMouseDown);
+    this.removeEventListener("keydown", this.handleKeyDown);
     document.removeEventListener("mousemove", this.handleMouseMove);
     document.removeEventListener("mouseup", this.handleMouseUp);
   }
+
+  updated(changedProperties: Map<string | number | symbol, unknown>) {
+    super.updated(changedProperties);
+    if (changedProperties.has("splitRatio")) {
+      this.setAttribute("aria-valuenow", this.splitRatio.toString());
+    }
+    if (changedProperties.has("minRatio")) {
+      this.setAttribute("aria-valuemin", this.minRatio.toString());
+    }
+    if (changedProperties.has("maxRatio")) {
+      this.setAttribute("aria-valuemax", this.maxRatio.toString());
+    }
+  }
+
+  private handleKeyDown = (e: KeyboardEvent) => {
+    let newRatio = this.splitRatio;
+    const step = 0.05;
+
+    if (e.key === "ArrowLeft") {
+      newRatio -= step;
+    } else if (e.key === "ArrowRight") {
+      newRatio += step;
+    } else {
+      return;
+    }
+
+    newRatio = Math.max(this.minRatio, Math.min(this.maxRatio, newRatio));
+
+    if (newRatio !== this.splitRatio) {
+      this.splitRatio = newRatio;
+      this.dispatchEvent(
+        new CustomEvent("resize", {
+          detail: { splitRatio: newRatio },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+
+    e.preventDefault();
+  };
 
   private handleMouseDown = (e: MouseEvent) => {
     this.isDragging = true;
