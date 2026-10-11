@@ -14,7 +14,13 @@ function countMatches(haystack: string, needle: string): number {
   if (!haystack || !needle) {
     return 0;
   }
-  return haystack.split(needle).length - 1;
+  let count = 0;
+  let pos = 0;
+  while ((pos = haystack.indexOf(needle, pos)) !== -1) {
+    count++;
+    pos += needle.length;
+  }
+  return count;
 }
 
 function shorten(message: string, maxLen: number): string {
@@ -27,10 +33,7 @@ function shorten(message: string, maxLen: number): string {
 
 function normalizeGwsLine(line: string): string {
   return line
-    .replace(/\s+runId=[^\s]+/g, "")
-    .replace(/\s+conn=[^\s]+/g, "")
-    .replace(/\s+id=[^\s]+/g, "")
-    .replace(/\s+error=Error:.*$/g, "")
+    .replace(/\s+(?:runId=[^\s]+|conn=[^\s]+|id=[^\s]+|error=Error:.*$)/g, "")
     .trim();
 }
 
