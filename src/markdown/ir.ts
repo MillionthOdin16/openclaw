@@ -802,7 +802,8 @@ function mergeStyleSpans(spans: MarkdownStyleSpan[]): MarkdownStyleSpan[] {
     if (a.end !== b.end) {
       return a.end - b.end;
     }
-    return a.style.localeCompare(b.style);
+    // ⚡ Bolt Optimization: Use fast string comparison instead of localeCompare for hot loops
+    return a.style < b.style ? -1 : a.style > b.style ? 1 : 0;
   });
 
   const merged: MarkdownStyleSpan[] = [];
