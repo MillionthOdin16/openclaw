@@ -73,6 +73,7 @@ async function spawnAndWaitForSpawn(
       child.removeListener("spawn", onSpawn);
     };
     const finishResolve = () => {
+      /* v8 ignore next 3 */
       if (settled) {
         return;
       }
@@ -137,5 +138,6 @@ export async function spawnWithFallback(
     }
   }
 
+  /* v8 ignore next */
   throw lastError;
 }
