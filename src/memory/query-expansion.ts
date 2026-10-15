@@ -630,16 +630,24 @@ const STOP_WORDS_ZH = new Set([
   "告诉",
 ]);
 
+// ⚡ Bolt Optimization: Combine stop word sets for faster O(1) single-lookup checking
+const ALL_STOP_WORDS = new Set<string>();
+for (const set of [
+  STOP_WORDS_EN,
+  STOP_WORDS_ES,
+  STOP_WORDS_PT,
+  STOP_WORDS_AR,
+  STOP_WORDS_ZH,
+  STOP_WORDS_KO,
+  STOP_WORDS_JA,
+]) {
+  for (const word of set) {
+    ALL_STOP_WORDS.add(word);
+  }
+}
+
 export function isQueryStopWordToken(token: string): boolean {
-  return (
-    STOP_WORDS_EN.has(token) ||
-    STOP_WORDS_ES.has(token) ||
-    STOP_WORDS_PT.has(token) ||
-    STOP_WORDS_AR.has(token) ||
-    STOP_WORDS_ZH.has(token) ||
-    STOP_WORDS_KO.has(token) ||
-    STOP_WORDS_JA.has(token)
-  );
+  return ALL_STOP_WORDS.has(token);
 }
 
 /**
