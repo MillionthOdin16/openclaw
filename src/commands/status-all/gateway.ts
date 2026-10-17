@@ -10,11 +10,22 @@ export async function readFileTailLines(filePath: string, maxLines: number): Pro
   return out.map((line) => line.trimEnd()).filter((line) => line.trim().length > 0);
 }
 
+// ⚡ Bolt Optimization: Use indexOf instead of split for counting occurrences to reduce memory allocations and improve CPU execution time
 function countMatches(haystack: string, needle: string): number {
   if (!haystack || !needle) {
     return 0;
   }
-  return haystack.split(needle).length - 1;
+  let count = 0;
+  let i = 0;
+  while (true) {
+    i = haystack.indexOf(needle, i);
+    if (i === -1) {
+      break;
+    }
+    count++;
+    i += needle.length;
+  }
+  return count;
 }
 
 function shorten(message: string, maxLen: number): string {
