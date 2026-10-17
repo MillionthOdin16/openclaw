@@ -15,7 +15,19 @@ import {
   resolveUserPath,
   shortenHomeInString,
   shortenHomePath,
+  displayPath,
+  displayString,
+  formatTerminalLink,
   sleep,
+  sliceUtf16Safe,
+  truncateUtf16Safe,
+  isSelfChatMode,
+  pathExists,
+  clampNumber,
+  clampInt,
+  escapeRegExp,
+  safeParseJson,
+  isRecord,
   toWhatsappJid,
   withWhatsAppPrefix,
 } from "./utils.js";
@@ -244,5 +256,155 @@ describe("resolveUserPath", () => {
   it("returns empty string for undefined/null input", () => {
     expect(resolveUserPath(undefined as unknown as string)).toBe("");
     expect(resolveUserPath(null as unknown as string)).toBe("");
+  });
+});
+
+describe("pathExists", () => {
+  it("returns true for existing path", async () => {
+    await withTempDirSync("openclaw-test-", async (tmp) => {
+      expect(await pathExists(tmp)).toBe(true);
+    });
+  });
+
+  it("returns false for non-existing path", async () => {
+    await withTempDirSync("openclaw-test-", async (tmp) => {
+      const nonExisting = path.join(tmp, "does-not-exist");
+      expect(await pathExists(nonExisting)).toBe(false);
+    });
+  });
+});
+
+describe("clampNumber & clampInt", () => {
+  it("clamps number within range", () => {
+    expect(clampNumber(5, 1, 10)).toBe(5);
+    expect(clampNumber(-5, 1, 10)).toBe(1);
+    expect(clampNumber(15, 1, 10)).toBe(10);
+  });
+
+  it("clamps integer within range", () => {
+    expect(clampInt(5.5, 1, 10)).toBe(5);
+    expect(clampInt(-5.5, 1, 10)).toBe(1);
+    expect(clampInt(15.5, 1, 10)).toBe(10);
+  });
+});
+
+describe("escapeRegExp", () => {
+  it("escapes regex characters", () => {
+    expect(escapeRegExp(".*+?^${}()|[]\\")).toBe("\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+});
+
+describe("safeParseJson", () => {
+  it("parses valid JSON", () => {
+    expect(safeParseJson('{"foo": "bar"}')).toEqual({ foo: "bar" });
+  });
+
+  it("returns null for invalid JSON", () => {
+    expect(safeParseJson("invalid")).toBeNull();
+  });
+});
+
+describe("isRecord", () => {
+  it("returns true for records", () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ foo: "bar" })).toBe(true);
+  });
+
+  it("returns false for non-records", () => {
+    expect(isRecord(null)).toBe(false);
+    expect(isRecord([])).toBe(false);
+    expect(isRecord("string")).toBe(false);
+    expect(isRecord(123)).toBe(false);
+  });
+});
+
+describe("isSelfChatMode", () => {
+  it("returns false when selfE164 is null", () => {
+    expect(isSelfChatMode(null, ["+15551234567"])).toBe(false);
+  });
+
+  it("returns false when allowFrom is empty or null", () => {
+    expect(isSelfChatMode("+15551234567", [])).toBe(false);
+    expect(isSelfChatMode("+15551234567", null)).toBe(false);
+  });
+
+  it("returns false when allowFrom contains *", () => {
+    expect(isSelfChatMode("+15551234567", ["*"])).toBe(false);
+  });
+
+  it("returns true when selfE164 is in allowFrom", () => {
+    expect(isSelfChatMode("+15551234567", ["+15551234567"])).toBe(true);
+    expect(isSelfChatMode("+15551234567", ["15551234567"])).toBe(true);
+    expect(isSelfChatMode("+15551234567", ["whatsapp:+15551234567"])).toBe(true);
+  });
+
+  it("returns false when allowFrom has invalid elements but no match", () => {
+    expect(isSelfChatMode("+15551234567", ["invalid"])).toBe(false);
+  });
+});
+
+describe("sliceUtf16Safe & truncateUtf16Safe", () => {
+  it("slices string safely with surrogates", () => {
+    expect(sliceUtf16Safe("a👋b", 0, 2)).toBe("a");
+    expect(sliceUtf16Safe("a👋b", 1, 3)).toBe("👋");
+    expect(sliceUtf16Safe("a👋b", 1, 2)).toBe(""); // Split surrogate
+  });
+
+  it("truncates string safely", () => {
+    expect(truncateUtf16Safe("a👋b", 2)).toBe("a");
+    expect(truncateUtf16Safe("a👋b", 3)).toBe("a👋");
+    expect(truncateUtf16Safe("a👋b", 4)).toBe("a👋b");
+  });
+
+  it("handles negative and out of bound indices", () => {
+    expect(sliceUtf16Safe("abc", -1)).toBe("c");
+    expect(sliceUtf16Safe("abc", -5)).toBe("abc");
+    expect(sliceUtf16Safe("abc", 0, -1)).toBe("ab");
+    expect(sliceUtf16Safe("abc", 5)).toBe("");
+  });
+
+  it("handles inverted from and to", () => {
+    expect(sliceUtf16Safe("abc", 2, 1)).toBe("b");
+  });
+});
+
+describe("displayPath & displayString", () => {
+  it("shortens home path in displayPath", () => {
+    vi.stubEnv("HOME", "/home/user");
+    expect(displayPath("/home/user/test")).toBe("~/test");
+    vi.unstubAllEnvs();
+  });
+
+  it("shortens home path in displayString", () => {
+    vi.stubEnv("HOME", "/home/user");
+    expect(displayString("path: /home/user/test")).toBe("path: ~/test");
+    vi.unstubAllEnvs();
+  });
+
+  it("returns input when home is not set or empty", () => {
+    vi.stubEnv("HOME", "");
+    expect(displayPath("/home/user/test")).toBe("/home/user/test");
+    expect(displayString("/home/user/test")).toBe("/home/user/test");
+    vi.unstubAllEnvs();
+  });
+
+  it("returns empty when input is empty", () => {
+    expect(displayPath("")).toBe("");
+    expect(displayString("")).toBe("");
+  });
+});
+
+describe("formatTerminalLink", () => {
+  it("formats link with escape codes", () => {
+    expect(formatTerminalLink("label", "url", { force: true })).toBe("\x1b]8;;url\x07label\x1b]8;;\x07");
+  });
+
+  it("strips existing escape codes", () => {
+    expect(formatTerminalLink("l\x1babel", "u\x1brl", { force: true })).toBe("\x1b]8;;url\x07label\x1b]8;;\x07");
+  });
+
+  it("returns fallback if not forced and not TTY", () => {
+    expect(formatTerminalLink("label", "url", { force: false })).toBe("label (url)");
+    expect(formatTerminalLink("label", "url", { force: false, fallback: "custom" })).toBe("custom");
   });
 });
