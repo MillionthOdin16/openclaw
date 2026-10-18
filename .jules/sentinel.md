@@ -1,0 +1,4 @@
+## 2025-03-08 - Secrets Leaking Across Regex Chunk Boundaries
+**Vulnerability:** A sliding window chunking mechanism (replacePatternBounded) used for redacting sensitive secrets cut strings exactly at 16KB without overlap. If a sensitive token straddled the 16KB chunk boundary, the regex pattern would fail to match it on either side, leaving the secret unredacted and leaking it into logs.
+**Learning:** Bounded regex replacement across large arbitrary strings must either use an overlap region (sliding window) larger than the maximum expected token length or align splits to guaranteed safe delimiters (like newlines, if tokens cannot span them) to prevent boundary masking failures.
+**Prevention:** Implement sliding window chunking with an overlap larger than the maximum expected token size (e.g. 512 bytes) and carefully control RegExp.lastIndex iteration across chunks to avoid dropping or duplicating cross-boundary matches.
