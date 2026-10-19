@@ -18,57 +18,67 @@ type ExtractedLevel<T> = {
   hasDirective: boolean;
 };
 
-const matchLevelDirective = (
-  body: string,
-  names: string[],
-): { start: number; end: number; rawLevel?: string } | null => {
-  const namePattern = names.map(escapeRegExp).join("|");
-  const match = body.match(new RegExp(`(?:^|\\s)\\/(?:${namePattern})(?=$|\\s|:)`, "i"));
-  if (!match || match.index === undefined) {
-    return null;
-  }
-  const start = match.index;
-  let end = match.index + match[0].length;
-  let i = end;
-  while (i < body.length && /\s/.test(body[i])) {
-    i += 1;
-  }
-  if (body[i] === ":") {
-    i += 1;
-    while (i < body.length && /\s/.test(body[i])) {
-      i += 1;
-    }
-  }
-  const argStart = i;
-  while (i < body.length && /[A-Za-z-]/.test(body[i])) {
-    i += 1;
-  }
-  const rawLevel = i > argStart ? body.slice(argStart, i) : undefined;
-  end = i;
-  return { start, end, rawLevel };
-};
-
 const extractLevelDirective = <T>(
   body: string,
   names: string[],
   normalize: (raw?: string) => T | undefined,
 ): ExtractedLevel<T> => {
-  const match = matchLevelDirective(body, names);
-  if (!match) {
+  const namePattern = names.map(escapeRegExp).join("|");
+  const match = body.match(new RegExp(`(?:^|\\s)\\/(?:${namePattern})(?=$|\\s|:)`, "i"));
+  if (!match || match.index === undefined) {
     return { cleaned: body.trim(), hasDirective: false };
   }
-  const rawLevel = match.rawLevel;
-  const level = normalize(rawLevel);
+  const start = match.index;
+  const end = match.index + match[0].length;
+
+  let i = end;
+  while (i < body.length && /\s/.test(body[i])) {
+    i += 1;
+  }
+
+  let hasColon = false;
+  if (body[i] === ":") {
+    hasColon = true;
+    i += 1;
+    while (i < body.length && /\s/.test(body[i])) {
+      i += 1;
+    }
+  }
+
+  const argStart = i;
+  while (i < body.length && /[A-Za-z-]/.test(body[i])) {
+    i += 1;
+  }
+
+  const rawLevel = i > argStart ? body.slice(argStart, i) : undefined;
+  let level = normalize(rawLevel);
+
+  let finalEnd = end;
+  let finalRawLevel: string | undefined = undefined;
+
+  if (hasColon) {
+    finalEnd = i;
+    finalRawLevel = rawLevel;
+  } else {
+    if (level !== undefined) {
+      finalEnd = i;
+      finalRawLevel = rawLevel;
+    } else {
+      level = undefined;
+    }
+  }
+
   const cleaned = body
-    .slice(0, match.start)
+    .slice(0, start)
     .concat(" ")
-    .concat(body.slice(match.end))
+    .concat(body.slice(finalEnd))
     .replace(/\s+/g, " ")
     .trim();
+
   return {
     cleaned,
     level,
-    rawLevel,
+    rawLevel: finalRawLevel,
     hasDirective: true,
   };
 };
