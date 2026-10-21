@@ -14,7 +14,14 @@ function countMatches(haystack: string, needle: string): number {
   if (!haystack || !needle) {
     return 0;
   }
-  return haystack.split(needle).length - 1;
+  // ⚡ Bolt Optimization: Using indexOf in a loop avoids allocating intermediate arrays like split() does.
+  let count = 0;
+  let index = 0;
+  while ((index = haystack.indexOf(needle, index)) !== -1) {
+    count++;
+    index += needle.length;
+  }
+  return count;
 }
 
 function shorten(message: string, maxLen: number): string {
